@@ -1,0 +1,16 @@
+{
+  "name": "voter-list",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Townhall Records Voter List: build, clean, review, publish and freeze a society's voter list, with a signed audit trail.",
+  "scripts": {
+    "dev": "bun run dev.ts",
+    "test": "bun test --isolate --timeout 60000",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build:pages": "bun run scripts/build-pages.ts",
+    "gen:keys": "bun run scripts/gen-dev-vars.ts",
+    "gen:prod-keys": "bun run scripts/gen-prod-keys.ts"
+  },
+  "devDependencies": { "@types/bun": "latest", "typescript": "^5.6.0" }
+}

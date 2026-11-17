@@ -1,0 +1,20 @@
+# Cloudflare Pages + D1 (free tier). NOT deployed by anyone without the owner's go-ahead; see README.md "Deploy".
+name = "voter-list"
+compatibility_date = "2026-10-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "voter-list"
+database_id = "REPLACE_WITH_D1_ID_AFTER_wrangler_d1_create"
+migrations_dir = "migrations"
+
+# Secrets (never in this file): SIGNING_KEY, PEPPER, PAY_SERVICE_KEY (with the plain variables PAY_SITE and PRICE_INR; the central payment service of IT SERVICES BY RAJAT AGARWAL, off until all are set), and CF_EMAIL_TOKEN and CF_ACCOUNT_ID (the Cloudflare Email Service; RESEND_API_KEY is the older route), MAIL_FROM.
+# Do NOT set TEST_MODE in production.
+
+# The smoke-test (preview) deployment uses its own empty database, never the live one.
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "voter-list-preview"
+database_id = "REPLACE_WITH_D1_ID_AFTER_wrangler_d1_create"
+migrations_dir = "migrations"
