@@ -2,6 +2,8 @@
 
 # Voter List (Townhall Records)
 
+Version history: see `CHANGELOG.md` (current version in `public/version.json`).
+
 A single-page product for AOA, HOA and RWA societies to build, check, publish and freeze the voter list for a general meeting or an election. Part of Townhall Records (townhall-records.com). **Only a preview copy is deployed** (see `docs/PROGRESS.md`); nothing is live and no DNS was changed. The deploy plan is below and waits for the owner's go-ahead.
 
 ## What it does
