@@ -1,0 +1,14 @@
+{
+  "product": "voter-list",
+  "version": "0.1.0",
+  "releasedAt": "2026-11-17T12:15:01Z",
+  "releasedAtIST": "2026-11-17 17:45 IST",
+  "commit": "1259492",
+  "changes": [
+    {
+      "version": "0.1.0",
+      "releasedAt": "2026-11-17T12:15:01Z",
+      "notes": "First versioned release. Describes the existing state of the product as of the public snapshot: no behaviour change. Voter pages, Organizer and Host pages, draft and final (frozen, signed) lists, audit log, English and Hindi voter page, payment slot (off by default)."
+    }
+  ]
+}
