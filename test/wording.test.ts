@@ -20,16 +20,27 @@ export function literals(src: string): string[] {
   return out;
 }
 
-const files = [
-  ...readdirSync("public/assets").filter((f) => f.endsWith(".js")).map((f) => "public/assets/" + f),
-  ...readdirSync("src").filter((f) => f.endsWith(".ts")).map((f) => "src/" + f),
-];
+/** Every .js/.ts file under a folder, skipping vendor and node_modules. */
+function walk(dir: string): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === "vendor" || e.name === "node_modules") continue;
+    const p = dir + "/" + e.name;
+    if (e.isDirectory()) out.push(...walk(p)); else if (/\.(js|ts)$/.test(e.name)) out.push(p);
+  }
+  return out;
+}
+const HINDI_FILE = "public/assets/lang/hi.js";
+// English rules apply to every English file; the Hindi file has its own rule below.
+export const files = [...walk("public/assets"), ...walk("src")].filter((f) => f !== HINDI_FILE);
+
 const POSSESSIVE = /\b(my|mine|your|yours)\b/i;
 // Allow-list: literal text that is not shown to people. Each entry needs a reason.
 const ALLOW_POSSESSIVE: { file: string; text: RegExp; why: string }[] = [];
 // Allow-list for "host": stored role values, SQL, internal names and the configured standing address are not read by people.
 const HOST_WORD = /\bhosts?\b/i;
-const isInternalHost = (s: string) => /^hosts?$/.test(s) || /'host'|host@(?!example)|SELECT|INSERT|UPDATE|DELETE|actor_role|PERMANENT_HOST/.test(s);
+const INTERNAL_TOKENS = new Set(["host", "hosts", "permanentHostEmail", "hostsUsed", "hosts_skipped", "actor_role", "PERMANENT_HOST", "host@townhall-records.com"]);
+export const isInternalHost = (s: string) => INTERNAL_TOKENS.has(s) || /^team\.host_\w+$/.test(s) || /^(SELECT|INSERT|UPDATE|DELETE) /.test(s);
 
 describe("wording: neutral, short, imperative", () => {
   test("the scan itself finds literals and skips comments", () => {
@@ -54,8 +65,20 @@ describe("wording: neutral, short, imperative", () => {
     expect(found).toEqual([]);
   });
 
+  test("the scan covers sub-folders and skips vendor", () => {
+    expect(files).toContain("public/assets/steps.js");
+    expect(files.some((f) => f.startsWith("src/"))).toBe(true);
+    expect(files.some((f) => /vendor|node_modules/.test(f))).toBe(false);
+    expect(walk("public/assets")).toContain(HINDI_FILE);
+  });
+
+  test("the host check exempts only internal tokens and SQL", () => {
+    for (const ok of ["host", "team.host_added", "permanentHostEmail", "hostsUsed", "PERMANENT_HOST", "SELECT * FROM hosts"]) expect(isInternalHost(ok), ok).toBe(true);
+    for (const bad of ["Please select a host", "Ask the host", "the host UPDATE", "hosts can see it", "Select the host"]) expect(isInternalHost(bad), bad).toBe(false);
+  });
+
   test("the Hindi file has no personal possessives", () => {
-    const hi = readFileSync("public/assets/lang/hi.js", "utf8");
+    const hi = readFileSync(HINDI_FILE, "utf8");
     expect(/(मेरा|मेरी|मेरे|आपका|आपकी|आपके|तुम्हारा|तुम्हारी|अपना|अपनी|अपने)/.test(hi)).toBe(false);
     expect(POSSESSIVE.test(hi.split("\n").filter((l) => /^\s*"/.test(l)).map((l) => l.slice(0, l.indexOf('": "'))).join("\n"))).toBe(false);
   });
