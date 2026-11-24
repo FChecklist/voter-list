@@ -196,7 +196,7 @@
     "Proxy papers awaited": "प्रॉक्सी के कागज़ात की प्रतीक्षा",
     "Another reason (I will write it below)": "कोई और कारण (मैं नीचे लिखूँगा)",
     "Why is this person not allowed to vote?": "यह व्यक्ति वोट क्यों नहीं दे सकता?",
-    "A few words of explanation (needed for 'Another reason', optional for the others)": "शब्द ('कोई और कारण' के लिए ज़रूरी, बाकी के लिए वैकल्पिक)",
+    "A few words of explanation (needed for 'Another reason', optional for the others)": "कुछ शब्दों में समझाइए ('कोई और कारण' के लिए ज़रूरी, बाकी के लिए वैकल्पिक)",
     "Please do not write phone numbers or e-mail IDs.": "कृपया फ़ोन नंबर या ई-मेल आईडी न लिखिए।",
     "Please write the reason in a few words.": "कृपया कारण कुछ शब्दों में लिखिए।",
     "Please choose a reason from the list.": "कृपया सूची में से कोई कारण चुनिए।",
