@@ -1,10 +1,15 @@
 {
   "product": "voter-list",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
   "commit": "86394a1",
   "changes": [
+    {
+      "version": "0.2.3",
+      "releasedAt": null,
+      "notes": "Attendance fixes after third audit: a voter can mark themselves only until 12 hours after the session starts (staff can still mark); a roster upload with a country that is not in the list is refused instead of getting India time; migration 0009 is restored to its first content and the 80-letter title limit moves to new migration 0011 (triggers). Not deployed yet."
+    },
     {
       "version": "0.2.2",
       "releasedAt": null,

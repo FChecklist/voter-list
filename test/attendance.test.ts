@@ -176,6 +176,32 @@ describe("attendance audit fixes (0.2.2)", () => {
     expect(() => ins("T".repeat(81))).toThrow(); expect(() => ins("T".repeat(80))).not.toThrow();
   });
 
+  test("a voter cannot mark themselves more than 12 hours after the start; the team still can", async () => {
+    const s = await society(); const id = (await mk(s, "online")).json.session.id;
+    s.h.clock.now = START + 12 * 3_600_000 + 1;
+    const v = await s.h.member(s.slug, "asha@sample.example");
+    const r = await s.h.call("POST", `/api/v/${s.slug}/attendance/${id}/here`, {}, v); expect(r.status).toBe(403); expect(r.json.code).toBe("too_late");
+    expect(s.h.raw.query("SELECT COUNT(*) AS n FROM att_marks").get()).toEqual({ n: 0 });
+    expect((await s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions/${id}/mark`, { voterId: s.asha }, await s.h.staff("co@sample.example"))).status).toBe(200);
+  });
+
+  test("a voter can still mark themselves exactly 12 hours after the start", async () => {
+    const s = await society(); const id = (await mk(s, "online")).json.session.id;
+    s.h.clock.now = START + 12 * 3_600_000;
+    const v = await s.h.member(s.slug, "asha@sample.example");
+    expect((await s.h.call("POST", `/api/v/${s.slug}/attendance/${id}/here`, {}, v)).status).toBe(200);
+  });
+
+  test("an unknown country is refused, not given India time", async () => {
+    const h = await makeHarness(); const jar = await h.staff("solo@sample.example");
+    const body = { title: "List", format: "paste", text: "Flat / House / Member ID,Name,E-mail\nA-1,Asha,asha@sample.example\n" };
+    const r = await h.call("POST", "/api/attendance/rosters", { ...body, country: "Indai" }, jar); expect(r.status).toBe(400); expect(r.json.code).toBe("bad_country");
+    expect((await h.call("POST", "/api/attendance/rosters", { ...body, country: "constructor" }, jar)).json.code).toBe("bad_country");
+    expect(h.raw.query("SELECT COUNT(*) AS n FROM societies WHERE purpose = 'attendance_upload'").get()).toEqual({ n: 0 });
+    expect((await h.call("POST", "/api/attendance/rosters", { ...body, country: "Nepal" }, jar)).status).toBe(201);
+    expect(h.raw.query("SELECT tz_offset_min AS t FROM societies WHERE purpose = 'attendance_upload'").get()).toEqual({ t: 345 });
+  });
+
   test("the roster preview needs a listed Organizer, like the upload", async () => {
     const h = await makeHarness(); const jar = await h.staff("solo@sample.example");
     h.env.TEST_MODE = "0"; h.env.ORGANIZERS = "someone.else@sample.example"; // sign-up is closed and this e-mail ID is not listed

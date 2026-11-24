@@ -2,6 +2,14 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.2.3 - not deployed yet (IST)
+
+Fixes after the third audit of Attendance chunk 1.
+
+- A voter can mark themselves only until 12 hours after the session starts. The Organizer and co-organizers can still mark.
+- A roster upload with a country that is not in the list is refused with a plain message. Before, it quietly got India time.
+- Migration 0009 is back to its first content (it may have run somewhere). The 80-letter title limit is now enforced by triggers in new migration 0011.
+
 ## 0.2.2 - not deployed yet (IST)
 
 Fixes after the second audit of Attendance chunk 1.

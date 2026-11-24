@@ -8,7 +8,7 @@ ALTER TABLE societies ADD COLUMN purpose TEXT NOT NULL DEFAULT 'voter_list' CHEC
 CREATE TABLE att_sessions (
   id           TEXT PRIMARY KEY,
   society_id   TEXT NOT NULL REFERENCES societies(id),
-  title        TEXT NOT NULL CHECK (length(title) BETWEEN 2 AND 80),
+  title        TEXT NOT NULL CHECK (length(title) BETWEEN 2 AND 120),
   starts_at    INTEGER NOT NULL,                                   -- UTC ms
   place        TEXT NOT NULL DEFAULT '',
   mode         TEXT NOT NULL CHECK (mode IN ('in_person','online','offline')),
