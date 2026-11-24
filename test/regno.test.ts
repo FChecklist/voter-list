@@ -31,11 +31,33 @@ describe("registration number / ID is mandatory", () => {
     expect((await h.call("PATCH", `/api/lists/${sid}`, { regNo: "KA/RWA/2019/0099" }, jar)).json.list.regNo).toBe("KA/RWA/2019/0099");
   });
 
+  test("a list saved earlier with an empty number cannot be saved again without one", async () => {
+    const h = await makeHarness(); const { jar, sid } = await newList(h);
+    h.raw.query("UPDATE societies SET reg_no = '' WHERE id = ?").run(sid);
+    const r = await h.call("PATCH", `/api/lists/${sid}`, { state: "Kerala" }, jar);
+    expect(r.status).toBe(400); expect(r.text).toContain(MSG);
+    expect(h.raw.query("SELECT state, reg_no FROM societies WHERE id = ?").get(sid)).toEqual({ state: "Karnataka", reg_no: "" });
+    const ok = await h.call("PATCH", `/api/lists/${sid}`, { state: "Kerala", regNo: "KA/RWA/2019/0007" }, jar);
+    expect(ok.status).toBe(200); expect(ok.json.list.regNo).toBe("KA/RWA/2019/0007");
+  });
+
+  test("a number of 40 characters is kept; 41 is refused, not cut, on create and update", async () => {
+    const h = await makeHarness(); const jar = await h.staff("organizer@sample.example");
+    const r40 = "A".repeat(40), r41 = "A".repeat(41);
+    expect((await h.call("POST", "/api/lists", { ...LIST, regNo: r40 }, jar)).json.list.regNo).toBe(r40);
+    const bad = await h.call("POST", "/api/lists", { ...LIST, regNo: r41 }, jar);
+    expect(bad.status).toBe(400); expect(bad.text).toContain("at most 40 characters");
+    const { jar: j2, sid } = await newList(h, { email: "second@sample.example" });
+    const u = await h.call("PATCH", `/api/lists/${sid}`, { regNo: r41 }, j2);
+    expect(u.status).toBe(400); expect(u.text).toContain("at most 40 characters");
+    expect(h.raw.query("SELECT reg_no FROM societies WHERE id = ?").get(sid)).toEqual({ reg_no: LIST.regNo });
+  });
+
   test("the set-up page labels the field plainly, requires it and explains an empty one", () => {
     const js = readFileSync("public/assets/organizer.js", "utf8");
     expect(js).toContain('"Registration number / ID"');
     expect(js).not.toContain("Registration number (optional)");
-    expect(js).toMatch(/id: "lr"[^}]*required/);
+    expect(js).toContain('regNo: el("input", { id: "lr", type: "text", maxlength: "40", required: "", "aria-required": "true", value: L ? L.regNo : "" }),');
     expect(js).toContain(MSG);
   });
 });

@@ -7,7 +7,7 @@ import { uid, type D1Stmt, type Env } from "./db";
 import { ruleOf } from "./model";
 import { runChecks } from "./checks";
 import { buildRoll, enrolOpen, getVoter, onList, ownedOf, settingsOf, type Owned, type SocietyRow, type VoterRow } from "./store";
-import { capLabel, cleanMobile, cleanName, squeeze, unitDisplay, unitKey, parseCapacity, type Capacity } from "./text";
+import { capLabel, cleanEmail, cleanMobile, cleanName, squeeze, unitDisplay, unitKey, parseCapacity, type Capacity } from "./text";
 import { scanPublic } from "./vendor/masking";
 import { sha256Hex } from "./vendor/crypto";
 
@@ -119,6 +119,7 @@ export async function myRecords(c: VoterCtx) {
 }
 
 export async function createRecord(c: VoterCtx, input: RecordInput) {
+  if (!cleanEmail(c.email).ok) throw new HttpError(400, "Please type the voter's e-mail ID. It is how they will see their record.");
   open(c);
   await rateLimit(c.env, `rec-create:${c.society.id}:${c.email}`, 12, 86_400_000, c.now);
   const { unit, unitKey: uk, owned } = checkOwned(c.society, input);

@@ -31,6 +31,7 @@ export function localToMs(local: string, tzOffsetMin: number): number | null {
 }
 export const msToLocal = (ms: number, tzOffsetMin: number): string => new Date(ms + tzOffsetMin * 60_000).toISOString().slice(0, 16);
 
+const REG_MSG = "Please type the registration number / ID of the society or association.";
 function validate(i: Partial<ListInput>, creating: boolean, now: number, tz: number) {
   const out: Record<string, string | number | null> = {};
   if (i.name !== undefined || creating) { const n = squeeze(i.name ?? ""); if (n.length < 2 || n.length > 120) throw new HttpError(400, "Please type the name of the society (2 to 120 letters)."); if (/https?:|www\.|@|\w\.[a-z]{2,}\/|[a-z0-9-]+\.(com|in|org|net|co|io|xyz|info|me|app|link)\b/i.test(n)) throw new HttpError(400, "Please type only the name of the society, without web addresses or e-mail IDs."); out.name = n; }
@@ -40,7 +41,7 @@ function validate(i: Partial<ListInput>, creating: boolean, now: number, tz: num
   if (i.country !== undefined) { const c = squeeze(i.country).slice(0, 60); if (!c) throw new HttpError(400, "Please choose the country."); out.country = c; if (i.tzOffsetMin === undefined) out.tz_offset_min = TZ[c] ?? 0; }
   if (i.tzOffsetMin !== undefined) { if (!Number.isInteger(i.tzOffsetMin) || i.tzOffsetMin < -720 || i.tzOffsetMin > 840) throw new HttpError(400, "That time zone is not valid."); out.tz_offset_min = i.tzOffsetMin; }
   if (i.state !== undefined) out.state = squeeze(i.state).slice(0, 60);
-  if (i.regNo !== undefined || creating) { const rn = squeeze(i.regNo ?? "").slice(0, 40); if (!rn) throw new HttpError(400, "Please type the registration number / ID of the society or association.", "reg_no"); out.reg_no = rn; }
+  if (i.regNo !== undefined || creating) { const rn = squeeze(i.regNo ?? ""); if (!rn) throw new HttpError(400, REG_MSG, "reg_no"); if (rn.length > 40) throw new HttpError(400, "The registration number / ID can have at most 40 characters.", "reg_no"); out.reg_no = rn; }
   if (i.regOffice !== undefined) out.reg_office = squeeze(i.regOffice).slice(0, 120);
   if (i.byeLawsNote !== undefined) out.bye_laws_note = squeeze(i.byeLawsNote).slice(0, 500);
   if (i.ruleClause !== undefined) out.rule_clause = squeeze(i.ruleClause).slice(0, 300);
@@ -87,6 +88,7 @@ export async function updateList(ctx: StaffCtx, input: Partial<ListInput> & { cl
   // the form always sends the closing time it shows; one that has not been changed is not "a new time" (so a passed time does not block other edits)
   if (typeof input.cutoff === "string" && s.cutoff_at !== null && input.cutoff === msToLocal(s.cutoff_at, input.tzOffsetMin ?? s.tz_offset_min)) input = { ...input, cutoff: undefined };
   const v = validate(input, false, ctx.now, s.tz_offset_min);
+  if (!String(v.reg_no ?? s.reg_no ?? "").trim()) throw new HttpError(400, REG_MSG, "reg_no");
   if (input.closeNow) v.cutoff_at = ctx.now;
   const keys = Object.keys(v);
   if (!keys.length) return s;

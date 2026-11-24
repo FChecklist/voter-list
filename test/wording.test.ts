@@ -29,7 +29,7 @@ const POSSESSIVE = /\b(my|mine|your|yours)\b/i;
 const ALLOW_POSSESSIVE: { file: string; text: RegExp; why: string }[] = [];
 // Allow-list for "host": stored role values, SQL, internal names and the configured standing address are not read by people.
 const HOST_WORD = /\bhosts?\b/i;
-const isInternalHost = (s: string) => /^hosts?$/.test(s) || /'host'|host@(?!example)|SELECT|INSERT|UPDATE|DELETE|actor_role|PERMANENT_HOST|\bsource\b/.test(s);
+const isInternalHost = (s: string) => /^hosts?$/.test(s) || /'host'|host@(?!example)|SELECT|INSERT|UPDATE|DELETE|actor_role|PERMANENT_HOST/.test(s);
 
 describe("wording: neutral, short, imperative", () => {
   test("the scan itself finds literals and skips comments", () => {
@@ -56,7 +56,7 @@ describe("wording: neutral, short, imperative", () => {
 
   test("the Hindi file has no personal possessives", () => {
     const hi = readFileSync("public/assets/lang/hi.js", "utf8");
-    expect(/(मेरा|मेरी|मेरे|आपका|आपकी|आपके|अपना|अपनी|अपने)/.test(hi)).toBe(false);
+    expect(/(मेरा|मेरी|मेरे|आपका|आपकी|आपके|तुम्हारा|तुम्हारी|अपना|अपनी|अपने)/.test(hi)).toBe(false);
     expect(POSSESSIVE.test(hi.split("\n").filter((l) => /^\s*"/.test(l)).map((l) => l.slice(0, l.indexOf('": "'))).join("\n"))).toBe(false);
   });
 });

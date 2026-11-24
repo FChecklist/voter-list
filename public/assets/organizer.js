@@ -97,7 +97,7 @@
       kind: el("select", { id: "lk" }, (creating ? S.me.kinds : ["RWA", "AOA", "HOA", "Co-operative society", "Others"]).map((k) => el("option", { value: k, selected: L ? L.kind === k : k === "RWA" }, k))),
       kindOther: el("input", { id: "lo", type: "text", maxlength: "60", value: L ? L.kindOther : "", placeholder: "What kind of body is it?" }),
       state: el("input", { id: "ls", type: "text", maxlength: "60", value: L ? L.state : "", placeholder: "e.g. Karnataka" }),
-      regNo: el("input", { id: "lr", type: "text", maxlength: "60", required: "", "aria-required": "true", value: L ? L.regNo : "" }),
+      regNo: el("input", { id: "lr", type: "text", maxlength: "40", required: "", "aria-required": "true", value: L ? L.regNo : "" }),
       regOffice: el("input", { id: "lg", type: "text", maxlength: "100", value: L ? L.regOffice : "" }),
       cutoff: el("input", { id: "lc", type: "datetime-local", value: L && L.cutoffLocal ? L.cutoffLocal : "" }),
       docs: el("input", { id: "ld", type: "checkbox", checked: !!(L && L.docsRequired) }),
