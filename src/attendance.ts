@@ -125,7 +125,8 @@ export async function closeSession(ctx: StaffCtx, sessionId: string) {
   await commit(ctx.env, ctx.society.id, [
     ctx.env.DB.prepare("UPDATE att_sessions SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'").bind(ctx.now, s.id), guardChanged(ctx.env, "This session is already closed."),
   ], "attendance.session_closed", await staffActor(ctx.env, ctx.email, ctx.role), { session: s.id }, ctx.now);
-  return { session: viewSession(await sessionOf(ctx.env, ctx.society.id, s.id), ctx.society.tz_offset_min, ...Object.values(await counts(ctx.env, ctx.society, s.id)) as [number, number]) };
+  const { eligible, present } = await counts(ctx.env, ctx.society, s.id);
+  return { session: viewSession(await sessionOf(ctx.env, ctx.society.id, s.id), ctx.society.tz_offset_min, eligible, present) };
 }
 
 /** Public: titles, times and counts. No names, no e-mail IDs, no flat numbers. */
@@ -149,7 +150,7 @@ export async function uploadRoster(env: Env, now: number, email: string, input: 
   if (!signupOpen(env) && !isListedOrganizer(env, email)) throw new HttpError(403, "New lists are started by Organizers that Townhall Records has set up. Please ask us to add the e-mail ID, and you can begin right away.", "not_organizer");
   const format = String(input.format);
   if (!["csv", "xlsx", "paste"].includes(format)) throw new HttpError(400, "Choose an Excel file, a CSV file or paste the list.", "bad_format");
-  const title = squeeze(input.title); if (title.length < 2 || title.length > 120) throw new HttpError(400, "Please type a name for this list, 2 to 120 letters.", "bad_title");
+  const title = squeeze(noControls(input.title)); if (title.length < 2 || title.length > 80) throw new HttpError(400, "Please type a name for this list, 2 to 80 letters.", "bad_title");
   noContactDetails(title, "the name");
   const country = squeeze(input.country) || "India";
   if (!Object.hasOwn(COUNTRY_TZ, country)) throw new HttpError(400, `Please choose a country from the list: ${Object.keys(COUNTRY_TZ).join(", ")}.`, "bad_country");

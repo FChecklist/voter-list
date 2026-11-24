@@ -2,6 +2,15 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.2.4 - not deployed yet (IST)
+
+Fixes after the fourth audit of Attendance chunk 1.
+
+- Voter List staff pages (records, team, publish, erase and the rest) answer 404 for a list made from an uploaded roster. Attendance and the signed audit trail still work for it.
+- The roster list name is cleaned of control characters and is at most 80 letters, as the session title is.
+- Migration 0011 uses `CREATE TRIGGER IF NOT EXISTS`, so it can run twice.
+- The close-session answer names its counts (eligible, present) instead of spreading them.
+
 ## 0.2.3 - not deployed yet (IST)
 
 Fixes after the third audit of Attendance chunk 1.

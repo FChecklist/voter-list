@@ -47,7 +47,9 @@ async function staffSession(r: Req): Promise<Session> {
   if (!s || s.kind !== "staff") throw new HttpError(401, "Please sign in.", "signed_out");
   return s;
 }
-const staff = async (r: Req): Promise<StaffCtx> => staffCtx(r.env, r.now, (await staffSession(r)).email, r.params.sid!);
+// Attendance routes and the signed audit trail accept both kinds of list; every other staff route is for a Voter List only and answers 404 for a roster upload list
+const staffAny = async (r: Req): Promise<StaffCtx> => staffCtx(r.env, r.now, (await staffSession(r)).email, r.params.sid!);
+const staff = async (r: Req): Promise<StaffCtx> => { const c = await staffAny(r); if (c.society.purpose !== "voter_list") throw new HttpError(404, "Not found.", "not_found"); return c; };
 // a link of a list made only for attendance (from an uploaded Excel sheet) opens attendance and sign-in, nothing of the Voter List
 const anySlug = async (r: Req) => { const s = await societyBySlug(r.env, r.params.slug!); if (!s) throw new HttpError(404, "This link is not valid.", "not_found"); return s; };
 const liveSlug = async (r: Req) => { const s = await anySlug(r); if (s.erased_at) throw new HttpError(410, "This list has been closed and its details erased.", "erased"); return s; }; // the same answer as /start
@@ -166,11 +168,11 @@ route("POST", "/api/lists/:sid/team/organizer", async (r) => { const b = await r
 route("DELETE", "/api/lists/:sid/team/:email", async (r) => json(await lists.removeHost(await staff(r), (() => { try { return decodeURIComponent(r.params.email!); } catch { throw new HttpError(400, "That e-mail ID could not be read.", "bad_email"); } })())));
 
 // attendance sessions (Voter List or uploaded list): create, list, open, mark present, close
-route("POST", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.createSession(await staff(r), await r.body()), 201));
-route("GET", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.listSessions(await staff(r))));
-route("GET", "/api/lists/:sid/attendance/sessions/:aid", async (r) => json(await attendance.openSession(await staff(r), r.params.aid!, r.url.searchParams.get("find") ?? "")));
-route("POST", "/api/lists/:sid/attendance/sessions/:aid/mark", async (r) => { const c = await staff(r); const b = await r.body(); return json(await attendance.markByTeam(c, r.params.aid!, b.voterId)); });
-route("POST", "/api/lists/:sid/attendance/sessions/:aid/close", async (r) => { const c = await staff(r); await r.body(); return json(await attendance.closeSession(c, r.params.aid!)); });
+route("POST", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.createSession(await staffAny(r), await r.body()), 201));
+route("GET", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.listSessions(await staffAny(r))));
+route("GET", "/api/lists/:sid/attendance/sessions/:aid", async (r) => json(await attendance.openSession(await staffAny(r), r.params.aid!, r.url.searchParams.get("find") ?? "")));
+route("POST", "/api/lists/:sid/attendance/sessions/:aid/mark", async (r) => { const c = await staffAny(r); const b = await r.body(); return json(await attendance.markByTeam(c, r.params.aid!, b.voterId)); });
+route("POST", "/api/lists/:sid/attendance/sessions/:aid/close", async (r) => { const c = await staffAny(r); await r.body(); return json(await attendance.closeSession(c, r.params.aid!)); });
 
 // retention
 route("GET", "/api/lists/:sid/erase", async (r) => json(await eraseStatus(await staff(r))));
@@ -183,7 +185,7 @@ route("POST", "/api/lists/:sid/orders/:oid/verify", async (r) => { const b = awa
 
 // the signed audit trail
 route("GET", "/api/lists/:sid/audit", async (r) => {
-  const c = await staff(r); const sp = r.url.searchParams; const head = await auditHead(r.env, c.society.id);
+  const c = await staffAny(r); const sp = r.url.searchParams; const head = await auditHead(r.env, c.society.id);
   const from = sp.has("from") ? Math.max(1, Number(sp.get("from")) || 1) : Math.max(1, (head?.seq ?? 1) - 99);
   // The log names people by a private code; this table lets the Organizer read it in plain words (who is who, by role).
   const team = await r.env.DB.prepare("SELECT email, role, permanent FROM memberships WHERE society_id = ? AND status = 'active'").bind(c.society.id).all<{ email: string; role: string; permanent: number }>();
@@ -191,10 +193,10 @@ route("GET", "/api/lists/:sid/audit", async (r) => {
   for (const m of team.results) people[await pseudonym(r.env, m.email)] = { who: c.role === "organizer" || m.permanent ? m.email : m.email.replace(/^(.).*(@.*)$/, "$1****$2"), role: m.permanent ? "standing co-organizer" : m.role };
   return json({ entries: await auditEntries(r.env, c.society.id, { from, limit: 100 }), head, people, publicKey: await publicKeyFromPrivate(r.env.SIGNING_KEY) });
 });
-route("GET", "/api/lists/:sid/audit/verify", async (r) => { const c = await staff(r); const sp = r.url.searchParams; return json(await verifySegment(r.env, c.society.id, intq(sp.get("from"), 1), intq(sp.get("limit"), 100))); });
-route("GET", "/api/lists/:sid/audit/head", async (r) => { const c = await staff(r); return json({ list: c.society.id, head: await auditHead(r.env, c.society.id), publicKey: await publicKeyFromPrivate(r.env.SIGNING_KEY) }); });
+route("GET", "/api/lists/:sid/audit/verify", async (r) => { const c = await staffAny(r); const sp = r.url.searchParams; return json(await verifySegment(r.env, c.society.id, intq(sp.get("from"), 1), intq(sp.get("limit"), 100))); });
+route("GET", "/api/lists/:sid/audit/head", async (r) => { const c = await staffAny(r); return json({ list: c.society.id, head: await auditHead(r.env, c.society.id), publicKey: await publicKeyFromPrivate(r.env.SIGNING_KEY) }); });
 route("GET", "/api/lists/:sid/audit/export.json", async (r) => {
-  const c = await staff(r); const entries = await auditAll(r.env, c.society.id);
+  const c = await staffAny(r); const entries = await auditAll(r.env, c.society.id);
   const verification = c.role === "organizer" ? await verifyAudit(r.env, c.society.id) : null;
   const body = JSON.stringify({ list: c.society.id, publicKey: await publicKeyFromPrivate(r.env.SIGNING_KEY), count: entries.length, head: entries.length ? { seq: entries[entries.length - 1]!.entry.seq, hash: entries[entries.length - 1]!.hash } : null, verified: verification ? verification.ok : null, entries });
   return file(body, "application/json", "audit-trail.json");

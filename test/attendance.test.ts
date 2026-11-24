@@ -60,7 +60,8 @@ describe("attendance sessions", () => {
   test("a closed session takes no more marks; closing is written to the trail", async () => {
     const s = await society(); const id = (await mk(s, "offline")).json.session.id;
     expect((await s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions/${id}/close`, {}, s.coJar)).status).toBe(403);
-    expect((await s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions/${id}/close`, {}, s.jar)).json.session.status).toBe("closed");
+    const closed = (await s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions/${id}/close`, {}, s.jar)).json.session;
+    expect(closed.status).toBe("closed"); expect(closed.counts).toEqual({ eligible: 2, present: 0 });
     expect((await s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions/${id}/mark`, { voterId: s.asha }, s.jar)).json.code).toBe("closed");
     expect((await s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions/${id}/close`, {}, s.jar)).status).toBe(409);
   });
@@ -211,5 +212,25 @@ describe("attendance audit fixes (0.2.2)", () => {
     }
     h.env.ORGANIZERS = "solo@sample.example";
     expect((await h.call("POST", "/api/attendance/rosters", { title: "List", format: "paste", text: "Flat / House / Member ID,Name,E-mail\nA-1,Asha,asha@sample.example\n", dryRun: true }, jar)).status).toBe(200);
+  });
+
+  test("a roster upload list: Voter List staff routes refuse it, attendance routes work; the name is cleaned and capped at 80", async () => {
+    const h = await makeHarness(); const jar = await h.staff("solo@sample.example");
+    const text = "Flat / House / Member ID,Name,E-mail\nA-1,Asha,asha@sample.example\n";
+    expect((await h.call("POST", "/api/attendance/rosters", { title: "x".repeat(81), format: "paste", text }, jar)).json.code).toBe("bad_title");
+    const up = await h.call("POST", "/api/attendance/rosters", { title: "Club\u0007 \u0000list", format: "paste", text }, jar); expect(up.status).toBe(201);
+    expect(up.json.list.name).toBe("Club list");
+    const sid = up.json.list.id;
+    for (const [m, p] of [["GET", ""], ["GET", "/records"], ["GET", "/team"], ["GET", "/erase"], ["POST", "/publish/draft"], ["GET", "/checks"]] as const) {
+      const r = await h.call(m, `/api/lists/${sid}${p}`, m === "POST" ? {} : undefined, jar); expect(r.status).toBe(404); expect(r.json.code).toBe("not_found");
+    }
+    const mkd = await h.call("POST", `/api/lists/${sid}/attendance/sessions`, { title: "Meet", startsAt: "2030-01-01T10:00", place: "Hall", mode: "in_person" }, jar);
+    expect(mkd.status).toBe(201);
+    expect((await h.call("GET", `/api/lists/${sid}/attendance/sessions`, undefined, jar)).status).toBe(200);
+  });
+
+  test("migration 0011 can run twice", async () => {
+    const h = await makeHarness(); const { readFileSync } = await import("node:fs");
+    h.raw.exec(readFileSync("migrations/0011_attendance_title_80.sql", "utf8"));
   });
 });

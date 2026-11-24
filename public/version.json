@@ -1,10 +1,15 @@
 {
   "product": "voter-list",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
   "commit": "86394a1",
   "changes": [
+    {
+      "version": "0.2.4",
+      "releasedAt": null,
+      "notes": "Attendance fixes after fourth audit: Voter List staff pages (records, team, publish, erase and the rest) now answer 404 for a list made from an uploaded roster, while attendance and the signed audit trail still work; the roster list name is cleaned of control characters and is at most 80 letters; migration 0011 can run twice. Not deployed yet."
+    },
     {
       "version": "0.2.3",
       "releasedAt": null,
