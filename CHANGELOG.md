@@ -2,6 +2,15 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.2.1 - not deployed yet (IST)
+
+Fixes after the audit of Attendance chunk 1.
+
+- Erasing a list now removes its attendance sessions and marks. Before, one mark made the erase fail.
+- A mark can be deleted only when its list is erased. Marks still cannot be changed, and cannot be deleted in any other case. Migration 0010.
+- The public attendance pages answer 410 for an erased list, as the sign-in step does.
+- A session title is at most 80 letters and a place at most 120. Control characters are removed.
+
 ## 0.2.0 - not deployed yet (IST)
 
 Attendance Management, first chunk. API and tests only; there are no screens yet.

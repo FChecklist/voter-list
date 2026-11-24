@@ -116,3 +116,38 @@ describe("Excel path for an organizer with no Voter List", () => {
     expect((await h.call("POST", "/api/attendance/rosters", { title: "List", format: "xlsx", base64: "AAAA" }, jar)).status).toBe(400);
   });
 });
+
+describe("attendance audit fixes (0.2.1)", () => {
+  test("erasing a list with sessions and marks works; a plain delete or update of a mark is still refused", async () => {
+    const s = await society(); const id = (await mk(s, "in_person")).json.session.id;
+    await s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions/${id}/mark`, { voterId: s.asha }, s.jar);
+    expect(() => s.h.raw.query("DELETE FROM att_marks").run()).toThrow();
+    expect(() => s.h.raw.query("UPDATE att_marks SET marked_by = 'x'").run()).toThrow();
+    expect(s.h.raw.query("SELECT COUNT(*) AS n FROM att_marks").get()).toEqual({ n: 1 });
+    const e = await makeHarness({ RETENTION_DAYS: "30" }); const { jar, sid, slug } = await newList(e);
+    await enrolVoter(e, slug, "a@sample.example");
+    await e.call("POST", `/api/lists/${sid}/records/decide`, { items: await waiting(e, sid, jar), decision: "approve" }, jar);
+    const sess = (await e.call("POST", `/api/lists/${sid}/attendance/sessions`, { title: "Meeting", startsAt: "2026-12-05T18:00", mode: "in_person" }, jar)).json.session.id;
+    const vid = (e.raw.query("SELECT id FROM voters").get() as { id: string }).id;
+    await e.call("POST", `/api/lists/${sid}/attendance/sessions/${sess}/mark`, { voterId: vid }, jar);
+    e.clock.now += 400 * 86_400_000;
+    const j2 = await e.staff("organizer@sample.example");
+    expect((await e.call("POST", `/api/lists/${sid}/erase`, { confirm: "ERASE" }, j2)).status).toBe(200);
+    expect(e.raw.query("SELECT COUNT(*) AS n FROM att_marks").get()).toEqual({ n: 0 });
+    expect(e.raw.query("SELECT COUNT(*) AS n FROM att_sessions").get()).toEqual({ n: 0 });
+  });
+
+  test("public attendance routes answer 410 for an erased list", async () => {
+    const s = await society(); const id = (await mk(s, "online")).json.session.id;
+    expect((await s.h.call("GET", `/api/v/${s.slug}/attendance`)).status).toBe(200);
+    s.h.raw.query("UPDATE societies SET erased_at = 1").run();
+    for (const u of [`/api/v/${s.slug}/attendance`, `/api/v/${s.slug}/attendance/${id}`]) { const r = await s.h.call("GET", u); expect(r.status).toBe(410); expect(r.json.code).toBe("erased"); }
+  });
+
+  test("title and place are capped and lose control characters", async () => {
+    const s = await society(); const post = (b: object) => s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions`, { startsAt: "2026-12-05T18:00", mode: "online", ...b }, s.jar);
+    expect((await post({ title: "T".repeat(81) })).status).toBe(400);
+    const r = await post({ title: "Annual\u0007 meet\u0000ing", place: "Hall\u001b" + "p".repeat(300) }); expect(r.status).toBe(201);
+    expect(r.json.session.title).toBe("Annual meeting"); expect(r.json.session.place.length).toBe(120); expect(r.json.session.place).not.toMatch(/[\u0000-\u001f]/);
+  });
+});

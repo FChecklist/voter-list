@@ -111,8 +111,9 @@ route("DELETE", "/api/v/:slug/records/:rid/docs/:did", async (r) => json(await r
 route("GET", "/api/v/:slug/records/:rid/docs/:did", async (r) => { const d = await records.getMyDoc(await voter(r), r.params.rid!, r.params.did!); return file(d.body, d.type, d.filename, true); });
 
 // attendance: public counts (no personal data), and a voter who signed in marks themselves present in an online session
-route("GET", "/api/v/:slug/attendance", async (r) => json(await attendance.publicSessions(r.env, await anySlug(r)), 200, PUBLIC_CACHE));
-route("GET", "/api/v/:slug/attendance/:aid", async (r) => json(await attendance.publicSession(r.env, await anySlug(r), r.params.aid!), 200, PUBLIC_CACHE));
+const liveSlug = async (r: Req) => { const s = await anySlug(r); if (s.erased_at) throw new HttpError(410, "This list has been closed and its details erased.", "erased"); return s; }; // the same answer as /start
+route("GET", "/api/v/:slug/attendance", async (r) => json(await attendance.publicSessions(r.env, await liveSlug(r)), 200, PUBLIC_CACHE));
+route("GET", "/api/v/:slug/attendance/:aid", async (r) => json(await attendance.publicSession(r.env, await liveSlug(r), r.params.aid!), 200, PUBLIC_CACHE));
 route("POST", "/api/v/:slug/attendance/:aid/here", async (r) => {
   const society = await anySlug(r); const b = await r.body();
   const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);

@@ -37,12 +37,15 @@ async function sessionOf(env: Env, societyId: string, id: string): Promise<Sessi
 }
 const notErased = (s: SocietyRow) => { if (s.erased_at) throw new HttpError(410, "This list has been closed and its details erased.", "erased"); };
 
+/** Free text shown on public pages: control characters are removed before anything else. */
+const noControls = (v: unknown) => String(v ?? "").replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "");
+
 export interface SessionInput { title?: unknown; startsAt?: unknown; place?: unknown; mode?: unknown }
 
 export async function createSession(ctx: StaffCtx, input: SessionInput) {
   need(ctx, "attendSetup"); notErased(ctx.society);
-  const title = squeeze(input.title); if (title.length < 2 || title.length > 120) throw new HttpError(400, "Please type a title of 2 to 120 letters.", "bad_title");
-  const place = squeeze(input.place).slice(0, 200);
+  const title = squeeze(noControls(input.title)); if (title.length < 2 || title.length > 80) throw new HttpError(400, "Please type a title of 2 to 80 letters.", "bad_title");
+  const place = squeeze(noControls(input.place)).slice(0, 120);
   noContactDetails(title, "the title"); noContactDetails(place, "the place");
   if (!(MODES as readonly string[]).includes(String(input.mode))) throw new HttpError(400, "Please choose how people are checked: in person, online or offline.", "bad_mode");
   const at = localToMs(String(input.startsAt ?? ""), ctx.society.tz_offset_min); if (at === null) throw new HttpError(400, "Please pick the date and time again.", "bad_time");

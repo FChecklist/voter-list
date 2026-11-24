@@ -1,10 +1,15 @@
 {
   "product": "voter-list",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
   "commit": "86394a1",
   "changes": [
+    {
+      "version": "0.2.1",
+      "releasedAt": null,
+      "notes": "Attendance fixes after audit: erasing a list now also removes its attendance sessions and marks (marks stay append-only for everything else, migration 0010); the public attendance pages answer 410 for an erased list; session titles are at most 80 letters and places at most 120, with control characters removed. Not deployed yet."
+    },
     {
       "version": "0.2.0",
       "releasedAt": null,
