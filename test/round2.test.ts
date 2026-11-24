@@ -85,7 +85,7 @@ describe("M3: rules are kept after a record was sent", () => {
     const rec = (await h.call("POST", `/api/v/${slug}/records`, { unit: "A-1", name: "Asha Sample", capacity: "Owner", mobile: "9000000101" }, j)).json;
     const doc = await h.call("POST", `/api/v/${slug}/records/${rec.id}/docs`, { docType: "Society ID", filename: "a.pdf", mime: "application/pdf", base64: pdf }, j);
     expect(doc.status).toBe(201); const did = doc.json.docs[0].id as string;
-    expect((await h.call("POST", `/api/v/${slug}/records/${rec.id}/confirm`, { consent: true }, j)).status).toBe(200);
+    expect((await h.call("POST", `/api/v/${slug}/records/${rec.id}/confirm`, {}, j)).status).toBe(200);
     const p = await h.call("PATCH", `/api/v/${slug}/records/${rec.id}`, { capacity: "Proxy", proxyFor: "Olga Owner" }, j);
     expect(p.status).toBe(400); expect(p.json.code).toBe("need_proxy_letter");
     const rm = await h.call("DELETE", `/api/v/${slug}/records/${rec.id}/docs/${did}`, undefined, j);

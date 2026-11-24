@@ -49,6 +49,15 @@ describe("the voter's journey", () => {
     expect(ev?.reason).toContain(TERMS_VERSION);
   });
 
+  test("an old client that still sends consent false (or a stray body) confirms the same way: the server never reads it", async () => {
+    const h = await makeHarness(); const { slug } = await newList(h);
+    const { jar, rec } = await enrolVoter(h, slug, "ravi@sample.example", { confirm: false });
+    const c = await h.call("POST", `/api/v/${slug}/records/${rec.id}/confirm`, { consent: false }, jar);
+    expect(c.status).toBe(200);
+    const row = await h.env.DB.prepare("SELECT status FROM voters WHERE id = ?").bind(rec.id).first<{ status: string }>();
+    expect(row?.status).toBe("submitted");
+  });
+
   test("Proxy only where the list allows it, and a proxy needs the owner's name and the authority letter", async () => {
     const h = await makeHarness();
     const a = await newList(h, { ruleCode: 2, email: "o1@sample.example" }); // owner or tenant: no proxy
@@ -61,12 +70,12 @@ describe("the voter's journey", () => {
     expect(noOwner.status).toBe(400);
     const ok = await h.call("POST", `/api/v/${b.slug}/records`, { unit: "B-1", name: "Pia Proxy", capacity: "Proxy", mobile: "9000000111", proxyFor: "Olga Owner" }, j2);
     expect(ok.status).toBe(201);
-    const noLetter = await h.call("POST", `/api/v/${b.slug}/records/${ok.json.id}/confirm`, { consent: true }, j2);
+    const noLetter = await h.call("POST", `/api/v/${b.slug}/records/${ok.json.id}/confirm`, {}, j2);
     expect(noLetter.status).toBe(400); expect(noLetter.json.code).toBe("need_proxy_letter");
     const pdf = btoa("%PDF-1.4 sample authority letter, made up");
     const d = await h.call("POST", `/api/v/${b.slug}/records/${ok.json.id}/docs`, { docType: "Proxy Nomination Form", filename: "letter.pdf", mime: "application/pdf", base64: pdf }, j2);
     expect(d.status).toBe(201);
-    expect((await h.call("POST", `/api/v/${b.slug}/records/${ok.json.id}/confirm`, { consent: true }, j2)).status).toBe(200);
+    expect((await h.call("POST", `/api/v/${b.slug}/records/${ok.json.id}/confirm`, {}, j2)).status).toBe(200);
   });
 
   test("a tenant cannot enrol on an owner-only list", async () => {
@@ -98,7 +107,7 @@ describe("the check loop: approve, or not approved -> back with a reason -> resu
     // the voter fixes it and sends it again
     const fix = await h.call("PATCH", `/api/v/${slug}/records/${v.rec.id}`, { name: "Asha Kumari Sample" }, v.jar); expect(fix.status).toBe(200);
     expect(fix.json.status).toBe("sent_back");
-    const again = await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/confirm`, { consent: true }, v.jar);
+    const again = await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/confirm`, {}, v.jar);
     expect(again.json.status).toBe("submitted");
     w = await waiting(h, sid, jar); expect(w).toHaveLength(1);
     const ok = await h.call("POST", `/api/lists/${sid}/records/decide`, { items: w, decision: "approve" }, jar);
