@@ -10,7 +10,7 @@ export interface SocietyRow {
   id: string; name: string; kind: string; kind_other: string; country: string; state: string; reg_no: string; reg_office: string; bye_laws_note: string;
   rule_code: 1 | 2 | 3 | 4 | 5; rule_clause: string; weight_mode: "equal" | "unequal"; dues_enabled: number; dues_cutoff: string | null; reason_public: "none" | "role" | "all"; tz_offset_min: number;
   verify_slug: string | null; created_by: string; created_at: number;
-  phase: "open" | "frozen"; cutoff_at: number | null; docs_required: number; link_shared_at: number | null; hosts_skipped: number; erased_at: number | null;
+  purpose: "voter_list" | "attendance_upload"; phase: "open" | "frozen"; cutoff_at: number | null; docs_required: number; link_shared_at: number | null; hosts_skipped: number; erased_at: number | null;
 }
 
 export type Role = "organizer" | "host";
@@ -19,7 +19,7 @@ export interface StaffCtx { env: Env; now: number; email: string; role: Role; pe
 /** What each role may do. The Organizer may do everything. A Host checks and corrects records on the Organizer's behalf; settings, publishing, the team and full exports stay with the Organizer. */
 export const CAN: Record<string, Role[]> = {
   view: ["organizer", "host"], review: ["organizer", "host"], import: ["organizer", "host"], editRecords: ["organizer", "host"], undo: ["organizer", "host"], weights: ["organizer", "host"], authorize: ["organizer"],
-  settings: ["organizer"], publishDraft: ["organizer"], freeze: ["organizer"], team: ["organizer"], fullExport: ["organizer"], orders: ["organizer"], reopen: ["organizer"], shareLink: ["organizer"],
+  settings: ["organizer"], publishDraft: ["organizer"], freeze: ["organizer"], team: ["organizer"], fullExport: ["organizer"], orders: ["organizer"], reopen: ["organizer"], shareLink: ["organizer"], attendSetup: ["organizer"], attendMark: ["organizer", "host"],
 };
 export function need(ctx: Pick<StaffCtx, "role">, action: keyof typeof CAN): void {
   if (!CAN[action]!.includes(ctx.role)) throw new HttpError(403, "This role cannot do this. Please ask the Organizer.", "forbidden");

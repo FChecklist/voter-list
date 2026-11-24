@@ -1,10 +1,15 @@
 {
   "product": "voter-list",
-  "version": "0.1.0",
-  "releasedAt": "2026-11-17T12:15:01Z",
-  "releasedAtIST": "2026-11-17 17:45 IST",
-  "commit": "1259492",
+  "version": "0.2.0",
+  "releasedAt": null,
+  "releasedAtIST": "not deployed yet",
+  "commit": "86394a1",
   "changes": [
+    {
+      "version": "0.2.0",
+      "releasedAt": null,
+      "notes": "Attendance Management, first chunk (API only, no screens yet): attendance sessions for a list (in person, online or offline); mark present by the Organizer or a co-organizer, or by the voter with a verified e-mail ID in an online session; one mark per voter per session; public counts with no personal data; every action in the signed audit trail; Excel template download and upload for an organizer with no Voter List. Migration 0009. Payment and package gating are not part of this change; the payment slot stays off. Not deployed yet."
+    },
     {
       "version": "0.1.0",
       "releasedAt": "2026-11-17T12:15:01Z",
