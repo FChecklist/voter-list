@@ -155,7 +155,7 @@ describe("audit round 8 fixes", () => {
     const skip = new Set(["Test mode: the code is", "Ra**** Sh****", "Change:"]); // the last is a prefix of an aria-label, translated by a pattern
     const miss: string[] = [];
     for (const f of ["voter.js", "ui.js", "steps.js"]) for (const m of readFileSync("public/assets/" + f, "utf8").matchAll(/"((?:[^"\\\n]|\\.)*)"/g)) {
-      const s = m[1]!; if (!/^[A-Z][a-z]+[^"]*[ ]/.test(s) || s.length < 8 || /[{}<>=;]/.test(s) || skip.has(s.trim())) continue;
+      const s = m[1]!; if (!/^[A-Z][a-z]+[^"]*[ ]/.test(s) || s.length < 8 || /[{}<>=;]/.test(s) || skip.has(s.trim()) || s.startsWith("By pressing the button below")) continue; // owner order 25 Nov 2026: no Hindi consent lines (the consent notice stays in English)
       if (!has(hi, s)) miss.push(f + ": " + s);
     }
     expect(miss).toEqual([]);

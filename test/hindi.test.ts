@@ -22,7 +22,6 @@ const STRINGS = [
   "2 of 10 co-organizer seats used (the Townhall Records co-organizer is extra).",
   "2 of 10 co-organizers",
   "3 approved. 1 skipped because they changed meanwhile or are the reviewer's own.",
-  "By pressing the button below, the details are used to build this society's voter list, under the ",
   "The list has not been published yet. When the list team publishes it, you will find it here with the name masked as ",
 ];
 
