@@ -57,7 +57,10 @@ describe("registration number / ID is mandatory", () => {
     const js = readFileSync("public/assets/organizer.js", "utf8");
     expect(js).toContain('"Registration number / ID"');
     expect(js).not.toContain("Registration number (optional)");
-    expect(js).toContain('regNo: el("input", { id: "lr", type: "text", maxlength: "40", required: "", "aria-required": "true", value: L ? L.regNo : "" }),');
+    const field = js.split("\n").find((l) => /regNo:\s*el\("input"/.test(l)) || "";
+    expect(field).toMatch(/\brequired\b/);
+    // the client check: an empty field shows the plain message
+    expect(js).toMatch(/if\s*\(\s*!\s*f\.regNo\.value\.trim\(\)\s*\)[^\n]*err\.show\(\s*"Please type the registration number \/ ID of the society or association\."/);
     expect(js).toContain(MSG);
   });
 });

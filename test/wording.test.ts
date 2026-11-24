@@ -20,6 +20,21 @@ export function literals(src: string): string[] {
   return out;
 }
 
+/** Each string literal with the few characters just before its opening quote (to see a `label:` or `text:` field name). */
+export function literalsWithContext(src: string): { text: string; before: string }[] {
+  const all = literals(src); const out: { text: string; before: string }[] = []; let from = 0;
+  for (const t of all) {
+    // find this literal in the source after the previous one; fall back to no context if it cannot be found
+    const raw = t.replace(/\$\{[^}]*\}/g, "");
+    const at = raw ? src.indexOf(raw, from) : -1;
+    if (at < 0) { out.push({ text: t, before: "" }); continue; }
+    out.push({ text: t, before: src.slice(Math.max(0, at - 30), at - 1) }); from = at + raw.length;
+  }
+  return out;
+}
+/** A one-word "host" used as the value of a field that people read. */
+export const SHOWN_FIELD = /\b(label|title|text|placeholder)\s*:\s*$/;
+
 /** Every .js/.ts file under a folder, skipping vendor and node_modules. */
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -61,7 +76,7 @@ describe("wording: neutral, short, imperative", () => {
 
   test("the word host reads co-organizer wherever people read it", () => {
     const found: string[] = [];
-    for (const f of files) for (const s of literals(readFileSync(f, "utf8"))) if (HOST_WORD.test(s) && !isInternalHost(s)) found.push(f + ": " + s.slice(0, 90));
+    for (const f of files) for (const { text: s, before } of literalsWithContext(readFileSync(f, "utf8"))) if (HOST_WORD.test(s) && (!isInternalHost(s) || SHOWN_FIELD.test(before))) found.push(f + ": " + s.slice(0, 90));
     expect(found).toEqual([]);
   });
 
@@ -75,6 +90,14 @@ describe("wording: neutral, short, imperative", () => {
   test("the host check exempts only internal tokens and SQL", () => {
     for (const ok of ["host", "team.host_added", "permanentHostEmail", "hostsUsed", "PERMANENT_HOST", "SELECT * FROM hosts"]) expect(isInternalHost(ok), ok).toBe(true);
     for (const bad of ["Please select a host", "Ask the host", "the host UPDATE", "hosts can see it", "Select the host"]) expect(isInternalHost(bad), bad).toBe(false);
+  });
+
+  test("a one-word host in a label, title, text or placeholder field is not exempt", () => {
+    const ctx = (src: string) => literalsWithContext(src).map((l) => HOST_WORD.test(l.text) && (!isInternalHost(l.text) || SHOWN_FIELD.test(l.before)));
+    expect(ctx('const a = { label: "Host" };')).toEqual([true]);
+    expect(ctx("const a = { title: 'host' };")).toEqual([true]);
+    expect(ctx('x({ placeholder : "host", text: "hosts" })')).toEqual([true, true]);
+    expect(ctx('const r = { role: "host" }; if (m.role === "host") {}')).toEqual([false, false]);
   });
 
   test("the Hindi file has no personal possessives", () => {
