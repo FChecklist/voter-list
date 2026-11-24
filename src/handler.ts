@@ -50,6 +50,7 @@ async function staffSession(r: Req): Promise<Session> {
 const staff = async (r: Req): Promise<StaffCtx> => staffCtx(r.env, r.now, (await staffSession(r)).email, r.params.sid!);
 // a link of a list made only for attendance (from an uploaded Excel sheet) opens attendance and sign-in, nothing of the Voter List
 const anySlug = async (r: Req) => { const s = await societyBySlug(r.env, r.params.slug!); if (!s) throw new HttpError(404, "This link is not valid.", "not_found"); return s; };
+const liveSlug = async (r: Req) => { const s = await anySlug(r); if (s.erased_at) throw new HttpError(410, "This list has been closed and its details erased.", "erased"); return s; }; // the same answer as /start
 const slugList = async (r: Req) => { const s = await anySlug(r); if (s.purpose !== "voter_list") throw new HttpError(404, "This link is not valid.", "not_found"); return s; };
 async function voter(r: Req): Promise<records.VoterCtx> {
   const society = await slugList(r);
@@ -96,7 +97,7 @@ route("POST", "/api/v/:slug/start", async (r) => {
   return json(SENT); // the same words whether or not the e-mail ID is already known
 });
 route("POST", "/api/v/:slug/verify", async (r) => {
-  const soc = await anySlug(r); const b = await r.body();
+  const soc = await liveSlug(r); const b = await r.body();
   const { token, session } = await verifyCode(r.env, str(b.email, 200), str(b.code, 12), "member", soc.id, r.ip, r.now);
   return json({ ok: true, email: session.email }, 200, { "set-cookie": setCookie(r.env, "vlm", token, MEMBER_SESSION_MS / 1000) });
 });
@@ -111,11 +112,10 @@ route("DELETE", "/api/v/:slug/records/:rid/docs/:did", async (r) => json(await r
 route("GET", "/api/v/:slug/records/:rid/docs/:did", async (r) => { const d = await records.getMyDoc(await voter(r), r.params.rid!, r.params.did!); return file(d.body, d.type, d.filename, true); });
 
 // attendance: public counts (no personal data), and a voter who signed in marks themselves present in an online session
-const liveSlug = async (r: Req) => { const s = await anySlug(r); if (s.erased_at) throw new HttpError(410, "This list has been closed and its details erased.", "erased"); return s; }; // the same answer as /start
 route("GET", "/api/v/:slug/attendance", async (r) => json(await attendance.publicSessions(r.env, await liveSlug(r)), 200, PUBLIC_CACHE));
 route("GET", "/api/v/:slug/attendance/:aid", async (r) => json(await attendance.publicSession(r.env, await liveSlug(r), r.params.aid!), 200, PUBLIC_CACHE));
 route("POST", "/api/v/:slug/attendance/:aid/here", async (r) => {
-  const society = await anySlug(r); const b = await r.body();
+  const society = await liveSlug(r); const b = await r.body();
   const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
   if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");
   return json(await attendance.markSelf(r.env, r.now, society, s.email, r.params.aid!, b.voterId));

@@ -2,6 +2,15 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.2.2 - not deployed yet (IST)
+
+Fixes after the second audit of Attendance chunk 1.
+
+- Sign-in (`verify`) and self-mark answer 410 for an erased list, as the first step does.
+- The Excel roster preview now needs a listed Organizer, as the upload does. Before, any signed-in e-mail ID could use it.
+- A voter can mark themselves only from 15 minutes before the session starts.
+- The database title limit is 80 letters, the same as the code. Migration 0009 was edited in place; it was not applied anywhere.
+
 ## 0.2.1 - not deployed yet (IST)
 
 Fixes after the audit of Attendance chunk 1.

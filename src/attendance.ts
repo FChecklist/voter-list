@@ -13,6 +13,7 @@ import { maskEmail, maskName } from "./vendor/masking";
 
 export const MODES = ["in_person", "online", "offline"] as const;
 export type Mode = (typeof MODES)[number];
+const SELF_MARK_EARLY_MS = 15 * 60_000; // a voter can mark themselves from 15 minutes before the start
 const MODE_WORDS: Record<Mode, string> = { in_person: "In person", online: "Online", offline: "Offline" };
 
 interface SessionRow { id: string; society_id: string; title: string; starts_at: number; place: string; mode: Mode; status: "open" | "closed"; created_by: string; created_at: number; closed_at: number | null }
@@ -106,6 +107,7 @@ export async function markSelf(env: Env, now: number, society: SocietyRow, email
   notErased(society);
   const s = await sessionOf(env, society.id, sessionId);
   if (s.mode !== "online") throw new HttpError(403, "This session is not online. Please ask the Organizer or a co-organizer to mark you present.", "not_online");
+  if (now < s.starts_at - SELF_MARK_EARLY_MS) throw new HttpError(403, "This session has not started yet. Please try again 15 minutes before it starts.", "too_early");
   const mine = (await eligibleLines(env, society.id)).filter((l) => l.row.email.toLowerCase() === email.toLowerCase());
   if (!mine.length) throw new HttpError(403, "This e-mail ID is not on the list for this session.", "not_on_list");
   const want = voterId === undefined ? "" : String(voterId).slice(0, 60);
@@ -142,6 +144,7 @@ const COUNTRY_TZ: Record<string, number> = { India: 330, Bangladesh: 360, Bhutan
 
 /** Reads the sheet, refuses rows with no e-mail ID (and says how many and why), and, unless `dryRun`, makes the list. */
 export async function uploadRoster(env: Env, now: number, email: string, input: RosterInput) {
+  if (!signupOpen(env) && !isListedOrganizer(env, email)) throw new HttpError(403, "New lists are started by Organizers that Townhall Records has set up. Please ask us to add the e-mail ID, and you can begin right away.", "not_organizer");
   const format = String(input.format);
   if (!["csv", "xlsx", "paste"].includes(format)) throw new HttpError(400, "Choose an Excel file, a CSV file or paste the list.", "bad_format");
   const title = squeeze(input.title); if (title.length < 2 || title.length > 120) throw new HttpError(400, "Please type a name for this list, 2 to 120 letters.", "bad_title");
@@ -172,7 +175,6 @@ export async function uploadRoster(env: Env, now: number, email: string, input: 
   if (input.dryRun === true) return { dryRun: true, ...report };
   if (!add.length) throw new HttpError(409, "There is nothing to bring in: every row had a problem.", "nothing_new");
   if (add.length > 6000) throw new HttpError(400, "A list can hold up to 6000 people.", "too_many");
-  if (!signupOpen(env) && !isListedOrganizer(env, email)) throw new HttpError(403, "New lists are started by Organizers that Townhall Records has set up. Please ask us to add the e-mail ID, and you can begin right away.", "not_organizer");
   const own = await env.DB.prepare("SELECT COUNT(*) AS n FROM memberships WHERE email = ? AND status = 'active' AND role = 'organizer'").bind(email).first<{ n: number }>();
   if ((own?.n ?? 0) >= 10) throw new HttpError(409, "One person can organise up to 10 lists here.", "too_many");
   const id = uid("soc"), slug = randomHex(8);

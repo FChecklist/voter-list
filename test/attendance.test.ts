@@ -13,6 +13,7 @@ async function society() {
   const idOf = (e: string) => (h.raw.query("SELECT id FROM voters WHERE email = ?").get(e) as { id: string }).id;
   return { h, jar, coJar, sid, slug, asha: idOf("asha@sample.example"), bharat: idOf("bharat@sample.example") };
 }
+const START = Date.UTC(2026, 11, 5, 12, 30); // 2026-12-05T18:00 in India
 const mk = (s: Awaited<ReturnType<typeof society>>, mode: string) => s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions`, { title: "Annual meeting", startsAt: "2026-12-05T18:00", place: "Club house", mode }, s.jar);
 
 describe("attendance sessions", () => {
@@ -41,7 +42,12 @@ describe("attendance sessions", () => {
   test("a voter marks themselves only in an online session, with a verified e-mail ID", async () => {
     const s = await society();
     const online = (await mk(s, "online")).json.session.id, person = (await mk(s, "in_person")).json.session.id;
+    s.h.clock.now = START - 2 * 3_600_000;
     const v = await s.h.member(s.slug, "asha@sample.example");
+    expect((await s.h.call("POST", `/api/v/${s.slug}/attendance/${online}/here`, {}, v)).json.code).toBe("too_early"); // two hours before the start
+    s.h.clock.now = START - 16 * 60_000; expect((await s.h.call("POST", `/api/v/${s.slug}/attendance/${online}/here`, {}, v)).json.code).toBe("too_early");
+    expect(s.h.raw.query("SELECT COUNT(*) AS n FROM att_marks").get()).toEqual({ n: 0 });
+    s.h.clock.now = START - 14 * 60_000; // inside the 15 minutes before the start
     expect((await s.h.call("POST", `/api/v/${s.slug}/attendance/${person}/here`, {}, v)).json.code).toBe("not_online");
     expect((await s.h.call("POST", `/api/v/${s.slug}/attendance/${online}/here`, {})).status).toBe(401); // not signed in
     const ok = await s.h.call("POST", `/api/v/${s.slug}/attendance/${online}/here`, {}, v); expect(ok.status).toBe(200);
@@ -100,13 +106,14 @@ describe("Excel path for an organizer with no Voter List", () => {
     expect((await h.call("GET", "/api/attendance/rosters", undefined, jar)).json.lists).toHaveLength(1);
     expect((await h.call("GET", "/api/me", undefined, jar)).json.lists).toHaveLength(0); // it is not a Voter List
     const ses = await h.call("POST", `/api/lists/${sid}/attendance/sessions`, { title: "Spring meeting", startsAt: "2026-12-05T18:00", mode: "online" }, jar); expect(ses.status).toBe(201);
+    h.clock.now = START;
     const v = await h.member(slug, "asha@sample.example");
     expect((await h.call("POST", `/api/v/${slug}/attendance/${ses.json.session.id}/here`, {}, v)).status).toBe(200);
     expect((await h.call("GET", `/api/v/${slug}/attendance`)).json.sessions[0].counts).toEqual({ eligible: 2, present: 1 });
     // none of the Voter List pages open on this link, and a voter cannot enrol themselves into it
     expect((await h.call("GET", `/api/v/${slug}`)).status).toBe(404);
     expect((await h.call("POST", `/api/v/${slug}/records`, { unit: "Z-9", name: "Zed", capacity: "Owner", mobile: "9000000299" }, v)).status).toBe(404);
-    expect((await h.call("GET", `/api/lists/${sid}/audit/export.json`, undefined, jar)).json.verified).toBe(true);
+    expect((await h.call("GET", `/api/lists/${sid}/audit/export.json`, undefined, await h.staff("solo@sample.example"))).json.verified).toBe(true); // a new sign-in: the clock moved on
   });
 
   test("a sheet where no row has an e-mail ID is refused; a stranger cannot upload; a bad file is a clear error", async () => {
@@ -149,5 +156,34 @@ describe("attendance audit fixes (0.2.1)", () => {
     expect((await post({ title: "T".repeat(81) })).status).toBe(400);
     const r = await post({ title: "Annual\u0007 meet\u0000ing", place: "Hall\u001b" + "p".repeat(300) }); expect(r.status).toBe(201);
     expect(r.json.session.title).toBe("Annual meeting"); expect(r.json.session.place.length).toBe(120); expect(r.json.session.place).not.toMatch(/[\u0000-\u001f]/);
+  });
+});
+
+describe("attendance audit fixes (0.2.2)", () => {
+  test("sign-in and self-mark answer 410 for an erased list", async () => {
+    const s = await society(); const id = (await mk(s, "online")).json.session.id;
+    const v = await s.h.member(s.slug, "asha@sample.example");
+    s.h.raw.query("UPDATE societies SET erased_at = 1").run();
+    const code = s.h.code("asha@sample.example");
+    const a = await s.h.call("POST", `/api/v/${s.slug}/verify`, { email: "asha@sample.example", code }); expect(a.status).toBe(410); expect(a.json.code).toBe("erased");
+    const b = await s.h.call("POST", `/api/v/${s.slug}/attendance/${id}/here`, {}, v); expect(b.status).toBe(410); expect(b.json.code).toBe("erased");
+  });
+
+  test("a title of 81 letters is refused by the code, and by the database", async () => {
+    const s = await society();
+    const r = await s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions`, { title: "T".repeat(81), startsAt: "2026-12-05T18:00", mode: "online" }, s.jar); expect(r.status).toBe(400); expect(r.json.code).toBe("bad_title");
+    const ins = (title: string) => s.h.raw.query("INSERT INTO att_sessions (id, society_id, title, starts_at, mode, created_by, created_at) VALUES (?, ?, ?, 1, 'online', 'p', 1)").run("x" + title.length, s.sid, title);
+    expect(() => ins("T".repeat(81))).toThrow(); expect(() => ins("T".repeat(80))).not.toThrow();
+  });
+
+  test("the roster preview needs a listed Organizer, like the upload", async () => {
+    const h = await makeHarness(); const jar = await h.staff("solo@sample.example");
+    h.env.TEST_MODE = "0"; h.env.ORGANIZERS = "someone.else@sample.example"; // sign-up is closed and this e-mail ID is not listed
+    for (const dryRun of [true, false]) {
+      const r = await h.call("POST", "/api/attendance/rosters", { title: "List", format: "paste", text: "Flat / House / Member ID,Name,E-mail\nA-1,Asha,asha@sample.example\n", dryRun }, jar);
+      expect(r.status).toBe(403); expect(r.json.code).toBe("not_organizer"); expect(r.text).not.toContain("willAdd");
+    }
+    h.env.ORGANIZERS = "solo@sample.example";
+    expect((await h.call("POST", "/api/attendance/rosters", { title: "List", format: "paste", text: "Flat / House / Member ID,Name,E-mail\nA-1,Asha,asha@sample.example\n", dryRun: true }, jar)).status).toBe(200);
   });
 });
