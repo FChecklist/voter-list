@@ -101,7 +101,7 @@ export async function verifyOrder(ctx: StaffCtx, orderId: string, input: { razor
   const d = r.d;
   // Every fact must match THIS order: paid, the same amount and currency, and our own order id as the payment reference.
   if (!r.ok || d.ok !== true || d.paid !== true || d.amount_minor !== o.amount_paise || d.currency !== "INR" || d.payment_ref !== o.id || d.razorpay_order_id !== o.rzp_order_id || d.razorpay_payment_id !== pid || d.product !== PRODUCT || d.plan !== PLAN || d.stream !== "sales")
-    throw new HttpError(402, "The payment could not be confirmed. Nothing has been marked as paid. If money was taken, please contact the owner's side with your order number " + o.id + ".", "not_paid");
+    throw new HttpError(402, "The payment could not be confirmed. Nothing has been marked as paid. If money was taken, please contact the owner's side with the order number " + o.id + ".", "not_paid");
   try {
     await commit(ctx.env, ctx.society.id, [ctx.env.DB.prepare("UPDATE orders SET status = 'paid', paid_at = ?, rzp_payment_id = ? WHERE id = ? AND status = 'created' AND test = 0 AND rzp_order_id = ?").bind(ctx.now, pid, o.id, oid), guardChanged(ctx.env, "That order is not waiting for payment.")], "order.paid", await staffActor(ctx.env, ctx.email, ctx.role), { order: o.id, amountPaise: o.amount_paise, test: 0 }, ctx.now);
   } catch (e) {

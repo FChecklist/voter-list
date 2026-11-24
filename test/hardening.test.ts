@@ -197,8 +197,8 @@ describe("retention and erasure (DPDP)", () => {
 describe("limits that protect the free plan", () => {
   test("one person can organise at most 10 lists", async () => {
     const h = await makeHarness(); const { jar } = await newList(h);
-    for (let i = 1; i < 10; i++) expect((await h.call("POST", "/api/lists", { name: `Sample Society Number ${i}`, kind: "RWA", country: "India", ruleCode: 4 }, jar)).status).toBe(201);
-    expect((await h.call("POST", "/api/lists", { name: "One Too Many Society", kind: "RWA", country: "India", ruleCode: 4 }, jar)).status).toBe(409);
+    for (let i = 1; i < 10; i++) expect((await h.call("POST", "/api/lists", { name: `Sample Society Number ${i}`, kind: "RWA", country: "India", regNo: "KA/RWA/2019/0001", ruleCode: 4 }, jar)).status).toBe(201);
+    expect((await h.call("POST", "/api/lists", { name: "One Too Many Society", kind: "RWA", country: "India", regNo: "KA/RWA/2019/0001", ruleCode: 4 }, jar)).status).toBe(409);
   });
 
   test("the routes the pages call all exist (contract)", async () => {

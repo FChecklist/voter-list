@@ -1,6 +1,7 @@
 // The whole journey through the real handler: one common link, e-mail + code, enrol, confirm, check (approve / not approved / resubmit),
 // draft publication, frozen publication at a cut-off, the public masked page and its proof.
 import { describe, expect, test } from "bun:test";
+import { TERMS_VERSION } from "../src/records";
 import { enrolVoter, makeHarness, newList, PERM, waiting } from "./harness";
 
 describe("the list, the common link and the standing host", () => {
@@ -38,11 +39,14 @@ describe("the voter's journey", () => {
     expect(me.json.records[0].next).toContain("list team");
   });
 
-  test("no consent, no confirmation", async () => {
+  test("confirming needs no tick box; the trail records the button press and the terms version", async () => {
     const h = await makeHarness(); const { slug } = await newList(h);
     const { jar, rec } = await enrolVoter(h, slug, "asha@sample.example", { confirm: false });
-    const c = await h.call("POST", `/api/v/${slug}/records/${rec.id}/confirm`, { consent: false }, jar);
-    expect(c.status).toBe(400); expect(c.json.code).toBe("consent");
+    const c = await h.call("POST", `/api/v/${slug}/records/${rec.id}/confirm`, {}, jar);
+    expect(c.status).toBe(200);
+    const ev = await h.env.DB.prepare("SELECT reason FROM voter_events WHERE voter_id = ? AND kind = 'confirmed'").bind(rec.id).first<{ reason: string }>();
+    expect(ev?.reason).toContain("confirm pressed");
+    expect(ev?.reason).toContain(TERMS_VERSION);
   });
 
   test("Proxy only where the list allows it, and a proxy needs the owner's name and the authority letter", async () => {

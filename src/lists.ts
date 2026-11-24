@@ -40,7 +40,7 @@ function validate(i: Partial<ListInput>, creating: boolean, now: number, tz: num
   if (i.country !== undefined) { const c = squeeze(i.country).slice(0, 60); if (!c) throw new HttpError(400, "Please choose the country."); out.country = c; if (i.tzOffsetMin === undefined) out.tz_offset_min = TZ[c] ?? 0; }
   if (i.tzOffsetMin !== undefined) { if (!Number.isInteger(i.tzOffsetMin) || i.tzOffsetMin < -720 || i.tzOffsetMin > 840) throw new HttpError(400, "That time zone is not valid."); out.tz_offset_min = i.tzOffsetMin; }
   if (i.state !== undefined) out.state = squeeze(i.state).slice(0, 60);
-  if (i.regNo !== undefined) out.reg_no = squeeze(i.regNo).slice(0, 40);
+  if (i.regNo !== undefined || creating) { const rn = squeeze(i.regNo ?? "").slice(0, 40); if (!rn) throw new HttpError(400, "Please type the registration number / ID of the society or association.", "reg_no"); out.reg_no = rn; }
   if (i.regOffice !== undefined) out.reg_office = squeeze(i.regOffice).slice(0, 120);
   if (i.byeLawsNote !== undefined) out.bye_laws_note = squeeze(i.byeLawsNote).slice(0, 500);
   if (i.ruleClause !== undefined) out.rule_clause = squeeze(i.ruleClause).slice(0, 300);
@@ -65,9 +65,9 @@ function validate(i: Partial<ListInput>, creating: boolean, now: number, tz: num
 
 export async function createList(env: Env, now: number, email: string, input: ListInput) {
   const v = validate(input, true, now, input.tzOffsetMin ?? TZ[String(input.country ?? "India")] ?? 330);
-  const mine = await env.DB.prepare("SELECT COUNT(*) AS n FROM memberships WHERE email = ? AND status = 'active' AND role = 'organizer'").bind(email).first<{ n: number }>();
-  if (!signupOpen(env) && !isListedOrganizer(env, email)) throw new HttpError(403, "New voter lists are started by Organizers that Townhall Records has set up. Please ask us to add your e-mail ID, and you can begin right away.", "not_organizer");
-  if ((mine?.n ?? 0) >= 10) throw new HttpError(409, "One person can organise up to 10 voter lists here.", "too_many");
+  const ownCount = await env.DB.prepare("SELECT COUNT(*) AS n FROM memberships WHERE email = ? AND status = 'active' AND role = 'organizer'").bind(email).first<{ n: number }>();
+  if (!signupOpen(env) && !isListedOrganizer(env, email)) throw new HttpError(403, "New voter lists are started by Organizers that Townhall Records has set up. Please ask us to add the e-mail ID, and you can begin right away.", "not_organizer");
+  if ((ownCount?.n ?? 0) >= 10) throw new HttpError(409, "One person can organise up to 10 voter lists here.", "too_many");
   const id = uid("soc"), slug = randomHex(8);
   const cols = ["id", ...Object.keys(v), "verify_slug", "created_by", "created_at"], vals = [id, ...Object.values(v), slug, email, now];
   const stmts: D1Stmt[] = [
@@ -125,18 +125,18 @@ export async function listTeam(ctx: StaffCtx) {
 
 export async function inviteHost(ctx: StaffCtx, input: { email: string; mobile?: string }) {
   need(ctx, "team");
-  const em = cleanEmail(input.email); if (!em.ok) throw new HttpError(400, "Please type a proper e-mail ID for the new host.");
+  const em = cleanEmail(input.email); if (!em.ok) throw new HttpError(400, "Please type a proper e-mail ID for the new co-organizer.");
   const mob = input.mobile ? cleanMobile(input.mobile, ctx.society.country) : null; if (mob && !mob.ok) throw new HttpError(400, "That mobile number does not look right.");
   await rateLimit(ctx.env, `invite:${ctx.society.id}`, 20, 3_600_000, ctx.now);
   await rateLimit(ctx.env, `invite-acct:${ctx.email}`, 15, 86_400_000, ctx.now); // one account cannot use up the day's staff mail
   await rateLimit(ctx.env, `invite-to:${em.value}`, 3, 86_400_000, ctx.now); // one inbox is never filled with invitations
   const ex = await ctx.env.DB.prepare("SELECT role, status, permanent FROM memberships WHERE society_id = ? AND email = ?").bind(ctx.society.id, em.value).first<{ role: string; status: string; permanent: number }>();
-  if (ex?.status === "active") throw new HttpError(409, ex.permanent ? "That e-mail ID is the standing Townhall Records host and is already on your team." : ex.role === "organizer" ? "That e-mail ID is the Organizer." : "That person is already a host.", "already_member");
+  if (ex?.status === "active") throw new HttpError(409, ex.permanent ? "That e-mail ID is the standing Townhall Records co-organizer and is already on the team." : ex.role === "organizer" ? "That e-mail ID is the Organizer." : "That person is already a co-organizer.", "already_member");
   // the database trigger refuses an 11th host even if two invitations race; its message is what the Organizer reads
   await commit(ctx.env, ctx.society.id, [ctx.env.DB.prepare("INSERT INTO memberships (society_id, email, mobile, role, status, invited_by, created_at) VALUES (?, ?, ?, 'host', 'active', ?, ?) ON CONFLICT(society_id, email) DO UPDATE SET role = 'host', status = 'active', mobile = excluded.mobile, invited_by = excluded.invited_by")
     .bind(ctx.society.id, em.value, mob?.value ?? "", ctx.email, ctx.now)], "team.host_added", await staffActor(ctx.env, ctx.email, ctx.role), { returning: ex ? 1 : 0, target: await pseudonym(ctx.env, em.value) }, ctx.now);
   let mailed = true;
-  try { await sendMail(ctx.env, em.value, `You were added as a host of the voter list of ${ctx.society.name}`, `You were added as a Host of the voter list of ${ctx.society.name}.\n\nTo begin, open Townhall Records Voter List and ask for a code for this e-mail ID. A host checks the records that voters send in.\n\nTownhall Records`, "team-invite", ctx.now); } catch { mailed = false; /* the host is added even if the courtesy note cannot be sent */ }
+  try { await sendMail(ctx.env, em.value, `You were added as a co-organizer of the voter list of ${ctx.society.name}`, `You were added as a Co-organizer of the voter list of ${ctx.society.name}.\n\nTo begin, open Townhall Records Voter List and ask for a code for this e-mail ID. A co-organizer checks the records that voters send in.\n\nTownhall Records`, "team-invite", ctx.now); } catch { mailed = false; /* the host is added even if the courtesy note cannot be sent */ }
   return { email: em.value, role: "host", mailed };
 }
 
@@ -145,9 +145,9 @@ export async function removeHost(ctx: StaffCtx, rawEmail: string) {
   const email = cleanEmail(rawEmail).value.toLowerCase();
   const m = await ctx.env.DB.prepare("SELECT role, permanent FROM memberships WHERE society_id = ? AND email = ? AND status = 'active'").bind(ctx.society.id, email).first<{ role: string; permanent: number }>();
   if (!m) throw new HttpError(404, "Not found.", "not_found");
-  if (m.permanent) throw new HttpError(409, "The Townhall Records host is a standing member of every voter list and stays on your team.", "permanent_host");
+  if (m.permanent) throw new HttpError(409, "The Townhall Records co-organizer is a standing member of every voter list and stays on the team.", "permanent_host");
   if (m.role === "organizer") throw new HttpError(409, "The Organizer cannot be removed. Hand the list to someone else first.", "is_organizer");
-  await commit(ctx.env, ctx.society.id, [ctx.env.DB.prepare("UPDATE memberships SET status = 'removed' WHERE society_id = ? AND email = ? AND role = 'host' AND status = 'active' AND permanent = 0").bind(ctx.society.id, email), guardChanged(ctx.env, "That host was already removed.")],
+  await commit(ctx.env, ctx.society.id, [ctx.env.DB.prepare("UPDATE memberships SET status = 'removed' WHERE society_id = ? AND email = ? AND role = 'host' AND status = 'active' AND permanent = 0").bind(ctx.society.id, email), guardChanged(ctx.env, "That co-organizer was already removed.")],
     "team.host_removed", await staffActor(ctx.env, ctx.email, ctx.role), { target: await pseudonym(ctx.env, email) }, ctx.now);
   return { removed: email };
 }
@@ -159,7 +159,7 @@ export async function transferOrganizer(ctx: StaffCtx, rawEmail: string) {
   const to = em.value, db = ctx.env.DB, sid = ctx.society.id;
   if (to === ctx.email) throw new HttpError(400, "You are already the Organizer.");
   const ex = await db.prepare("SELECT role, status, permanent FROM memberships WHERE society_id = ? AND email = ?").bind(sid, to).first<{ role: string; status: string; permanent: number }>();
-  if (ex?.permanent) throw new HttpError(400, "The standing Townhall Records host cannot become the Organizer.");
+  if (ex?.permanent) throw new HttpError(400, "The standing Townhall Records co-organizer cannot become the Organizer.");
   const stmts: D1Stmt[] = [
     db.prepare("UPDATE memberships SET status = 'removed' WHERE society_id = ? AND email = ? AND role = 'organizer' AND status = 'active'").bind(sid, ctx.email), guardChanged(ctx.env, "The Organizer has already changed."),
     db.prepare("INSERT INTO memberships (society_id, email, role, status, invited_by, created_at) VALUES (?, ?, 'organizer', 'active', ?, ?) ON CONFLICT(society_id, email) DO UPDATE SET role = 'organizer', status = 'active'").bind(sid, to, ctx.email, ctx.now),

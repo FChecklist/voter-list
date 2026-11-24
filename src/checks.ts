@@ -129,7 +129,7 @@ export function runChecks(rows: ListRow[], s: Settings): CheckReport {
         if (p.reasons.includes("rule")) parts.push({ kind: "rule", code: "", text: ruleReason(r.capacity) });
         if (p.reasons.includes("dues")) parts.push({ kind: "dues", code: "", text: DUES_REASON });
       }
-      if (missing) add({ code: "E_REASON_MISSING", severity: "error", unit, rowIds: [r.id], message: `Flat ${unit}: ${shortName(r.name) || "a person"} is marked not allowed to vote, but no reason is given.`, hint: "Please choose a reason (for example dues unpaid, tenant, or co-owner), or write your own." });
+      if (missing) add({ code: "E_REASON_MISSING", severity: "error", unit, rowIds: [r.id], message: `Flat ${unit}: ${shortName(r.name) || "a person"} is marked not allowed to vote, but no reason is given.`, hint: "Please choose a reason (for example dues unpaid, tenant, or co-owner), or write another." });
       const allowed = !!p && p.canVote;
       return { rowId: r.id, allowed, kind: allowed ? "" : parts[0]!.kind, code: allowed ? "" : parts[0]!.code, reason: allowed ? "" : parts.map((x) => x.text).join("; "), publicReason: allowed ? "" : parts.filter((x) => publicOk(x.kind, x.code, mode)).map((x) => (mode === "all" ? x.text : x.plain ?? x.text)).join("; "), missing };
     });

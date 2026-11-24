@@ -55,11 +55,11 @@ export function checkOwned(society: SocietyRow, input: RecordInput, cur?: VoterR
   const rule = ruleOf(society.rule_code);
   const unitRaw = input.unit !== undefined ? input.unit : cur?.unit ?? "";
   const unit = unitDisplay(String(unitRaw)); const uk = unitKey(unit);
-  if (!uk || unit.length > 40) throw new HttpError(400, "Please type your Flat / House / Member ID (up to 40 characters).");
+  if (!uk || unit.length > 40) throw new HttpError(400, "Please type the Flat / House / Member ID (up to 40 characters).");
   if (!/^[A-Za-z0-9][A-Za-z0-9 \-\/.,#()]*$/.test(unit) || (unit.match(/[A-Za-z]{3,}/g) ?? []).length > 2) throw new HttpError(400, "Please type only the flat or house number, such as A-101 or Tower 2, 304.", "bad_unit");
   if (looksPrivate(unit) && !(cur && uk === cur.unit_key)) throw new HttpError(400, "That ID looks like a phone number or an e-mail ID. Please check it and type the flat, house or member ID instead.");
   const nm = cleanName(input.name !== undefined ? String(input.name) : cur?.name ?? "").value;
-  if (nm.length < 2 || nm.length > 120) throw new HttpError(400, "Please type your full name (2 to 120 letters).");
+  if (nm.length < 2 || nm.length > 120) throw new HttpError(400, "Please type the full name (2 to 120 letters).");
   const mb = cleanMobile(input.mobile !== undefined ? String(input.mobile) : cur?.mobile ?? "", society.country);
   if (!mb.ok) throw new HttpError(400, "Please type a proper mobile number.");
   const capRaw = input.capacity !== undefined ? String(input.capacity) : cur?.capacity ?? "";
@@ -77,7 +77,7 @@ export function checkOwned(society: SocietyRow, input: RecordInput, cur?: VoterR
 // ------------------------------------------------------------------------------------------------------------------ the voter's session
 export interface VoterCtx { env: Env; now: number; email: string; society: SocietyRow }
 const open = (c: VoterCtx) => { if (!enrolOpen(c.society, c.now)) throw new HttpError(409, c.society.phase === "frozen" ? "This list is final now, so details can no longer be changed." : "Enrolment has closed for this list, so details can no longer be changed.", "closed"); };
-async function mine(c: VoterCtx, id: string): Promise<VoterRow> {
+async function ownRow(c: VoterCtx, id: string): Promise<VoterRow> {
   const v = await getVoter(c.env, c.society.id, id);
   if (!v || v.email.toLowerCase() !== c.email || v.status === "removed") throw new HttpError(404, "Not found.", "not_found");
   return v;
@@ -88,8 +88,8 @@ const docCount = async (env: Env, id: string) => (await env.DB.prepare("SELECT C
 export const docView = (d: { id: string; doc_type: string; filename: string; mime: string; size: number; created_at: number }) => ({ id: d.id, docType: d.doc_type, filename: d.filename, mime: d.mime, size: d.size, createdAt: d.created_at });
 
 const NEXT: Record<string, string> = {
-  invited: "Please check your details and press Confirm and send.", draft: "Please check your details and press Confirm and send.", submitted: "Your record is with the list team for a check.",
-  approved: "Your record is on the list.", sent_back: "Please read the note, fix what is asked, and send it again.",
+  invited: "Please check the details and press Confirm and send.", draft: "Please check the details and press Confirm and send.", submitted: "The record is with the list team for a check.",
+  approved: "The record is on the list.", sent_back: "Please read the note, fix what is asked, and send it again.",
 };
 export async function viewMine(c: VoterCtx, v: VoterRow) {
   const docs = (await c.env.DB.prepare("SELECT id, doc_type, filename, mime, size, created_at FROM voter_docs WHERE voter_id = ? ORDER BY created_at, id").bind(v.id).all<{ id: string; doc_type: string; filename: string; mime: string; size: number; created_at: number }>()).results;
@@ -150,11 +150,11 @@ export async function createRecord(c: VoterCtx, input: RecordInput) {
 export async function editRecord(c: VoterCtx, id: string, input: RecordInput) {
   open(c);
   await rateLimit(c.env, `rec-edit:${c.society.id}:${c.email}`, 60, 3_600_000, c.now);
-  const v = await mine(c, id);
+  const v = await ownRow(c, id);
   const locked = !!v.approved_json || v.status === "approved"; // a flat, once approved, is not renamed: remove it and enrol the right one
   if (locked && input.unit !== undefined && unitKey(unitDisplay(String(input.unit))) !== v.unit_key) throw new HttpError(409, "The Flat / House ID cannot be changed once it was approved. Please ask the list team.", "unit_locked");
   const { unit, unitKey: uk, owned } = checkOwned(c.society, input, v);
-  if (uk !== v.unit_key && v.no_vote_by === "organizer") throw new HttpError(409, "The Organizer has decided about your vote for this flat, so the flat cannot be changed here. Please ask the Organizer.", "unit_locked");
+  if (uk !== v.unit_key && v.no_vote_by === "organizer") throw new HttpError(409, "The Organizer has decided about the vote for this flat, so the flat cannot be changed here. Please ask the Organizer.", "unit_locked");
   const was = ownedOf(v);
   const fields: string[] = (["name", "mobile", "capacity", "proxyFor"] as const).filter((k) => was[k] !== owned[k]);
   if (unit !== v.unit) fields.push("unit");
@@ -167,29 +167,32 @@ export async function editRecord(c: VoterCtx, id: string, input: RecordInput) {
   }
   const m = mutation(c.env, c.now, v, patch, { kind: "edited", actorEmail: c.email, actorRole: "voter" });
   try { await commit(c.env, c.society.id, m.stmts, "record.edited", await voterActor(c.env, c.email), { unit: pubUnit(unit), fields, resubmitted: v.status === "approved" ? 1 : 0 }, c.now); }
-  catch (e) { if (/UNIQUE/i.test(String((e as Error)?.message))) throw new HttpError(409, "You already have a record for that home.", "exists"); throw e; }
+  catch (e) { if (/UNIQUE/i.test(String((e as Error)?.message))) throw new HttpError(409, "A record for that home already exists.", "exists"); throw e; }
   return viewMine(c, (await getVoter(c.env, c.society.id, id))!);
 }
 
-export async function confirmRecord(c: VoterCtx, id: string, consent: unknown) {
+/** The version of the Terms and Conditions page (public/terms/index.html) in force; written to the signed trail on every confirm. */
+export const TERMS_VERSION = "draft-2026-11-24";
+
+export async function confirmRecord(c: VoterCtx, id: string) {
   open(c);
-  if (consent !== true) throw new HttpError(400, "Please tick the box to confirm your details and agree to how they are used.", "consent");
-  const v = await mine(c, id);
+  // No tick box: pressing the confirm button is the act, and the trail records it with the terms version.
+  const v = await ownRow(c, id);
   if (!["invited", "draft", "sent_back"].includes(v.status)) throw new HttpError(409, v.status === "submitted" ? "This record has already been sent." : "This record is already on the list.", "bad_state");
   const { owned } = checkOwned(c.society, {}, v); // complete and allowed by this list's rule
   const docs = await c.env.DB.prepare("SELECT doc_type FROM voter_docs WHERE voter_id = ?").bind(id).all<{ doc_type: string }>();
   if (owned.capacity === "Proxy" && !docs.results.some((d) => d.doc_type === "Proxy Nomination Form")) throw new HttpError(400, "A proxy needs to add the owner's authority letter (Proxy Nomination Form) before sending.", "need_proxy_letter");
   if (c.society.docs_required && !docs.results.length) throw new HttpError(400, "This list asks for one supporting document. Please add it before sending.", "need_doc");
   const again = v.status === "sent_back";
-  const m = mutation(c.env, c.now, v, { status: "submitted", reason: "", confirmed_at: c.now, submitted_at: c.now, decided_by: null, decided_at: null }, { kind: again ? "resubmitted" : "confirmed", actorEmail: c.email, actorRole: "voter", reason: "consent given" });
-  await commit(c.env, c.society.id, m.stmts, again ? "record.resubmitted" : "record.confirmed", await voterActor(c.env, c.email), { unit: pubUnit(v.unit), consent: 1, docs: docs.results.length }, c.now);
+  const m = mutation(c.env, c.now, v, { status: "submitted", reason: "", confirmed_at: c.now, submitted_at: c.now, decided_by: null, decided_at: null }, { kind: again ? "resubmitted" : "confirmed", actorEmail: c.email, actorRole: "voter", reason: `confirm pressed; terms ${TERMS_VERSION}` });
+  await commit(c.env, c.society.id, m.stmts, again ? "record.resubmitted" : "record.confirmed", await voterActor(c.env, c.email), { unit: pubUnit(v.unit), confirmed: 1, terms: TERMS_VERSION, docs: docs.results.length }, c.now);
   return viewMine(c, (await getVoter(c.env, c.society.id, id))!);
 }
 
 export async function withdrawRecord(c: VoterCtx, id: string) {
   // withdrawing consent stays possible after the closing time and until the list is final (editing does not)
   if (c.society.phase !== "open" || c.society.erased_at) throw new HttpError(409, "This list is final now, so a record can no longer be withdrawn here. Please ask the Organizer.", "frozen");
-  const v = await mine(c, id);
+  const v = await ownRow(c, id);
   const m = mutation(c.env, c.now, v, { status: "removed", reason: "" }, { kind: "withdrawn", actorEmail: c.email, actorRole: "voter" });
   await commit(c.env, c.society.id, [...m.stmts, c.env.DB.prepare("DELETE FROM voter_docs WHERE voter_id = ?").bind(id)], "record.withdrawn", await voterActor(c.env, c.email), { unit: pubUnit(v.unit) }, c.now);
   return { id, status: "removed" };
@@ -213,9 +216,9 @@ export async function checkDoc(d: DocInput): Promise<{ bytes: Uint8Array; sha: s
 export async function addDoc(c: VoterCtx, id: string, d: DocInput) {
   open(c);
   await rateLimit(c.env, `doc-add:${c.society.id}:${c.email}`, 15, 86_400_000, c.now);
-  const v = await mine(c, id);
+  const v = await ownRow(c, id);
   // an approved record keeps its documents, with one exception: the owner's Proxy Nomination Form may be added, so an approved Owner can become a Proxy
-  if (v.status === "approved" && d.docType !== "Proxy Nomination Form") throw new HttpError(409, "This record is approved, so its documents are kept as they are. To change them, change your details first so it is checked again.", "approved_docs");
+  if (v.status === "approved" && d.docType !== "Proxy Nomination Form") throw new HttpError(409, "This record is approved, so its documents are kept as they are. To change them, change the details first so it is checked again.", "approved_docs");
   const f = await checkDoc(d);
   // the free database is small: one list may keep at most 100 MB of documents, so no single list can fill it for everybody
   const used = (await c.env.DB.prepare("SELECT IFNULL(SUM(size), 0) AS n FROM voter_docs WHERE society_id = ?").bind(c.society.id).first<{ n: number }>())?.n ?? 0;
@@ -230,14 +233,14 @@ export async function addDoc(c: VoterCtx, id: string, d: DocInput) {
 
 export async function removeDoc(c: VoterCtx, id: string, did: string) {
   open(c);
-  const v = await mine(c, id);
+  const v = await ownRow(c, id);
   if (v.status === "approved") throw new HttpError(409, "This record is on the list, so its documents are kept. Please ask the list team if one must go.", "kept");
   const d = await c.env.DB.prepare("SELECT doc_type FROM voter_docs WHERE id = ? AND voter_id = ?").bind(did, id).first<{ doc_type: string }>();
   if (!d) throw new HttpError(404, "Not found.", "not_found");
   if (v.status === "submitted") { // already with the team: a swap is fine (add the new one first), but the record may not be left without what it needs
     const rest = (await c.env.DB.prepare("SELECT doc_type FROM voter_docs WHERE voter_id = ? AND id <> ?").bind(id, did).all<{ doc_type: string }>()).results;
     if ((v.capacity === "Proxy" && !rest.some((x) => x.doc_type === "Proxy Nomination Form")) || (c.society.docs_required && !rest.length))
-      throw new HttpError(409, "Your record is with the list team, which needs this document. Please add the new one first, then remove this one.", "doc_needed");
+      throw new HttpError(409, "The record is with the list team, which needs this document. Please add the new one first, then remove this one.", "doc_needed");
   }
   const touch = mutation(c.env, c.now, v, {}, { kind: "doc_removed", actorEmail: c.email, actorRole: "voter", reason: d.doc_type });
   await commit(c.env, c.society.id, [c.env.DB.prepare("DELETE FROM voter_docs WHERE id = ? AND voter_id = ?").bind(did, id), guardChanged(c.env, "That document was already removed."), ...touch.stmts], "doc.removed", await voterActor(c.env, c.email), { unit: pubUnit(v.unit), type: d.doc_type }, c.now);
@@ -245,7 +248,7 @@ export async function removeDoc(c: VoterCtx, id: string, did: string) {
 }
 
 export async function getMyDoc(c: VoterCtx, id: string, did: string) {
-  await mine(c, id);
+  await ownRow(c, id);
   const d = await c.env.DB.prepare("SELECT filename, mime, data_b64 FROM voter_docs WHERE id = ? AND voter_id = ?").bind(did, id).first<{ filename: string; mime: string; data_b64: string }>();
   if (!d) throw new HttpError(404, "Not found.", "not_found");
   return { body: Uint8Array.from(atob(d.data_b64), (ch) => ch.charCodeAt(0)), type: d.mime, filename: d.filename };

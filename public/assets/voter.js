@@ -43,7 +43,7 @@
   function closingNote(i) {
     if (i.phase === "frozen") return el("p", { class: "note warn" }, "This list is final. Enrolment is closed.");
     if (!i.enrolOpen) return el("p", { class: "note warn" }, "Enrolment has closed.");
-    if (i.cutoffLocal) return el("p", { class: "note" }, "You can enrol and change your details until ", el("b", {}, window.VL.localTime(i.cutoffLocal)), ".");
+    if (i.cutoffLocal) return el("p", { class: "note" }, "Enrolment and changes are open until ", el("b", {}, window.VL.localTime(i.cutoffLocal)), ".");
     return null;
   }
   async function signOut() { try { await api("POST", A("/logout"), {}); } catch { /* already out */ } S.me = null; S.codeSent = false; S.open = null; draw(); }
@@ -57,7 +57,7 @@
       mk("signin", "Sign in", "Step 1. Sign in", { state: signedIn ? "done" : "now", summary: signedIn ? S.me.email : "", body: signinBody }),
       mk("enrol", "Enrol", "Step 2. Tell us who you are", { state: !signedIn ? "locked" : has ? "done" : closed ? "todo" : "now", summary: has ? `${r.unit}, ${window.VL.cap(r.capacity)}` : "", body: enrolBody, lockedNote: "Opens after you sign in" }),
       mk("confirm", "Send", "Step 3. Check and send", { state: !has ? "locked" : isSent ? "done" : "now", summary: isSent ? "Sent to the list team" : "", body: confirmBody, lockedNote: "Opens after step 2" }),
-      mk("details", "Details", "Step 4. Your information", { state: !has ? "locked" : "todo", summary: has ? r.name : "", body: detailsBody, lockedNote: "Opens after step 2" }),
+      mk("details", "Details", "Step 4. Information", { state: !has ? "locked" : "todo", summary: has ? r.name : "", body: detailsBody, lockedNote: "Opens after step 2" }),
       mk("docs", "Files", "Step 5. Documents", { state: !has ? "locked" : "todo", summary: has ? (r.docs.length ? `${r.docs.length} added` : "None added") : "", body: docsBody, lockedNote: "Opens after step 2" }),
       mk("status", "Status", "Step 6. Where things stand", { state: !has ? "locked" : isSent || r.status === "sent_back" ? "now" : "todo", summary: has ? statusWord(r) : "", body: statusBody, lockedNote: "Opens after step 2" }),
       mk("list", "List", "Step 7. The public list", { state: "todo", summary: S.info.shown ? (S.info.shown.provisional ? "Provisional list published" : "Final list published") : "Not published yet", body: listBody }),
@@ -76,7 +76,7 @@
       const btn = el("button", { class: "btn brass big", type: "submit" }, "Send me a code"); const cap = window.VL.captcha();
       return [el("p", { class: "muted" }, "We will e-mail you a 6-digit code. There is no password to remember."),
         el("form", { on: { submit: async (e) => { e.preventDefault(); err.clear(); S.email = email.value.trim(); await window.VL.busy(btn, async () => { btn.textContent = "Sending…"; try { await api("POST", A("/start"), { email: S.email, turnstileToken: cap.token() }); S.codeSent = true; S.codeFor = S.email; S.justMoved = false; draw("signin"); devHint(); } catch (x) { err.show(x.message); cap.reset(); } }); } } },
-          el("label", { for: "em" }, "Your e-mail ID"), email, cap.node, err, el("div", { class: "row" }, btn)),
+          el("label", { for: "em" }, "E-mail ID"), email, cap.node, err, el("div", { class: "row" }, btn)),
         el("p", { class: "tiny muted" }, "What happens next: you enter the code here, and stay signed in for 8 hours on this device.")];
     }
     const code = el("input", { id: "cd", class: "codebox", type: "text", inputmode: "numeric", autocomplete: "one-time-code", maxlength: "14", required: true, "aria-describedby": "cdh", placeholder: "000000" });
@@ -89,7 +89,7 @@
   }
   async function devHint() { // only on a developer's own computer
     if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return;
-    try { const j = await (await fetch(`/dev/code?to=${encodeURIComponent(S.codeFor)}`)).json(); const n = document.getElementById("devhint"); if (n && j.code) { n.textContent = "Test mode: your code is " + j.code; n.classList.remove("hidden"); } } catch { /* not the dev server */ }
+    try { const j = await (await fetch(`/dev/code?to=${encodeURIComponent(S.codeFor)}`)).json(); const n = document.getElementById("devhint"); if (n && j.code) { n.textContent = "Test mode: the code is " + j.code; n.classList.remove("hidden"); } } catch { /* not the dev server */ }
   }
 
   // ---- the record form (used to enrol, and to change details)
@@ -112,7 +112,7 @@
     } } },
     el("fieldset", { style: "border:0;padding:0;margin:0" }, el("legend", { class: "big", style: "font-weight:600" }, "I am the"), el("div", { class: "choices" }, radios)),
     proxyRow,
-    el("div", { class: "fieldrow" }, el("div", {}, el("label", { for: "un" }, "Flat or house number"), unit, lockUnit ? el("p", { class: "tiny muted" }, "The flat cannot be changed once approved. Please ask the list team.") : null), el("div", {}, el("label", { for: "nm" }, "Your name, as in the sale deed or society record"), name)),
+    el("div", { class: "fieldrow" }, el("div", {}, el("label", { for: "un" }, "Flat or house number"), unit, lockUnit ? el("p", { class: "tiny muted" }, "The flat cannot be changed once approved. Please ask the list team.") : null), el("div", {}, el("label", { for: "nm" }, "Full name, as in the sale deed or society record"), name)),
     el("div", { class: "fieldrow" }, el("div", {}, el("label", { for: "mb" }, "Mobile number"), mobile), el("div", {}, el("label", {}, "E-mail ID"), el("p", { class: "mono", style: "margin:8px 0" }, S.me.email))),
     err, el("div", { class: "row" }, btn));
   }
@@ -124,7 +124,7 @@
     const parts = [];
     if (list.length && !S.adding) {
       const r = cur();
-      parts.push(el("p", { class: "big" }, r.status === "invited" ? "The list team has prepared your details. Please check them in the next step." : "You are enrolled for "), list.length > 1 ? chipsFor(list) : el("p", {}, el("b", {}, `${r.unit}, as ${window.VL.cap(r.capacity)}`), r.proxyFor ? ` for ${r.proxyFor}` : ""));
+      parts.push(el("p", { class: "big" }, r.status === "invited" ? "The list team has prepared the details. Please check them in the next step." : "You are enrolled for "), list.length > 1 ? chipsFor(list) : el("p", {}, el("b", {}, `${r.unit}, as ${window.VL.cap(r.capacity)}`), r.proxyFor ? ` for ${r.proxyFor}` : ""));
       if (S.info.enrolOpen && list.length < 5) parts.push(el("div", { class: "row" }, el("button", { class: "btn ghost", type: "button", on: { click: () => { S.adding = true; draw("enrol"); } } }, "Add another flat or house")));
       return parts;
     }
@@ -143,24 +143,23 @@
     const r = cur(), err = window.VL.err();
     if (!r) return [];
     if (sent(r)) return [...homeChips(), el("p", { class: "note ok" }, r.status === "approved" ? "Approved. You are on the list." : "Sent. The list team will check it."), el("p", {}, r.next)];
-    const consent = el("input", { id: "cs", type: "checkbox" });
     const btn = el("button", { class: "btn brass big", type: "submit" }, r.status === "sent_back" ? "Send again" : "Send to the list team");
     const needsLetter = r.needsProxyLetter, needsDoc = S.info.docsRequired && !r.docs.length;
     return [...homeChips(),
-      r.status === "sent_back" ? el("div", { class: "note bad" }, el("b", {}, "The list team sent this back to you. "), r.reason || "Please check your details.", el("br"), "Please change what is needed in Step 4 (details) or Step 5 (documents), then send it again here.") : null,
+      r.status === "sent_back" ? el("div", { class: "note bad" }, el("b", {}, "The list team sent this back to you. "), r.reason || "Please check the details.", el("br"), "Please change what is needed in Step 4 (details) or Step 5 (documents), then send it again here.") : null,
       el("p", {}, "Please check what you are sending:"),
       summary(r),
       needsLetter || needsDoc ? el("div", { class: "note warn" }, needsLetter ? "A proxy needs the owner's signed Proxy Nomination Form. Please add it below." : "This list asks for one supporting document. Please add it below.") : null,
       needsLetter || needsDoc ? docsBody() : null,
-      el("form", { on: { submit: async (e) => { e.preventDefault(); err.clear(); if (!consent.checked) { err.show("Please tick the box to say you agree."); consent.focus(); return; }
-        await window.VL.busy(btn, async () => { btn.textContent = "Sending…"; try { await api("POST", A(`/records/${r.id}/confirm`), { consent: true }); await loadMe(); S.open = null; S.justMoved = true; draw(); toast("Sent to the list team."); } catch (x) { err.show(x.message); } }); } } },
-      el("div", { class: "note" }, el("label", { style: "display:flex;gap:10px;align-items:flex-start;font-weight:400" }, consent, el("span", {}, "I agree that these details are used to build this society's voter list. The list team, its hosts and the Townhall Records host who helps societies check records can see them. The public list shows my flat number, my role and a masked name, mobile number and e-mail ID. I can withdraw my record while the list is open."))),
-      el("details", { class: "small", style: "margin:8px 0" }, el("summary", {}, "How your details are looked after"),
-        el("ul", {}, el("li", {}, "Used only to build and check this society's voter list."), el("li", {}, "Kept safely with the list, for as long as your society keeps its voter records. A signed fingerprint of each final list stays, so that nobody can change it later."),
-          el("li", {}, "You may ask to see or correct your details, and you may withdraw your record until the list is final. Your contact is the Organizer: the person who shared this link. Every correction is written to a signed trail. A record you withdraw yourself is cleared after 30 days."),
-          el("li", {}, "Any document you add can be opened only by the list team, and each opening is logged."), el("li", {}, "A final list that was already signed stays exactly as it was, so a later withdrawal takes effect from the next list."))),
+      el("form", { on: { submit: async (e) => { e.preventDefault(); err.clear();
+        await window.VL.busy(btn, async () => { btn.textContent = "Sending…"; try { await api("POST", A(`/records/${r.id}/confirm`), {}); await loadMe(); S.open = null; S.justMoved = true; draw(); toast("Sent to the list team."); } catch (x) { err.show(x.message); } }); } } },
+      el("p", { class: "note" }, "By pressing the button below, the details are used to build this society's voter list, under the ", el("a", { href: "/terms/", target: "_blank", rel: "noopener" }, "Terms and Conditions"), ". The list team, its co-organizers and the Townhall Records co-organizer who helps societies check records can see them. The public list shows the flat number, the role and a masked name, mobile number and e-mail ID. The record can be withdrawn while the list is open."),
+      el("details", { class: "small", style: "margin:8px 0" }, el("summary", {}, "How the details are looked after"),
+        el("ul", {}, el("li", {}, "Used only to build and check this society's voter list."), el("li", {}, "Kept safely with the list, for as long as the society keeps its voter records. A signed fingerprint of each final list stays, so that nobody can change it later."),
+          el("li", {}, "The voter may ask to see or correct the details, and may withdraw the record until the list is final. The contact is the Organizer: the person who shared this link. Every correction is written to a signed trail. A record withdrawn by the voter is cleared after 30 days."),
+          el("li", {}, "Any document that is added can be opened only by the list team, and each opening is logged."), el("li", {}, "A final list that was already signed stays exactly as it was, so a later withdrawal takes effect from the next list."))),
       err, el("div", { class: "row" }, btn)),
-      el("p", { class: "tiny muted" }, "What happens next: the list team checks your record. You can see the answer in Step 6.")];
+      el("p", { class: "tiny muted" }, "What happens next: the list team checks the record. You can see the answer in Step 6.")];
   }
   const summary = (r) => el("dl", { class: "kv" }, el("dt", {}, "Flat or house"), el("dd", {}, r.unit), el("dt", {}, "Name"), el("dd", {}, r.name), el("dt", {}, "Role"), el("dd", {}, window.VL.cap(r.capacity) + (r.proxyFor ? ` for ${r.proxyFor}` : "")), el("dt", {}, "Mobile"), el("dd", {}, r.mobile), el("dt", {}, "E-mail ID"), el("dd", {}, r.email));
 
@@ -169,9 +168,9 @@
     const r = cur(); if (!r) return [];
     const editable = r.canEdit && (S.info.enrolOpen || false);
     const parts = [...homeChips(), summary(r)];
-    if (r.whatIsOnTheList) parts.push(el("p", { class: "note" }, "Your earlier approved details stay on the list until your change is checked."));
+    if (r.whatIsOnTheList) parts.push(el("p", { class: "note" }, "The earlier approved details stay on the list until the change is checked."));
     if (!editable) { parts.push(el("p", { class: "muted" }, S.info.enrolOpen ? "These details cannot be changed right now." : "Details cannot be changed after the closing time.")); return parts; }
-    parts.push(el("h3", {}, "Change your details"), recordForm(r, { cta: "Save my changes", save: async (b) => { const x = await api("PATCH", A(`/records/${r.id}`), b); await loadMe(); S.open = r.status === "sent_back" ? "confirm" : "status"; S.justMoved = false; draw(S.open); toast(x.status === "submitted" ? "Saved. It goes for a fresh check." : "Saved."); } }));
+    parts.push(el("h3", {}, "Change the details"), recordForm(r, { cta: "Save the changes", save: async (b) => { const x = await api("PATCH", A(`/records/${r.id}`), b); await loadMe(); S.open = r.status === "sent_back" ? "confirm" : "status"; S.justMoved = false; draw(S.open); toast(x.status === "submitted" ? "Saved. It goes for a fresh check." : "Saved."); } }));
     return parts;
   }
 
@@ -201,11 +200,11 @@
         el("a", { class: "btn ghost small", href: A(`/records/${r.id}/docs/${d.id}`), target: "_blank", rel: "noopener" }, "View"),
         r.status !== "approved" ? el("button", { class: "btn ghost small", type: "button", on: { click: async () => { try { await api("DELETE", A(`/records/${r.id}/docs/${d.id}`)); await loadMe(); draw(S.open || "docs"); } catch (x) { fail(x); } } } }, "Remove") : null))) : el("p", { class: "muted" }, "No documents added yet."),
       r.docs.length >= max ? el("p", { class: "note" }, "You have added the most documents allowed. Remove one to add another.") : [el("label", { for: "dt" + uidn }, "What is this document?"), type, el("label", { for: "fl" + uidn }, "The file"), file, err, el("div", { class: "row" }, btn)],
-      r.status === "approved" ? el("p", { class: "tiny muted" }, "Your record is approved, so its documents are kept as they are. If you want to become a proxy, you can still add the owner's Proxy Nomination Form here; then change your role in Step 4.") : null];
+      r.status === "approved" ? el("p", { class: "tiny muted" }, "The record is approved, so its documents are kept as they are. If you want to become a proxy, you can still add the owner's Proxy Nomination Form here; then change the role in Step 4.") : null];
   }
 
   // ---- step 6
-  const WHAT = { created: ["You started your record", ""], confirmed: ["You sent it to the list team", ""], edited: ["You changed your details", ""], resubmitted: ["You sent it again", ""], approved: ["Approved. You are on the list", "ok"], sent_back: ["Sent back to you", "bad"], withdrawn: ["You withdrew your record", ""], removed: ["Removed by the list team", "bad"], doc_added: ["You added a document", ""], doc_removed: ["You removed a document", ""], imported: ["The list team prepared your record", ""], added: ["The list team added your record", ""], corrected: ["The list team corrected a detail", ""], undone: ["A change by the list team was undone", ""] };
+  const WHAT = { created: ["The record was started", ""], confirmed: ["You sent it to the list team", ""], edited: ["The details were changed", ""], resubmitted: ["You sent it again", ""], approved: ["Approved. You are on the list", "ok"], sent_back: ["Sent back to you", "bad"], withdrawn: ["The record was withdrawn", ""], removed: ["Removed by the list team", "bad"], doc_added: ["You added a document", ""], doc_removed: ["You removed a document", ""], imported: ["The list team prepared the record", ""], added: ["The list team added the record", ""], corrected: ["The list team corrected a detail", ""], undone: ["A change by the list team was undone", ""] };
   function statusBody() {
     const r = cur(); if (!r) return [];
     const tone = r.status === "approved" ? "ok" : r.status === "sent_back" ? "bad" : "";
@@ -214,16 +213,16 @@
       r.status === "sent_back" ? el("div", { class: "note bad" }, el("b", {}, "Why it was sent back: "), r.reason) : null,
       r.vote ? (r.vote.allowed ? el("div", { class: "note ok" }, "As the list stands now, you are allowed to vote.") : el("div", { class: "note bad" }, el("b", {}, "As the list stands now, you are not allowed to vote."), " ", r.vote.reason, el("div", { class: "small" }, "If this is wrong, please ask the Organizer of the list."))) : null,
       el("div", { class: "next" }, el("b", {}, "What happens next. "), r.next),
-      r.status === "sent_back" ? el("div", { class: "row" }, el("button", { class: "btn brass", type: "button", on: { click: () => go("details") } }, "Fix my details")) : null,
+      r.status === "sent_back" ? el("div", { class: "row" }, el("button", { class: "btn brass", type: "button", on: { click: () => go("details") } }, "Fix the details")) : null,
       el("h3", {}, "History"), el("ol", { class: "timeline" }, r.timeline.map((t) => { const w = WHAT[t.what] || [t.what, ""]; return el("li", { class: w[1] }, el("b", {}, w[0]), " ", el("span", { class: "muted small" }, window.VL.fmtDate(t.at)), t.reason && t.what === "sent_back" ? el("div", { class: "small" }, "Reason: " + t.reason) : null); })),
-      r.canWithdraw ? el("div", { class: "row" }, el("button", { class: "btn ghost small", type: "button", on: { click: async () => { if (!(await window.VL.confirm("Withdraw this record?", "It will no longer be considered for the list, and its details are cleared after 30 days. You can enrol again before the closing time.", "Yes, withdraw"))) return; try { await api("POST", A(`/records/${r.id}/withdraw`), {}); await loadMe(); S.open = null; draw(); toast("Withdrawn."); } catch (x) { fail(x); } } } }, "Withdraw my record")) : null];
+      r.canWithdraw ? el("div", { class: "row" }, el("button", { class: "btn ghost small", type: "button", on: { click: async () => { if (!(await window.VL.confirm("Withdraw this record?", "It will no longer be considered for the list, and its details are cleared after 30 days. You can enrol again before the closing time.", "Yes, withdraw"))) return; try { await api("POST", A(`/records/${r.id}/withdraw`), {}); await loadMe(); S.open = null; draw(); toast("Withdrawn."); } catch (x) { fail(x); } } } }, "Withdraw the record")) : null];
   }
 
   // ---- step 7
   function listBody() {
     const p = S.info.shown;
     if (!S.pub.loaded) { loadPub().then(() => { if (S.open === "list") draw("list"); }).catch(() => {}); return [el("p", { class: "muted" }, "Loading…")]; }
-    if (!p) return [el("p", {}, "The list has not been published yet. When the list team publishes it, you will find it here with your name masked as ", el("span", { class: "mono" }, "Ra**** Sh****"), ".")];
+    if (!p) return [el("p", {}, "The list has not been published yet. When the list team publishes it, you will find it here with the name masked as ", el("span", { class: "mono" }, "Ra**** Sh****"), ".")];
     const q = el("input", { id: "q", type: "search", placeholder: "Search by flat number, e.g. A-101", value: S.pub.q, "aria-label": "Search by flat number" });
     let t; q.addEventListener("input", () => { clearTimeout(t); t = setTimeout(async () => { await loadPub(q.value.trim()); const pos = q.selectionStart; draw("list"); const n = document.getElementById("q"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }, 350); });
     return [el("p", { class: "note " + (p.provisional ? "warn" : "ok") }, p.provisional ? `Provisional list ${p.seq}, published ${window.VL.fmtDate(p.publishedAt)}. It may still change.` : `Final list${p.event ? " for " + p.event : ""}, frozen at the cut-off of ${window.VL.localTime(p.cutoffLocal)}. It cannot change.`),

@@ -3,7 +3,7 @@
   const VL = window.VL, el = VL.el;
   /** steps: [{key, short, title, state:'done'|'now'|'locked'|'todo', summary, body: ()=>Node[], open:boolean}] */
   VL.stepbar = function (steps, goto) {
-    return el("ol", { class: "stepbar", "aria-label": "Your progress" }, steps.map((s, i) => el("li", { class: s.state === "now" ? "now" : "" },
+    return el("ol", { class: "stepbar", "aria-label": "Progress" }, steps.map((s, i) => el("li", { class: s.state === "now" ? "now" : "" },
       el("button", { type: "button", disabled: s.state === "locked", "aria-current": s.state === "now" ? "step" : false, on: { click: () => goto(s.key) } },
         el("span", { class: "dot " + (s.state === "done" ? "done" : s.state === "now" ? "now" : "") }, s.state === "done" ? "✓" : String(i + 1)),
         el("span", {}, s.short)))));

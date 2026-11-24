@@ -38,8 +38,8 @@ describe("F4: an approved owner can become a proxy", () => {
 describe("F7: a bare web address in the society name is refused", () => {
   test("visit evil.com now", async () => {
     const h = await makeHarness(); const jar = await h.staff("organizer@sample.example");
-    expect((await h.call("POST", "/api/lists", { name: "visit evil.com now", kind: "RWA", country: "India", ruleCode: 2 }, jar)).status).toBe(400);
-    expect((await h.call("POST", "/api/lists", { name: "Sample Heights Residents", kind: "RWA", country: "India", ruleCode: 2 }, jar)).status).toBe(201);
+    expect((await h.call("POST", "/api/lists", { name: "visit evil.com now", kind: "RWA", country: "India", regNo: "KA/RWA/2019/0001", ruleCode: 2 }, jar)).status).toBe(400);
+    expect((await h.call("POST", "/api/lists", { name: "Sample Heights Residents", kind: "RWA", country: "India", regNo: "KA/RWA/2019/0001", ruleCode: 2 }, jar)).status).toBe(201);
   });
 });
 
