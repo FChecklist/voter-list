@@ -7,7 +7,7 @@
   const S = { pub: null, me: null, email: "", codeSent: false, pick: {} };
   const root = document.getElementById("app");
   const terms = () => el("a", { href: "/terms/", target: "_blank", rel: "noopener" }, "Terms and Conditions");
-  const maskMail = (e) => e.replace(/^(.).*(@)(.).*(\..+)$/, "$1****$2$3****$4");
+  const maskMail = (e) => (/@[^@.]+$/.test(e) ? e.replace(/^(.)[^@]*@/, "$1****@") : e.replace(/^(.).*(@)(.).*(\..+)$/, "$1****$2$3****$4"));
 
   async function load() {
     try { S.pub = await api("GET", A("/attendance")); } catch (e) {

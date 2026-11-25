@@ -1,6 +1,7 @@
 // Attendance Management (first chunk): a session for a list, one mark per voter per session, and a public count with no personal data.
 // The list is either a Voter List, or a list made from an uploaded Excel sheet (purpose 'attendance_upload'). Both are `societies` rows with `voters`,
 // so masking, roles and the signed audit trail are exactly those of the Voter List.
+import { ERR, badCountry, COUNTRY_TZ } from "./error-messages";
 import { HttpError, rateLimit, signupOpen, isListedOrganizer } from "./auth";
 import { commit, guardChanged, guardExists, looksPrivate, pseudonym, staffActor } from "./audit";
 import { uid, type D1Stmt, type Env } from "./db";
@@ -35,10 +36,10 @@ async function counts(env: Env, society: SocietyRow, sessionId: string, known?: 
 }
 async function sessionOf(env: Env, societyId: string, id: string): Promise<SessionRow> {
   const s = await env.DB.prepare("SELECT * FROM att_sessions WHERE society_id = ? AND id = ?").bind(societyId, id).first<SessionRow>();
-  if (!s) throw new HttpError(404, "Not found.", "not_found");
+  if (!s) throw new HttpError(404, ERR.notFound, "not_found");
   return s;
 }
-const notErased = (s: SocietyRow) => { if (s.erased_at) throw new HttpError(410, "This list has been closed and its details erased.", "erased"); };
+const notErased = (s: SocietyRow) => { if (s.erased_at) throw new HttpError(410, ERR.erased, "erased"); };
 
 /** Free text shown on public pages: control characters are removed before anything else. */
 const noControls = (v: unknown) => String(v ?? "").replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "");
@@ -47,11 +48,11 @@ export interface SessionInput { title?: unknown; startsAt?: unknown; place?: unk
 
 export async function createSession(ctx: StaffCtx, input: SessionInput) {
   need(ctx, "attendSetup"); notErased(ctx.society);
-  const title = squeeze(noControls(input.title)); if (title.length < 2 || title.length > 80) throw new HttpError(400, "Please type a title of 2 to 80 letters.", "bad_title");
+  const title = squeeze(noControls(input.title)); if (title.length < 2 || title.length > 80) throw new HttpError(400, ERR.badTitle, "bad_title");
   const place = squeeze(noControls(input.place)).slice(0, 120);
   noContactDetails(title, "the title"); noContactDetails(place, "the place");
-  if (!(MODES as readonly string[]).includes(String(input.mode))) throw new HttpError(400, "Please choose how people are checked: in person, online or offline.", "bad_mode");
-  const at = localToMs(String(input.startsAt ?? ""), ctx.society.tz_offset_min); if (at === null) throw new HttpError(400, "Please pick the date and time again.", "bad_time");
+  if (!(MODES as readonly string[]).includes(String(input.mode))) throw new HttpError(400, ERR.badMode, "bad_mode");
+  const at = localToMs(String(input.startsAt ?? ""), ctx.society.tz_offset_min); if (at === null) throw new HttpError(400, ERR.badTime, "bad_time");
   const id = uid("att");
   const seq = await commit(ctx.env, ctx.society.id, [
     ctx.env.DB.prepare("INSERT INTO att_sessions (id, society_id, title, starts_at, place, mode, status, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)").bind(id, ctx.society.id, title, at, place, String(input.mode), await pseudonym(ctx.env, ctx.email), ctx.now),
@@ -111,15 +112,15 @@ export async function myLists(env: Env, email: string) {
 
 async function mark(env: Env, society: SocietyRow, s: SessionRow, voterId: string, method: "email" | "organizer", actorEmail: string, actorRole: string, now: number) {
   notErased(society);
-  if (s.status !== "open") throw new HttpError(409, "This session is closed. Nobody can be marked now.", "closed");
+  if (s.status !== "open") throw new HttpError(409, ERR.closed, "closed");
   const line = (await eligibleLines(env, society.id)).find((l) => l.voterId === voterId);
-  if (!line) throw new HttpError(404, "This person is not on the list for this session.", "not_on_list");
-  if (await env.DB.prepare("SELECT 1 AS x FROM att_marks WHERE session_id = ? AND voter_id = ?").bind(s.id, voterId).first()) throw new HttpError(409, "This person is already marked present.", "already_present");
+  if (!line) throw new HttpError(404, ERR.personNotOnList, "not_on_list");
+  if (await env.DB.prepare("SELECT 1 AS x FROM att_marks WHERE session_id = ? AND voter_id = ?").bind(s.id, voterId).first()) throw new HttpError(409, ERR.alreadyPresent, "already_present");
   const pid = await pseudonym(env, actorEmail);
   const stmts: D1Stmt[] = [
     guardExists(env, "This session was closed at the same moment.", "SELECT 1 FROM att_sessions WHERE id = ? AND status = 'open'", s.id),
     env.DB.prepare("INSERT OR IGNORE INTO att_marks (session_id, society_id, voter_id, method, marked_by, marked_at) VALUES (?, ?, ?, ?, ?, ?)").bind(s.id, society.id, voterId, method, pid, now),
-    guardChanged(env, "This person is already marked present."),
+    guardChanged(env, ERR.alreadyPresent),
   ];
   // the signed log names the voter and the marker only by private codes, and the flat only in a form that carries no phone number or e-mail ID
   await commit(env, society.id, stmts, "attendance.marked", { pid, role: actorRole }, { session: s.id, voter: await pseudonym(env, line.row.email + "|" + voterId), unit: looksPrivate(line.row.unit) ? "#" : line.row.unit, method, mode: s.mode }, now);
@@ -137,14 +138,14 @@ export async function markByTeam(ctx: StaffCtx, sessionId: string, voterId: unkn
 export async function markSelf(env: Env, now: number, society: SocietyRow, email: string, sessionId: string, voterId?: unknown) {
   notErased(society);
   const s = await sessionOf(env, society.id, sessionId);
-  if (s.mode !== "online") throw new HttpError(403, "This session is not online. Please ask the Organizer or a co-organizer to mark you present.", "not_online");
-  if (now < s.starts_at - SELF_MARK_EARLY_MS) throw new HttpError(403, "This session has not started yet. Please try again 15 minutes before it starts.", "too_early");
-  if (now > s.starts_at + SELF_MARK_LATE_MS) throw new HttpError(403, "This session ended more than 12 hours ago. Please ask the Organizer or a co-organizer to mark you present.", "too_late");
+  if (s.mode !== "online") throw new HttpError(403, ERR.notOnline, "not_online");
+  if (now < s.starts_at - SELF_MARK_EARLY_MS) throw new HttpError(403, ERR.tooEarly, "too_early");
+  if (now > s.starts_at + SELF_MARK_LATE_MS) throw new HttpError(403, ERR.tooLate, "too_late");
   const mine = (await eligibleLines(env, society.id)).filter((l) => l.row.email.toLowerCase() === email.toLowerCase());
-  if (!mine.length) throw new HttpError(403, "This e-mail ID is not on the list for this session.", "not_on_list");
+  if (!mine.length) throw new HttpError(403, ERR.emailNotOnList, "not_on_list");
   const want = voterId === undefined ? "" : String(voterId).slice(0, 60);
   const line = want ? mine.find((l) => l.voterId === want) : mine.length === 1 ? mine[0] : undefined;
-  if (!line) throw new HttpError(400, "This e-mail ID is on the list more than once. Please say which one.", "which_one");
+  if (!line) throw new HttpError(400, ERR.whichOne, "which_one");
   const r = await mark(env, society, s, line.voterId, "email", email, "voter", now);
   return { ...r, counts: await counts(env, society, sessionId) };
 }
@@ -173,23 +174,22 @@ export async function publicSession(env: Env, society: SocietyRow, id: string) {
 
 // ------------------------------------------------------------------------------------------------------------------ Excel upload for an organizer with no Voter List
 export interface RosterInput { title?: unknown; country?: unknown; format?: unknown; text?: unknown; base64?: unknown; dryRun?: unknown }
-const COUNTRY_TZ: Record<string, number> = { India: 330, Bangladesh: 360, Bhutan: 360, Nepal: 345, "Sri Lanka": 330, Singapore: 480, "United Arab Emirates": 240, "United Kingdom": 0, "United States": -300 };
 
 /** Reads the sheet, refuses rows with no e-mail ID (and says how many and why), and, unless `dryRun`, makes the list. */
 export async function uploadRoster(env: Env, now: number, email: string, input: RosterInput) {
-  if (!signupOpen(env) && !isListedOrganizer(env, email)) throw new HttpError(403, "New lists are started by Organizers that Townhall Records has set up. Please ask us to add the e-mail ID, and you can begin right away.", "not_organizer");
+  if (!signupOpen(env) && !isListedOrganizer(env, email)) throw new HttpError(403, ERR.notOrganizer, "not_organizer");
   const format = String(input.format);
-  if (!["csv", "xlsx", "paste"].includes(format)) throw new HttpError(400, "Choose an Excel file, a CSV file or paste the list.", "bad_format");
-  const title = squeeze(noControls(input.title)); if (title.length < 2 || title.length > 80) throw new HttpError(400, "Please type a name for this list, 2 to 80 letters.", "bad_title");
+  if (!["csv", "xlsx", "paste"].includes(format)) throw new HttpError(400, ERR.badFormat, "bad_format");
+  const title = squeeze(noControls(input.title)); if (title.length < 2 || title.length > 80) throw new HttpError(400, ERR.badListName, "bad_title");
   noContactDetails(title, "the name");
   const country = squeeze(input.country) || "India";
-  if (!Object.hasOwn(COUNTRY_TZ, country)) throw new HttpError(400, `Please choose a country from the list: ${Object.keys(COUNTRY_TZ).join(", ")}.`, "bad_country");
+  if (!Object.hasOwn(COUNTRY_TZ, country)) throw new HttpError(400, badCountry(Object.keys(COUNTRY_TZ)), "bad_country");
   await rateLimit(env, `roster:${email}`, 20, 3_600_000, now);
   let parsed;
   try {
     const b64 = typeof input.base64 === "string" ? input.base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : "";
     parsed = await parseUpload({ format: format as "csv" | "xlsx" | "paste", text: typeof input.text === "string" ? input.text : undefined, bytes: b64 ? fromB64url(b64) : undefined }, { country, ruleCode: 1 });
-  } catch (e) { throw new HttpError(400, (e as Error).message || "That file could not be read.", "bad_file"); }
+  } catch (e) { throw new HttpError(400, (e as Error).message || ERR.badFile, "bad_file"); }
   const skipped = { noEmail: 0, noUnit: 0, badUnit: 0, noName: 0, duplicate: 0 }; const seen = new Set<string>();
   const add: Array<{ unit: string; unitKey: string; name: string; mobile: string; email: string }> = [];
   for (const r of parsed.rows) {
@@ -207,10 +207,10 @@ export async function uploadRoster(env: Env, now: number, email: string, input: 
     sample: add.slice(0, 5).map((a) => ({ unit: a.unit, name: maskName(a.name), email: maskEmail(a.email) })),
   };
   if (input.dryRun === true) return { dryRun: true, ...report };
-  if (!add.length) throw new HttpError(409, "There is nothing to bring in: every row had a problem.", "nothing_new");
-  if (add.length > 6000) throw new HttpError(400, "A list can hold up to 6000 people.", "too_many");
+  if (!add.length) throw new HttpError(409, ERR.nothingNew, "nothing_new");
+  if (add.length > 6000) throw new HttpError(400, ERR.tooMany, "too_many");
   const own = await env.DB.prepare("SELECT COUNT(*) AS n FROM memberships WHERE email = ? AND status = 'active' AND role = 'organizer'").bind(email).first<{ n: number }>();
-  if ((own?.n ?? 0) >= 10) throw new HttpError(409, "One person can organise up to 10 lists here.", "too_many");
+  if ((own?.n ?? 0) >= 10) throw new HttpError(409, ERR.tooManyLists, "too_many");
   const id = uid("soc"), slug = randomHex(8);
   const stmts: D1Stmt[] = [
     env.DB.prepare("INSERT INTO societies (id, name, kind, kind_other, country, tz_offset_min, purpose, verify_slug, created_by, created_at) VALUES (?, ?, 'Others', 'Attendance list', ?, ?, 'attendance_upload', ?, ?, ?)").bind(id, title, country.slice(0, 60), COUNTRY_TZ[country], slug, email, now),

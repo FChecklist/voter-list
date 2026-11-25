@@ -4,7 +4,7 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 ## Version
 
-- Current version: **0.3.1** (not deployed yet; first release date to be set when it is deployed).
+- Current version: **0.3.2** (not deployed yet; first release date to be set when it is deployed).
 - `public/version.json` holds the version, release time, commit and a list of past changes. The site serves it at `/version.json` (the file is in `public/`, which is what `bun run build:pages` copies to `dist/`).
 - `package.json` carries the same version number. Keep the two equal.
 - `CHANGELOG.md` has the notes in plain words, newest first, dated in IST.

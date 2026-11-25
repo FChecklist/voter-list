@@ -437,6 +437,8 @@
     "The same ID and e-mail ID appear earlier.": "यही आईडी और ई-मेल आईडी पहले आ चुकी हैं।",
   },
   patterns: [
+    [/^Please choose a country from the list: (.+)\.$/, (c) => "कृपया सूची में से देश चुनिए: " + c + "।"],
+    [/^Mark present: ?(.*)$/, (u) => "उपस्थित दर्ज करें: " + u],
     [/^Test mode: the code is (.+)$/, (c) => "टेस्ट मोड: कोड है " + c],
     [/^(.+) becomes the Organizer, and you become a Co-organizer\. Only the Organizer can publish\.$/, (e) => e + " आयोजक बनेंगे, और आप सह-आयोजक बनेंगे। केवल आयोजक प्रकाशित कर सकता है।"],
     [/^(\d+) of (\d+) co-organizer seats used \(the Townhall Records co-organizer is extra\)\.$/, (a, b) => b + " में से " + a + " सह-आयोजक जगहें भरी हैं (टाउनहॉल रिकॉर्ड्स का सह-आयोजक अलग है)।"],

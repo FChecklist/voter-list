@@ -1,10 +1,15 @@
 {
   "product": "voter-list",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
   "commit": "86394a1",
   "changes": [
+    {
+      "version": "0.3.2",
+      "releasedAt": null,
+      "notes": "Attendance fixes after round 6: one exported list of every error message the pages can show (src/error-messages.ts), used by the server and checked by the Hindi test; a Hindi line for the country message; the notice-line test also checks Hindi values; an e-mail ID with no dot in the domain is masked after the first letter; each Mark present button in the Organizer table has a label with the flat or member ID. Not deployed yet."
+    },
     {
       "version": "0.3.1",
       "releasedAt": null,

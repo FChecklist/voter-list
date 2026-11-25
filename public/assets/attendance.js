@@ -7,7 +7,7 @@
   const list = () => (S.me ? S.me.lists.find((l) => l.id === S.sid) || null : null);
   const isOrg = () => !!list() && list().role === "organizer";
   const base = () => `/api/lists/${S.sid}/attendance/sessions`;
-  const maskMail = (e) => e.replace(/^(.).*(@)(.).*(\..+)$/, "$1****$2$3****$4");
+  const maskMail = (e) => (/@[^@.]+$/.test(e) ? e.replace(/^(.)[^@]*@/, "$1****@") : e.replace(/^(.).*(@)(.).*(\..+)$/, "$1****$2$3****$4"));
   const when = (s) => window.VL.localTime(s);
   const terms = () => el("a", { href: "/terms/", target: "_blank", rel: "noopener" }, "Terms and Conditions");
 
@@ -150,7 +150,7 @@
     const find = el("input", { id: "fd", type: "search", value: S.find, maxlength: "60", placeholder: "Flat / House / Member ID or Name" });
     out.push(el("form", { on: { submit: async (e) => { e.preventDefault(); S.find = find.value; await loadDetail(s.id); draw(); } } }, el("label", { for: "fd" }, "Find a person"), find, el("div", { class: "row" }, el("button", { class: "btn small", type: "submit" }, "Find"))));
     out.push(window.VL.table(["Flat / House / Member ID", "Name", "E-mail ID", "Status", ""], d.people.map((p) => el("tr", {}, el("td", {}, p.unit), el("td", {}, p.name), el("td", {}, p.email), el("td", {}, p.present ? "Present" : "Not marked"),
-      el("td", {}, !p.present && open ? el("button", { class: "btn small", type: "button", on: { click: () => markOne(s.id, p.voterId) } }, "Mark present") : null)))));
+      el("td", {}, !p.present && open ? el("button", { class: "btn small", type: "button", "aria-label": "Mark present: " + p.unit, on: { click: () => markOne(s.id, p.voterId) } }, "Mark present") : null)))));
     if (d.people.length >= 50) out.push(el("p", { class: "tiny muted" }, "Only the first 50 matches are shown. Use the find box, or download the sheet."));
     out.push(el("p", { class: "tiny muted" }, "Mark only a person who is present in the room or on paper."), el("p", { class: "tiny muted" }, "By pressing Mark present, the entry is recorded under the ", terms(), "."));
     const row = el("div", { class: "row" }, el("a", { class: "btn ghost", href: `/api/lists/${S.sid}/attendance/sessions/${s.id}/sheet.csv` }, "Download the sheet (CSV)"));

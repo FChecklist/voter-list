@@ -61,6 +61,8 @@ describe("attendance pages: files", () => {
     ];
     for (const [m, p] of want) if (!table.some((r) => r.method === m && r.re.test(p))) missing.push(m + " " + p);
     expect(missing).toEqual([]);
+    // the three Organizer sign-in routes the organizer page calls
+    for (const p of ["/api/auth/start", "/api/auth/verify", "/api/auth/logout"]) { expect(table.some((r) => r.method === "POST" && r.re.test(p)), p).toBe(true); expect(read("public/assets/attendance.js").includes(p), p).toBe(true); }
     // and each of those paths is really used by a script (so this list cannot drift from the pages)
     const src = SCRIPTS.map(read).join("\n");
     for (const needle of ["/api/attendance/lists", "/api/attendance/rosters", "/attendance/sessions", "/sheet.csv", "/mark`", "/close`", 'A("/attendance")', 'A("/attend/me")', "/here`"]) expect(src.includes(needle), needle).toBe(true);
@@ -114,7 +116,9 @@ describe("attendance pages: Hindi", () => {
     for (const s of ["3 of 10 present.", "1 session", "4 sessions", "1 person", "2 people", "1 row", "5 rows"]) expect(hasHindi(s), s).toBe(true);
   });
   test("no Hindi line for the notice, and the Hindi text is not the English text", () => {
-    for (const k of Object.keys(hi.words)) expect(k.startsWith("By pressing") || k === "Terms and Conditions", k).toBe(false);
+    const notice = /By pressing Mark present|Terms and Conditions|Terms link/i;
+    for (const [k, v] of Object.entries(hi.words) as [string, string][]) { expect(notice.test(k), "key " + k).toBe(false); expect(notice.test(String(v)), "value of " + k).toBe(false); }
+    for (const [re] of hi.patterns as [RegExp][]) expect(re.test("By pressing Mark present, this e-mail ID is recorded as present under the Terms and Conditions."), String(re)).toBe(false);
     for (const { s } of shown().filter(({ s }) => !isConsent(s) && !s.startsWith("Test mode:") && Object.prototype.hasOwnProperty.call(hi.words, s.trim()) && !["Excel", "CSV"].includes(s.trim()))) expect(hi.words[s.trim()], s).not.toBe(s.trim());
   });
 });

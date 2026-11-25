@@ -2,6 +2,16 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.2 - not deployed yet (IST)
+
+Fixes after round 6 of Attendance chunks 1-2.
+
+- One list of every error message the pages can show (`src/error-messages.ts`); the server takes its attendance messages from it and a test checks each has a Hindi line (the country message had none; added).
+- The test for the notice line also checks Hindi values, not only keys.
+- An e-mail ID with no dot in its domain (a@localhost) is masked after the first letter.
+- Each Mark present button in the Organizer table has an aria-label with the flat or member ID.
+- The three Organizer sign-in routes are also checked in the pages test.
+
 ## 0.3.1 - not deployed yet (IST)
 
 Fixes after round 5 of Attendance chunks 1-2.
