@@ -216,13 +216,20 @@ describe("4. the version, the commit fields and the notes agree", () => {
   });
 
   test("each commit field is a commit of this branch's history (checked whenever the history is there)", () => {
-    const git = (...args: string[]) => execFileSync("git", args, { stdio: ["ignore", "pipe", "ignore"] }).toString();
-    let have = true; try { git("rev-parse", "--git-dir"); } catch { have = false; }
-    if (!have) return;
+    const git = (...args: string[]) => execFileSync("git", args, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    expect(() => git("rev-parse", "--git-dir"), "git and the history must be there").not.toThrow(); // a missing history fails, it is never skipped
     for (const sha of version.changes.filter((c) => c.commit).map((c) => c.commit!)) {
-      try { git("cat-file", "-e", sha + "^{commit}"); } catch { continue; } // a shallow copy may not hold an older commit
+      expect(() => git("cat-file", "-e", sha + "^{commit}"), "commit " + sha + " must be found").not.toThrow();
       expect(() => git("merge-base", "--is-ancestor", sha, "HEAD"), sha).not.toThrow();
     }
+  });
+
+  test("the newest entry names the parent of the commit that bumped the version (or the current HEAD while the bump is not committed yet)", () => {
+    const git = (...args: string[]) => execFileSync("git", args, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    const want = version.changes[0]!.commit!;
+    const bumps = git("log", "--format=%H", "-S" + `"version": "${pkg.version}"`, "--", "public/version.json").split("\n").filter(Boolean);
+    const parent = bumps.length ? git("rev-parse", bumps[bumps.length - 1] + "^") : git("rev-parse", "HEAD");
+    expect(parent.startsWith(want), `commit field ${want} against ${parent}`).toBe(true);
   });
 
   test("ASSUMPTIONS.md records the round 8 decision on the public list", () => {

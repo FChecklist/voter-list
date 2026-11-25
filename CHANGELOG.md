@@ -2,6 +2,14 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.6 - not deployed yet (IST)
+
+Fix after round 11 of Attendance chunks 1-2 (two audits of 0.3.5 found two Medium defects).
+
+- Undo race: the check that stops an undo from taking off the list a person with an attendance mark now also runs inside the database batch. A mark that lands between the first read and the batch gives the plain 409 message and changes nothing (before, it was a foreign-key error and a 500). The list of actions also stops offering that undo.
+- Trigger too wide: migration 0013 let any mark be deleted for a person with status removed. Migration `0014_attendance_purge_marker.sql` drops and recreates the trigger: a mark can be deleted only when its list is erased, or while the 30-day clean-up of a withdrawn voter has set a purge marker (`att_purge`) in the same batch. A person only removed by the team keeps the marks. 0013 is left unchanged.
+- Tests: the failing clean-up is forced inside its own batch and the log line is checked for personal data; the status after withdraw is asserted; the version test fails (never skips) without git, compares the newest commit with the real parent of the bump, and the wording scan also reads ASSUMPTIONS.md and README.md.
+
 ## 0.3.5 - not deployed yet (IST)
 
 Fix after round 9 of Attendance chunks 1-2 (an independent audit of 0.3.4 found one High defect).

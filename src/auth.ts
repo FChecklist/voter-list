@@ -44,8 +44,11 @@ export async function purgeStale(env: Env, now: number): Promise<void> {
       // the same people also leave the (replaceable) draft list's stored lines; a signed final list stays as it was, and the voter is told so
       env.DB.prepare("DELETE FROM publication_rows WHERE publication_id IN (SELECT id FROM publications WHERE kind = 'draft') AND (society_id, unit_key, email) IN (SELECT society_id, unit_key, email FROM voters WHERE " + WITHDRAWN + ")").bind(cutoff),
       // their attendance marks go first (they hold a foreign key to the voter); the present count of a session drops by them
-      env.DB.prepare("DELETE FROM att_marks WHERE (society_id, voter_id) IN " + C).bind(cutoff),
+      // the purge marker (set and cleared in this same batch) is the only thing that lets the database delete a mark of a person still in the table
+      env.DB.prepare("INSERT OR IGNORE INTO att_purge (society_id, voter_id) SELECT society_id, id FROM voters WHERE " + WITHDRAWN).bind(cutoff),
+      env.DB.prepare("DELETE FROM att_marks WHERE (society_id, voter_id) IN (SELECT society_id, voter_id FROM att_purge)"),
       env.DB.prepare("DELETE FROM voters WHERE " + WITHDRAWN).bind(cutoff),
+      env.DB.prepare("DELETE FROM att_purge"),
     );
   }
   await env.DB.batch(stmts);

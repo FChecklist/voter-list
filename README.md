@@ -8,9 +8,9 @@ A single-page product for AOA, HOA and RWA societies to build, check, publish an
 
 ## What it does
 
-**One common link per voter list.** Voters open `/v/<link>`, sign in with their e-mail ID and a 6-digit code (no passwords), and move down one page: Sign in, Enrol (Owner / Co-owner / Tenant / Proxy, as the list allows), Check and send, Your information, Documents, Where things stand, The public list.
+**One common link per voter list.** Voters open `/v/<link>`, sign in with their e-mail ID and a 6-digit code (no passwords), and move down one page: Sign in, Enrol (Owner / Co-owner / Tenant / Proxy, as the list allows), Check and send, Voter information, Documents, Where things stand, The public list.
 
-**The Organizer and Hosts** use `/`: Set up, Share the link, Your team, Check the records, Final checks, Publish the draft list, Publish the final list. Each record is Approved, or Not approved (sent back to the voter with a reason); the voter fixes it and sends it again, and it comes back for a fresh check. Bulk actions and Undo are there.
+**The Organizer and co-organizers** use `/`: Set up, Share the link, The team, Check the records, Final checks, Publish the draft list, Publish the final list. Each record is Approved, or Not approved (sent back to the voter with a reason); the voter fixes it and sends it again, and it comes back for a fresh check. Bulk actions and Undo are there.
 
 **Publishing.** A **draft** list is public at once, masked and marked provisional, and can be replaced. A **final** list is frozen at a date-and-time cut-off: immutable (the database refuses changes), fingerprinted and signed, with a proof page anyone can check. The public page shows the flat number, a masked name, the role, may-vote, the mobile's last 4 digits and the e-mail ID's last 4 characters, and nothing else.
 

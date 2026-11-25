@@ -1,7 +1,7 @@
 // The list team's side: the review queue (check -> approve, or not approved -> back to the voter with a reason -> resubmitted -> check again),
 // corrections, adding and removing records, upload of an existing list, who votes for a flat, vote weights, and Undo.
 import { HttpError, rateLimit } from "./auth";
-import { looksPrivate, commit, guardChanged, pubUnit, staffActor } from "./audit";
+import { looksPrivate, commit, guardChanged, guardMissing, pubUnit, staffActor } from "./audit";
 import { uid, type D1Stmt } from "./db";
 import { autoMarked, parseUpload } from "./importer";
 import { noContactDetails } from "./lists";
@@ -354,6 +354,17 @@ async function markedNow(ctx: StaffCtx, es: Array<{ voter_id: string; before_jso
   }
   return out;
 }
+/** The people, among those an action created, who already have an attendance mark (an undo would have to take them off the list, which is refused). */
+async function attendedNow(ctx: StaffCtx, es: Array<{ voter_id: string; before_json: string | null }>): Promise<Set<string>> {
+  const ids = [...new Set(es.filter((e) => e.before_json === null).map((e) => e.voter_id))];
+  const out = new Set<string>();
+  for (let i = 0; i < ids.length; i += 90) {
+    const part = ids.slice(i, i + 90);
+    const rs = await ctx.env.DB.prepare(`SELECT DISTINCT voter_id FROM att_marks WHERE society_id = ? AND voter_id IN (${ph(part.length)})`).bind(ctx.society.id, ...part).all<{ voter_id: string }>();
+    for (const r of rs.results) out.add(r.voter_id);
+  }
+  return out;
+}
 /** For the signed trail: which reasons an undo cleared and which it brought back (codes and counts, never words). */
 function reasonChanges(es: Array<{ before_json: string | null; after_json: string | null }>): Record<string, Record<string, number>> {
   const restored: Record<string, number> = {}, cleared: Record<string, number> = {};
@@ -374,15 +385,16 @@ export async function recentActions(ctx: StaffCtx) {
   const rs = (await eventsFor(ctx, "1 = 1", [], 400)).results;
   const groups = new Map<string, EvRow[]>();
   for (const e of rs) { const k = e.batch ?? "e" + e.id; const a = groups.get(k) ?? []; a.push(e); groups.set(k, a); }
-  const marked = await markedNow(ctx, rs);
+  const marked = await markedNow(ctx, rs); const attended = await attendedNow(ctx, rs);
   const out = [];
   for (const [key, es] of groups) {
-    out.push({ key, kind: es[0]!.kind, count: es.length, at: es[0]!.ts, by: es[0]!.actor_role === "organizer" ? "Organizer" : "Co-organizer", undoable: es.every((e) => e.cur_rev === e.after_rev) && (ctx.role === "organizer" || !es.some((e) => e.kind === "voter_chosen" || touchesMark(e) || (e.before_json === null && marked.has(e.voter_id)))) });
+    out.push({ key, kind: es[0]!.kind, count: es.length, at: es[0]!.ts, by: es[0]!.actor_role === "organizer" ? "Organizer" : "Co-organizer", undoable: es.every((e) => e.cur_rev === e.after_rev) && !es.some((e) => e.before_json === null && attended.has(e.voter_id)) && (ctx.role === "organizer" || !es.some((e) => e.kind === "voter_chosen" || touchesMark(e) || (e.before_json === null && marked.has(e.voter_id)))) });
     if (out.length >= 15) break;
   }
   return { actions: out };
 }
 
+const HAS_ATTENDANCE = "Someone here has already been marked present at a meeting, so this cannot be undone. Nothing was changed.";
 export async function undo(ctx: StaffCtx, input: { key?: string }) {
   need(ctx, "undo"); frozenCheck(ctx);
   const key = String(input.key ?? ""); if (!key) throw new HttpError(400, "Please choose what to undo.");
@@ -394,11 +406,12 @@ export async function undo(ctx: StaffCtx, input: { key?: string }) {
   const created = [...new Set(es.filter((e) => e.before_json === null).map((e) => e.voter_id))];
   for (let i = 0; i < created.length; i += 90) { // a person who already has an attendance mark cannot be taken off the list by an undo: the mark would lose its person
     const part = created.slice(i, i + 90);
-    if (await ctx.env.DB.prepare(`SELECT 1 AS x FROM att_marks WHERE society_id = ? AND voter_id IN (${ph(part.length)}) LIMIT 1`).bind(ctx.society.id, ...part).first()) throw new HttpError(409, "Someone here has already been marked present at a meeting, so this cannot be undone. Nothing was changed.", "has_attendance");
+    if (await ctx.env.DB.prepare(`SELECT 1 AS x FROM att_marks WHERE society_id = ? AND voter_id IN (${ph(part.length)}) LIMIT 1`).bind(ctx.society.id, ...part).first()) throw new HttpError(409, HAS_ATTENDANCE, "has_attendance");
   }
   const db = ctx.env.DB; const stmts: D1Stmt[] = []; const batch = es.length > 1 ? uid("bat") : null;
   for (const e of es) {
     if (e.before_json === null) { // the action created the record (an import, a record added by a host): undoing it takes the record away again
+      stmts.push(guardMissing(ctx.env, HAS_ATTENDANCE, "SELECT 1 FROM att_marks WHERE society_id = ? AND voter_id = ?", ctx.society.id, e.voter_id)); // checked inside the batch: a mark that landed after the first read still stops the delete
       stmts.push(db.prepare("DELETE FROM voters WHERE society_id = ? AND id = ? AND revision = ?").bind(ctx.society.id, e.voter_id, e.after_rev), guardChanged(ctx.env, "Something changed at the same moment. Nothing was undone."));
       stmts.push(db.prepare("INSERT INTO voter_events (society_id, voter_id, ts, actor_email, actor_role, kind, from_status, to_status, before_json, after_json, batch) VALUES (?, ?, ?, ?, ?, 'undone', 'approved', 'removed', ?, NULL, ?)").bind(ctx.society.id, e.voter_id, ctx.now, ctx.email, actorRole(ctx), e.after_json, batch));
     } else {

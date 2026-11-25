@@ -426,8 +426,8 @@ describe("5. my / mine / your / yours in text the server builds", () => {
     expect(found).toEqual([]);
   });
 
-  test("the notes the team reads have none: KNOWLEDGE.md and CHANGELOG.md (docs/ holds working papers, not screen text, and is left out)", () => {
-    for (const f of ["KNOWLEDGE.md", "CHANGELOG.md"]) expect(read(f).split("\n").filter((line) => possessivesIn(line).length), f).toEqual([]);
+  test("the notes the team reads have none: KNOWLEDGE.md, CHANGELOG.md, ASSUMPTIONS.md and README.md (docs/ holds working papers, not screen text, and is left out)", () => {
+    for (const f of ["KNOWLEDGE.md", "CHANGELOG.md", "ASSUMPTIONS.md", "README.md"]) expect(read(f).split("\n").filter((line) => possessivesIn(line).length), f).toEqual([]);
   });
 
   test("the live texts have none: every message, the modes, the upload reasons, the countries, the CSV sheets, the e-mailed codes and what the API says", async () => {

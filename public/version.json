@@ -1,10 +1,16 @@
 {
   "product": "voter-list",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "7468a56",
+  "commit": "7d9abe3",
   "changes": [
+    {
+      "version": "0.3.6",
+      "releasedAt": null,
+      "commit": "7d9abe3",
+      "notes": "Attendance fix after round 10: an undo that would take off the list a person who has an attendance mark is now refused inside the same database step, so a mark that lands at the last moment gives the plain 409 message, not an error, and the list of actions no longer offers that undo; the database now lets a mark be deleted only through the 30-day clean-up of a withdrawn voter (migration 0014, a purge marker set and cleared in the same step), not for any removed person; tests force a real clean-up failure and check the version names the parent of the bump. Not deployed yet."
+    },
     {
       "version": "0.3.5",
       "releasedAt": null,
