@@ -39,17 +39,43 @@ describe("1. a co-organizer moving a person who has attendance marks", () => {
     const r = await f.move(f.jar, "B-202"); expect(r.status, r.text).toBe(200);
     expect(q(f.h, "SELECT unit AS u FROM voters WHERE id = ?", f.asha.rec.id).u).toBe("B-202");
   });
-  test("the check also sits inside the save: a mark that lands after the first read stops the move", async () => {
-    const f = await setup(); const { h } = f; const aid = q(h, "SELECT id FROM att_sessions").id;
-    const db = h.env.DB as any; const prepare = db.prepare.bind(db); let landed = false;
-    // the first read saw no mark; the mark lands when the save is being built (after that read), so only the guard inside the batch can stop it
-    db.prepare = (sql: string) => {
-      if (!landed && /^UPDATE voters SET/.test(sql)) { landed = true; h.raw.query("INSERT INTO att_marks (session_id, society_id, voter_id, method, marked_by, marked_at) VALUES (?, ?, ?, 'organizer', 'p_x', 1)").run(aid, q(h, "SELECT society_id AS s FROM voters WHERE id = ?", f.asha.rec.id).s, f.asha.rec.id); }
-      return prepare(sql);
+  test("a decided voter (is_voter true, then false) is still refused for a co-organizer, with or without a mark; the Organizer may move an unmarked one", async () => {
+    const f = await setup(); const flat = () => q(f.h, "SELECT unit AS u FROM voters WHERE id = ?", f.asha.rec.id).u;
+    for (const decided of [1, 0]) {
+      f.h.raw.query("UPDATE voters SET is_voter = ? WHERE id = ?").run(decided, f.asha.rec.id);
+      expect(q(f.h, "SELECT COUNT(*) AS n FROM att_marks").n).toBe(0);
+      const r = await f.move(f.co, "B-202"); expect(r.status, r.text).toBe(403); expect(flat()).toBe("A-101"); // the old rule, no mark yet
+    }
+    const org = await f.move(f.jar, "B-202"); expect(org.status, org.text).toBe(200); expect(flat()).toBe("B-202");
+    // a decided voter WITH a mark: refused for the co-organizer, flat unchanged
+    const g = await setup(); expect((await g.mark()).status).toBe(200);
+    for (const decided of [1, 0]) {
+      g.h.raw.query("UPDATE voters SET is_voter = ? WHERE id = ?").run(decided, g.asha.rec.id);
+      const r = await g.move(g.co, "B-202"); expect(r.status).toBe(403);
+      expect(q(g.h, "SELECT unit AS u FROM voters WHERE id = ?", g.asha.rec.id).u).toBe("A-101");
+    }
+  });
+  test("the check also sits inside the save: a mark that lands after the first read stops the move, and without the guard in the batch it would not", async () => {
+    // runs one move; the mark lands when the save is being built (after the first read), so only a guard inside the batch can stop it
+    const run = async (dropGuard: boolean) => {
+      const f = await setup(); const { h } = f; const aid = q(h, "SELECT id FROM att_sessions").id;
+      const db = h.env.DB as any; const prepare = db.prepare.bind(db); let landed = false;
+      db.prepare = (sql: string) => {
+        if (!landed && /^UPDATE voters SET/.test(sql)) { landed = true; h.raw.query("INSERT INTO att_marks (session_id, society_id, voter_id, method, marked_by, marked_at) VALUES (?, ?, ?, 'organizer', 'p_x', 1)").run(aid, q(h, "SELECT society_id AS s FROM voters WHERE id = ?", f.asha.rec.id).s, f.asha.rec.id); }
+        // the planted variant: the guard statement is swapped for one that always passes, as if it had been left out of the batch
+        if (dropGuard && /^INSERT INTO guard_assert .*NOT EXISTS\(SELECT 1 FROM att_marks/.test(sql)) return { bind: () => prepare("INSERT INTO guard_assert (ok, why) SELECT 1, ?").bind("planted") };
+        return prepare(sql);
+      };
+      try { const r = await f.move(f.co, "B-202"); return { r, landed, flat: q(h, "SELECT unit AS u FROM voters WHERE id = ?", f.asha.rec.id).u, marks: q(h, "SELECT COUNT(*) AS n FROM att_marks").n }; }
+      finally { db.prepare = prepare; }
     };
-    const r = await f.move(f.co, "B-202"); db.prepare = prepare;
-    expect(landed).toBe(true); expect(r.status).not.toBe(200); expect(JSON.stringify(r.json)).toContain(WORDS);
-    expect(q(h, "SELECT unit AS u FROM voters WHERE id = ?", f.asha.rec.id).u).toBe("A-101");
+    const real = await run(false);
+    expect(real.landed).toBe(true); expect(real.marks).toBe(1);
+    expect(real.r.status).toBe(409); expect(real.r.json.error).toBe(WORDS); // (a) the plain wording (a guard that fails inside the batch is a clean 409, see audit.ts)
+    expect(real.flat).toBe("A-101"); // (b) the flat is unchanged
+    const planted = await run(true);
+    expect(planted.landed).toBe(true); expect(planted.marks).toBe(1);
+    expect(planted.r.status, planted.r.text).toBe(200); expect(planted.flat).toBe("B-202"); // (c) no guard in the batch: the move goes through, so this test fails on a regression
   });
 });
 
@@ -95,12 +121,21 @@ describe("3. the version history", () => {
   const version = JSON.parse(read("public/version.json")) as { version: string; commit: string; changes: Array<{ version: string; commit?: string }> };
   const OLD_WITHOUT_COMMIT = ["0.3.2", "0.3.1", "0.3.0", "0.2.4", "0.2.3", "0.2.2", "0.2.1", "0.2.0", "0.1.0"];
   const without = (es: Array<{ version: string; commit?: string }>) => es.filter((e) => !e.commit).map((e) => e.version);
-  test("0.3.11 everywhere; the newest entry names 7bad80f9, a commit that exists", () => {
-    expect(version.version).toBe("0.3.11"); expect(version.changes[0]!.version).toBe("0.3.11");
-    expect(JSON.parse(read("package.json")).version).toBe("0.3.11");
-    expect(read("CHANGELOG.md")).toContain("## 0.3.11"); expect(read("KNOWLEDGE.md")).toContain("**0.3.11**");
-    expect(version.changes[0]!.commit).toBe("7bad80f9"); expect(version.commit).toBe("7bad80f9");
-    expect(() => execFileSync("git", ["cat-file", "-e", "7bad80f9^{commit}"], { stdio: "ignore" })).not.toThrow();
+  test("0.3.12 everywhere; the newest entry names 2fd57cf1, a commit that exists", () => {
+    expect(version.version).toBe("0.3.12"); expect(version.changes[0]!.version).toBe("0.3.12");
+    expect(JSON.parse(read("package.json")).version).toBe("0.3.12");
+    expect(read("CHANGELOG.md")).toContain("## 0.3.12"); expect(read("KNOWLEDGE.md")).toContain("**0.3.12**");
+    expect(version.changes[0]!.commit).toBe("2fd57cf1"); expect(version.commit).toBe("2fd57cf1");
+    expect(() => execFileSync("git", ["cat-file", "-e", "2fd57cf1^{commit}"], { stdio: "ignore" })).not.toThrow();
+  });
+  test("the commit named for 0.3.11 is the parent of the commit that bumped the version to 0.3.11 (skipped when the history is shallow)", () => {
+    const git = (...a: string[]) => execFileSync("git", a, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    let shallow = true; try { shallow = git("rev-parse", "--is-shallow-repository") !== "false"; } catch { /* no git: skip */ }
+    if (shallow) return;
+    const named = version.changes.find((e) => e.version === "0.3.11")!.commit!;
+    const bump = "2fd57cf"; // the commit that bumped the version to 0.3.11
+    expect(git("rev-parse", bump + "^").startsWith(named)).toBe(true);
+    expect(git("rev-parse", named).startsWith(named)).toBe(true);
   });
   test("the entries without a commit are exactly the old versions, and a new one without a commit is caught", () => {
     expect(without(version.changes)).toEqual(OLD_WITHOUT_COMMIT);

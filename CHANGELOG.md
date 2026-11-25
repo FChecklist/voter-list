@@ -2,6 +2,13 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.12 - not deployed yet (IST)
+
+Fix after round 18 of Attendance chunks 1-2. The commit field names `2fd57cf1`, the head this was built on (the parent of the bump commit).
+
+- Tests: a co-organizer is refused when moving a decided person (with or without a mark), the Organizer may move an unmarked one, and the check inside the save is proven by a planted variant without it.
+- Tests: the commit named for 0.3.11 is the parent of the commit that bumped the version.
+
 ## 0.3.11 - not deployed yet (IST)
 
 Fix after round 16 of Attendance chunks 1-2. The commit field names `7bad80f9`, the head this was built on.

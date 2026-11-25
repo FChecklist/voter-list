@@ -1,10 +1,16 @@
 {
   "product": "voter-list",
-  "version": "0.3.11",
+  "version": "0.3.12",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "7bad80f9",
+  "commit": "2fd57cf1",
   "changes": [
+    {
+      "version": "0.3.12",
+      "releasedAt": null,
+      "commit": "2fd57cf1",
+      "notes": "Attendance fix after round 18: tests only. They now prove that a co-organizer is refused when moving a person who is decided, or who has an attendance mark, and that the check sits inside the save (a version with the check removed lets the move through). The commit field is the parent of the bump commit."
+    },
     {
       "version": "0.3.11",
       "releasedAt": null,
