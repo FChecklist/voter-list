@@ -4,7 +4,7 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 ## Version
 
-- Current version: **0.3.8** (not deployed yet; first release date to be set when it is deployed).
+- Current version: **0.3.9** (not deployed yet; first release date to be set when it is deployed).
 - `public/version.json` holds the version, release time, commit and a list of past changes. The site serves it at `/version.json` (the file is in `public/`, which is what `bun run build:pages` copies to `dist/`).
 - `package.json` carries the same version number. Keep the two equal.
 - `CHANGELOG.md` has the notes in plain words, newest first, dated in IST.
@@ -37,6 +37,7 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 The time zone of a roster upload list is a fixed offset from UTC, with no daylight saving. The organizer picks a country whose offset they use (see `COUNTRY_TZ` in `src/error-messages.ts`). The `can_attend` column of a voter defaults to 1 (see `migrations/0002_lists.sql`), so a new voter is eligible unless staff change it.
 
+- 0.3.9: the last three checkboxes became toggle buttons (see the line above). Tests: a scan fails on any `type: "checkbox"`, `type='checkbox'` or `<input type="checkbox"` under `public/` and `src/`; `VL.toggle` is run on a minimal fake page; Documents required round-trips on and off. The commit field names `b69ea3da`, the head this was built on.
 - 0.3.8: the two freeze acknowledgement checkboxes ("I understand. Freeze anyway." and "I have looked at them. Freeze anyway.") are now one plain button, "Yes, freeze anyway"; pressing it sets `ackPending` or `ackWarnings` to true and sends the freeze again, so the server check is unchanged. The server messages no longer say "Tick the box". `mark()` turns a UNIQUE failure of the one-mark-per-e-mail index (or the guard message for it) into the plain `onePerEmail` answer. Tests: the checkbox scan also fails on a box near "agree", "understand", "looked at" or "accept" in any file under `public/assets`; the Hindi consent exemptions are pinned to their exact Hindi; the English keys of `hi.js` are scanned for the possessive words (no hit); the page route check resolves `base()` in `attendance.js`. The commit field names `1ec24618`, the head this was built on.
-- Checkboxes that remain, all plain setting toggles and none agrees to or accepts anything: Row select (`organizer-work.js`, picks records for a bulk action); Close enrolment now (`organizer-work.js`, id `cn`, a freeze option); Documents required (`organizer.js`, id `ld`, a list setting).
+- There are no checkboxes left. The three settings that were boxes (Row select in `organizer-work.js`, Close enrolment now with id `cn` in `organizer-work.js`, Documents required with id `ld` in `organizer.js`) are on/off buttons built by `VL.toggle` in `ui.js` (`role="switch"`, `aria-pressed`, the words On/Off or Select/Selected). They are buttons because the owner's rule is absolute: no tick box in the product. Read a state with `btn.isOn()`.
 - 0.3.7: adding a person has no tick box and no consent flag. The server ignores an `agreed` field; the dialog shows a notice line with the Terms link. The audit-trail row `record.added` still records who added it. A scan test fails on `type: "checkbox"` beyond the listed functional ones, "tick the box" and "I agree" in sources. Other checkboxes remained then (row select, list setting, close now, two freeze acknowledgements); the freeze ones went in 0.3.8.

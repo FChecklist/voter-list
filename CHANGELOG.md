@@ -2,6 +2,13 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.9 - not deployed yet (IST)
+
+Fix after round 14 of Attendance chunks 1-2 (two audits of 0.3.8 found three tick boxes still in the product). The commit field names `b69ea3da`, the head this was built on.
+
+- No tick box anywhere: row select (`organizer-work.js`), Close enrolment now (id `cn`, `organizer-work.js`) and Documents required (id `ld`, `organizer.js`) are now on/off buttons (`role="switch"`, `aria-pressed`, the words On/Off or Select/Selected, 44 px high). Same behaviour, same server calls, same saved value. One helper, `VL.toggle`, in `ui.js` builds them.
+- Tests: a scan fails on any checkbox in `public/` and `src/` (the allowed list is now empty); the helper is run against a minimal fake page; the documents-required value round-trips on and off.
+
 ## 0.3.8 - not deployed yet (IST)
 
 Fix after round 13 of Attendance chunks 1-2 (two audits of 0.3.7 found three Medium defects and two Low). The commit field names `1ec24618`, the head this was built on.

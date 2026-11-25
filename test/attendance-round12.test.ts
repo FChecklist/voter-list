@@ -36,8 +36,8 @@ describe("1. adding a person has no tick box and no consent flag", () => {
 });
 
 describe("2. no source holds a consent tick box or the words tick the box / I agree", () => {
-  // Functional checkboxes that are not a consent gate, by file and count (row select, close now, a list setting). The two freeze acknowledgements became plain buttons in 0.3.8. Any new one fails here.
-  const ALLOWED: Record<string, number> = { "public/assets/organizer-work.js": 2, "public/assets/organizer.js": 1 };
+  // No checkbox is allowed anywhere (0.3.9): the list of allowed ones is empty. Settings are toggle buttons (VL.toggle).
+  const ALLOWED: Record<string, number> = {};
   const files = [...filesUnder("src", /\.(js|ts)$/), ...filesUnder("public/assets", /\.(js|ts)$/)];
   test("the scan reads real files", () => { expect(files).toContain("src/review.ts"); expect(files).toContain("public/assets/ui.js"); });
   // The same kind of functional lines for the freeze checks and close-now box (not a consent gate), by file and count. Any new use fails here.
@@ -48,7 +48,8 @@ describe("2. no source holds a consent tick box or the words tick the box / I ag
     for (const f of files) { const n = (read(f).match(/tick the box/gi) ?? []).length; if (n) found[f] = n; }
     expect(found).toEqual(WORDS_ALLOWED);
   });
-  test('type: "checkbox" appears only in the listed functional places', () => {
+  test('type: "checkbox" appears nowhere: the allowed list is empty', () => {
+    expect(ALLOWED).toEqual({});
     const found: Record<string, number> = {};
     for (const f of files) { const n = (read(f).match(/type:\s*"checkbox"/g) ?? []).length; if (n) found[f] = n; }
     expect(found).toEqual(ALLOWED);

@@ -100,7 +100,7 @@
       regNo: el("input", { id: "lr", type: "text", maxlength: "40", required: "", "aria-required": "true", value: L ? L.regNo : "" }),
       regOffice: el("input", { id: "lg", type: "text", maxlength: "100", value: L ? L.regOffice : "" }),
       cutoff: el("input", { id: "lc", type: "datetime-local", value: L && L.cutoffLocal ? L.cutoffLocal : "" }),
-      docs: el("input", { id: "ld", type: "checkbox", checked: !!(L && L.docsRequired) }),
+      docs: Object.assign(window.VL.toggle("Ask every voter for one supporting document", !!(L && L.docsRequired)), { id: "ld" }),
       weight: el("select", { id: "lw" }, [["equal", "Equal: every flat has the same weight"], ["unequal", "Votes are weighted (for example by share of the building)"]].map(([v, t]) => el("option", { value: v, selected: L ? L.weightMode === v : v === "equal" }, t))),
       reasonPublic: el("select", { id: "lq" }, [["role", "Only reasons that follow from the role (for example Tenant or Co-owner). Dues and private notes stay private."], ["none", "No reasons at all on the public list"], ["all", "Every reason, including unpaid dues and private notes"]].map(([v, t]) => el("option", { value: v, selected: (L && L.reasonPublic ? L.reasonPublic : "role") === v }, t))),
     };
@@ -112,7 +112,7 @@
     const form = el("form", { on: { submit: async (e) => {
       e.preventDefault(); err.clear();
       if (!f.regNo.value.trim()) { err.show("Please type the registration number / ID of the society or association."); f.regNo.focus(); return; }
-      const body = { name: f.name.value, kind: f.kind.value, kindOther: f.kindOther.value, state: f.state.value, country: "India", regNo: f.regNo.value, regOffice: f.regOffice.value, ruleCode: rule, weightMode: f.weight.value, reasonPublic: f.reasonPublic.value, docsRequired: f.docs.checked, cutoff: f.cutoff.value || null };
+      const body = { name: f.name.value, kind: f.kind.value, kindOther: f.kindOther.value, state: f.state.value, country: "India", regNo: f.regNo.value, regOffice: f.regOffice.value, ruleCode: rule, weightMode: f.weight.value, reasonPublic: f.reasonPublic.value, docsRequired: f.docs.isOn(), cutoff: f.cutoff.value || null };
       await window.VL.busy(btn, async () => {
         try {
           if (creating) { const x = await api("POST", "/api/lists", body); S.me = await api("GET", "/api/me"); S.sid = x.list.id; location.hash = "#/" + S.sid; S.creating = false; await reload("share"); window.VL.focusStep("share"); toast("The list is ready. Here is the link."); }
@@ -132,7 +132,7 @@
       if (!(await window.VL.confirm("Close enrolment now?", "Voters will no longer be able to enrol or change their details. You can still check what was sent.", "Yes, close it"))) return;
       try { await api("PATCH", `/api/lists/${S.sid}`, { closeNow: true }); S.me = await api("GET", "/api/me"); await reload("setup"); toast("Enrolment is closed."); } catch (x) { fail(x); } } } }, "Close enrolment now")) : null,
     !creating && L && L.cutoffAt && L.cutoffAt <= Date.now() ? el("p", { class: "note" }, "Enrolment is closed. People can no longer be added; you can still check and publish.") : null,
-    el("label", { style: "display:flex;gap:10px;align-items:center;font-weight:400" }, f.docs, "Ask every voter for one supporting document"),
+    el("div", { style: "display:flex;gap:10px;align-items:center;font-weight:400" }, f.docs, el("span", {}, "Ask every voter for one supporting document")),
     err, el("div", { class: "row" }, dis ? null : btn));
     kindSync();
     if (dis) form.querySelectorAll("input,select").forEach((n) => { n.disabled = true; });

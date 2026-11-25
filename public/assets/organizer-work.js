@@ -23,7 +23,7 @@
       const q = el("input", { type: "search", placeholder: d.masked ? "Search by flat number" : "Search by flat, name or e-mail ID", value: R.q, "aria-label": "Search records" });
       let t; q.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => { R.q = q.value.trim(); R.off = 0; load(); }, 350); });
       const rows = d.records.map((r) => el("div", { class: "listrow" },
-        open && (r.status === "submitted" || R.tab !== "submitted") ? el("input", { type: "checkbox", checked: R.sel.has(r.id), "aria-label": "Select " + r.unit, on: { change: (e) => { e.target.checked ? R.sel.add(r.id) : R.sel.delete(r.id); bar(); } } }) : null,
+        open && (r.status === "submitted" || R.tab !== "submitted") ? window.VL.toggle("Select " + r.unit, R.sel.has(r.id), (on) => { on ? R.sel.add(r.id) : R.sel.delete(r.id); bar(); }, ["Selected", "Select"]) : null,
         el("div", { class: "main" }, el("b", {}, r.unit), " ", r.name, el("div", { class: "tiny muted" }, `${window.VL.cap(r.capacity)}${r.proxyFor ? " for " + r.proxyFor : ""}${r.docs ? ` · ${r.docs} document${r.docs > 1 ? "s" : ""}` : ""}${r.hasEarlierApproval && r.status === "submitted" ? " · changed after approval" : ""}${r.source === "upload" ? " · uploaded" : ""}`)),
         el("span", { class: "badge " + (STATUS[r.status] || ["", ""])[1] }, (STATUS[r.status] || [r.status])[0]),
         el("button", { class: "btn ghost small", type: "button", "aria-label": "Open " + r.unit + " " + r.name, on: { click: () => openRecord(r.id) } }, "Open")));
@@ -165,7 +165,7 @@
     const type = el("select", { id: "et" }, [["meeting", "General meeting"], ["election", "Election"]].map(([v, t]) => el("option", { value: v }, t)));
     const typed = el("input", { id: "ft", type: "text", placeholder: "FREEZE", autocomplete: "off" });
     const cut = L.cutoffLocal ? (L.cutoffAt > ov.now ? "future" : "passed") : "none";
-    const now = el("input", { type: "checkbox", id: "cn", on: { change: (e) => { state.closeNow = e.target.checked; } } });
+    const now = window.VL.toggle("Close enrolment now", false, (on) => { state.closeNow = on; }); now.id = "cn";
     const btn = el("button", { class: "btn brass big", type: "button" }, "Freeze and publish the final list");
     btn.addEventListener("click", () => window.VL.busy(btn, async () => {
       err.clear();
@@ -182,7 +182,7 @@
     }));
     return [el("p", { class: "big" }, "Freeze the list as it stands. It becomes final, fingerprinted and signed. Nobody can change it afterwards."),
       L.cutoffLocal ? el("p", { class: "note " + (cut === "passed" ? "ok" : "warn") }, cut === "passed" ? "The closing time has passed: " : "The closing time is ", el("b", {}, window.VL.localTime(L.cutoffLocal)), cut === "future" ? ". You can wait for it, or close enrolment now with the option below." : ".") : el("p", { class: "note warn" }, "No closing time is set. Use the option below to close enrolment now, or set a closing time in Step 1."),
-      cut !== "passed" ? el("label", { style: "display:flex;gap:10px;align-items:center;font-weight:400" }, now, "Close enrolment now") : null,
+      cut !== "passed" ? el("div", { style: "display:flex;gap:10px;align-items:center;font-weight:400" }, now, el("span", {}, "Close enrolment now")) : null,
       el("div", { class: "fieldrow" }, el("div", {}, el("label", { for: "ev" }, "What is the list for?"), ev), el("div", {}, el("label", { for: "et" }, "Kind of event"), type)),
       el("label", { for: "ft" }, "Type FREEZE to confirm"), typed, ack, err, el("div", { class: "row" }, btn), list,
       el("p", { class: "tiny muted" }, "What happens next: the public page shows the final list, with a proof anyone can check. You can reopen the list later for a new meeting.")];

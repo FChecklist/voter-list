@@ -1,10 +1,16 @@
 {
   "product": "voter-list",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "1ec24618",
+  "commit": "b69ea3da",
   "changes": [
+    {
+      "version": "0.3.9",
+      "releasedAt": null,
+      "commit": "b69ea3da",
+      "notes": "Attendance fix after round 14: no tick box is left anywhere. The three that remained (choosing records for a bulk action, Close enrolment now when freezing, and Ask every voter for one supporting document in the list settings) are now plain on/off buttons that say On and Off, or Select and Selected, with the same effect and the same saved value as before; one small shared helper builds all three; tests: a scan fails on any checkbox in every file under public and src with no exceptions, the helper is run against a minimal fake page to show it flips on a press, and the documents-required setting is saved on, read back, saved off and read back. The commit field names b69ea3da, the head this was built on. Not deployed yet."
+    },
     {
       "version": "0.3.8",
       "releasedAt": null,

@@ -20,6 +20,14 @@
     return n;
   };
   const el = VL.el;
+  // An on/off setting as a plain button (never a tick box). label is the spoken name; words are the two shown words. Returns the button; btn.isOn() reads the state; onChange(bool) runs after each press.
+  VL.toggle = function toggle(label, pressed, onChange, words) {
+    const w = words || ["On", "Off"]; let on = !!pressed;
+    const b = el("button", { type: "button", class: "btn ghost", role: "switch", "aria-label": label, "aria-pressed": String(on) }, on ? w[0] : w[1]);
+    b.isOn = () => on;
+    b.addEventListener("click", () => { on = !on; b.setAttribute("aria-pressed", String(on)); b.textContent = on ? w[0] : w[1]; if (onChange) onChange(on); });
+    return b;
+  };
   VL.api = async function api(method, path, body) {
     const init = { method, credentials: "same-origin", headers: { "x-vl": "1" } };
     if (body !== undefined) { init.headers["content-type"] = "application/json"; init.body = JSON.stringify(body); }

@@ -66,11 +66,6 @@ describe("2. the freeze flow has plain confirm buttons and the server still asks
     expect(b.status).toBe(201);
     expect(h.raw.query("SELECT COUNT(*) AS n FROM publications WHERE kind = 'frozen'").get()).toEqual({ n: 1 });
   });
-  test("each remaining checkbox is a setting toggle and is listed in KNOWLEDGE.md", () => {
-    const k = read("KNOWLEDGE.md");
-    for (const id of ["Row select", "Close enrolment now", "Documents required"]) expect(k, id).toContain(id);
-    expect(filesUnder("public/assets", /\.js$/).filter((f) => /type:\s*"checkbox"/.test(read(f))).sort()).toEqual(["public/assets/organizer-work.js", "public/assets/organizer.js"]);
-  });
 });
 
 describe("3. README, ASSUMPTIONS and KNOWLEDGE do not claim a tick", () => {
@@ -86,11 +81,9 @@ describe("3. README, ASSUMPTIONS and KNOWLEDGE do not claim a tick", () => {
 
 describe("4. the version", () => {
   const version = JSON.parse(read("public/version.json")) as { version: string; commit: string; changes: Array<{ version: string; commit?: string; notes: string }> };
-  test("0.3.8 everywhere; the newest entry names the parent of the bump commit (the head 1ec24618 it was built on)", () => {
-    expect(version.version).toBe("0.3.8"); expect(version.changes[0]!.version).toBe("0.3.8");
-    expect(JSON.parse(read("package.json")).version).toBe("0.3.8");
-    expect(read("CHANGELOG.md")).toContain("## 0.3.8"); expect(read("KNOWLEDGE.md")).toContain("0.3.8:");
-    expect(version.changes[0]!.commit).toBe("1ec24618"); expect(version.commit).toBe("1ec24618");
+  test("the 0.3.8 entry stays, naming the head 1ec24618 it was built on", () => {
+    const e = version.changes.find((c) => c.version === "0.3.8")!;
+    expect(e.commit).toBe("1ec24618");
     expect(() => execFileSync("git", ["cat-file", "-e", "1ec24618^{commit}"], { stdio: "ignore" })).not.toThrow();
   });
 });
