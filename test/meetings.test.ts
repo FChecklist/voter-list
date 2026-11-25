@@ -445,6 +445,7 @@ describe("motions and results (CP-214 to CP-219, CP-235, CP-236)", () => {
     // each refusal is checked by its own code, so one check cannot hide behind another (counts here fit the three people present, so only the counters are in question)
     const fits = { for: 2, against: 1 };
     for (const [bad, code] of [
+      [{ countedBy: Array.from({ length: 6 }, (_, i) => ({ name: `Mr Counter ${"ABCDEF"[i]}`, email: `counter${i}@sample.example` })) }, "too_many_counters"],
       [{ countedBy: [] }, "need_counter"], [{ countedBy: undefined }, "need_counter"], [{ countedBy: [{ name: "Mr Chair Person", email: "CHAIR@sample.example" }] }, "need_counter"], [{ countedBy: [{ name: "No mail", email: "nope" }] }, "bad_email"],
       [{ for: -1 }, "bad_number"], [{ for: "3" }, "bad_number"], [{ for: 1.5 }, "bad_number"], [{ against: 2_000_000 }, "bad_number"], [{ for: undefined }, "bad_number"], [{ method: "shout" }, "bad_value"],
     ] as const) {

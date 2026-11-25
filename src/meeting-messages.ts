@@ -49,6 +49,7 @@ export const MSG = {
   amendOther: "An amendment must belong to the same agenda item as the motion it amends.",
   amendDone: "Only a motion still waiting for a result can be amended.",
   needCounter: "Please name who counted the votes: at least one person who is not the chair.",
+  tooManyCounters: "Please name no more than 5 people who counted the votes.",
   tooManyVotes: "The votes are more than the people who may vote now. Please check the counts.",
   noQuorum: "The quorum is not met, so no decision can be recorded now. The meeting can be adjourned, or held again as the bye-laws allow.",
   minutesNotFound: "Those minutes were not found.",

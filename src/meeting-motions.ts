@@ -176,7 +176,8 @@ export async function recordResult(ctx: StaffCtx, meetingId: string, motionId: s
   const method = oneOf(input.method, METHODS, MSG.badMethod);
   const forCount = counted(input.for), againstCount = counted(input.against), abstainCount = counted(input.abstain === undefined ? 0 : input.abstain);
   const note = words(input.note, "the note", 2, 200, true);
-  const list = Array.isArray(input.countedBy) ? input.countedBy.slice(0, 5) : [];
+  if (Array.isArray(input.countedBy) && input.countedBy.length > 5) throw new HttpError(400, MSG.tooManyCounters, "too_many_counters"); // never cut a list short without saying so
+  const list = Array.isArray(input.countedBy) ? input.countedBy : [];
   const counters = list.map((c) => person(c, "counter"));
   const chair = await ctx.env.DB.prepare("SELECT email FROM mtg_people WHERE meeting_id = ? AND role = 'chair'").bind(m.id).first<{ email: string }>();
   if (!counters.length || !counters.some((c) => c.email.toLowerCase() !== (chair?.email ?? "").toLowerCase())) throw new HttpError(400, MSG.needCounter, "need_counter");
