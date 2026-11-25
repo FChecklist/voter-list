@@ -65,7 +65,7 @@ bun test --isolate && bun run typecheck && bun run build:pages
 wrangler login
 wrangler d1 create voter-list           # copy the printed id into wrangler.toml, database_id
 wrangler d1 create voter-list-preview   # copy the id into wrangler.toml, [env.preview], database_id
-wrangler d1 migrations apply voter-list-preview --remote --env preview    # applies migrations 0001 to 0016 to the PREVIEW database only (the Meetings and Elections PRs add their own 0012 files; they are renumbered at merge)
+wrangler d1 migrations apply voter-list-preview --remote --env preview    # applies migrations 0001 to 0017 to the PREVIEW database only (the Elections PR adds its own 0012 file; it is renumbered at merge)
 ```
 
 **Step 3. Create secrets outside the repo.** Production secrets must be new, not the dev ones; keep the signing key backed up offline, because it signs the audit trail and the final lists.
@@ -119,7 +119,7 @@ The society (through its Organizer) decides why and how the voter list is used, 
 ## Layout
 
 ```
-migrations/   0001..0004 (core, lists, workflow, hardening; the old tables stay unused), 0005_enrolment (voters, documents, events, publications, roles), 0006_indexes (for the clean-up), then 0007 to 0015 (up to the flat kept on the attendance mark), then 0016_results (the Meetings and Elections PRs add 0012 files that are renumbered at merge)
+migrations/   0001..0004 (core, lists, workflow, hardening; the old tables stay unused), 0005_enrolment (voters, documents, events, publications, roles), 0006_indexes (for the clean-up), then 0007 to 0015 (up to the flat kept on the attendance mark), then 0016_results and 0017_meetings (the Elections PR adds a 0012 file that is renumbered at merge)
 src/          handler.ts (router and API), lists / records / review / publish / overview / erase / orders (services), store.ts (access rules),
               auth.ts, audit.ts, checks.ts, importer.ts, csv.ts, xlsx.ts, text.ts, model.ts, vendor/,
               results.ts and results-core.ts (Results: the service, and the counting and checks with no database)

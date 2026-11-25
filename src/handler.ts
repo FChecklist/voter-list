@@ -6,6 +6,7 @@ import type { Env } from "./db";
 import * as attendance from "./attendance";
 import { eraseList, eraseStatus } from "./erase";
 import * as lists from "./lists";
+import { mountMeetings } from "./meeting-routes";
 import * as orders from "./orders";
 import { RULES } from "./model";
 import { overview } from "./overview";
@@ -184,6 +185,9 @@ route("GET", "/api/lists/:sid/team", async (r) => json(await lists.listTeam(awai
 route("POST", "/api/lists/:sid/team", async (r) => json(await lists.inviteHost(await staff(r), (await r.body()) as never), 201));
 route("POST", "/api/lists/:sid/team/organizer", async (r) => { const b = await r.body(); return json(await lists.transferOrganizer(await staff(r), str(b.email, 200))); });
 route("DELETE", "/api/lists/:sid/team/:email", async (r) => json(await lists.removeHost(await staff(r), (() => { try { return decodeURIComponent(r.params.email!); } catch { throw new HttpError(400, "That e-mail ID could not be read.", "bad_email"); } })())));
+
+// meetings (dark unless MEETINGS_ENABLED is "1"): the addresses are in meeting-routes.ts
+mountMeetings({ route, json, file, staff, slug: slugList, publicCache: PUBLIC_CACHE });
 
 // attendance sessions (Voter List or uploaded list): create, list, open, mark present, close
 route("POST", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.createSession(await staffAny(r), await r.body()), 201));

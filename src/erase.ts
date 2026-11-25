@@ -30,6 +30,18 @@ export async function eraseList(ctx: StaffCtx, input: { confirm?: string }) {
     db.prepare("DELETE FROM voter_docs WHERE society_id = ?").bind(sid),
     db.prepare("UPDATE voter_events SET before_json = NULL, after_json = NULL, actor_email = '(erased)' WHERE society_id = ?").bind(sid),
     db.prepare("DELETE FROM mail_outbox WHERE to_addr IN (SELECT email FROM voters WHERE society_id = ?)").bind(sid), // notes mailed to voters carry their reason text
+    // the Meetings tables, children first; their append-only triggers allow this only because erased_at is set above, in this same batch
+    db.prepare("DELETE FROM mtg_results WHERE society_id = ?").bind(sid),
+    db.prepare("DELETE FROM mtg_interests WHERE society_id = ?").bind(sid),
+    db.prepare("DELETE FROM mtg_motions WHERE society_id = ?").bind(sid),
+    db.prepare("DELETE FROM mtg_minutes WHERE society_id = ?").bind(sid),
+    db.prepare("DELETE FROM mtg_actions WHERE society_id = ?").bind(sid),
+    db.prepare("DELETE FROM mtg_events WHERE society_id = ?").bind(sid),
+    db.prepare("DELETE FROM mtg_people WHERE society_id = ?").bind(sid),
+    db.prepare("DELETE FROM mtg_notices WHERE society_id = ?").bind(sid),
+    db.prepare("DELETE FROM mtg_items WHERE society_id = ?").bind(sid),
+    db.prepare("DELETE FROM mtg_meetings WHERE society_id = ?").bind(sid),
+    db.prepare("DELETE FROM mtg_rules WHERE society_id = ?").bind(sid),
     db.prepare("DELETE FROM att_marks WHERE society_id = ?").bind(sid), // the trigger allows this only because erased_at is set above, in this same batch
     db.prepare("DELETE FROM att_sessions WHERE society_id = ?").bind(sid),
     db.prepare("DELETE FROM res_results WHERE society_id = ?").bind(sid), // declared results and their closings go with the list (the triggers allow it only because erased_at is set above)
