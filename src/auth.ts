@@ -70,7 +70,7 @@ export function mailPools(env: Env) {
   const staff = cap <= 1 ? cap : Math.min(Math.floor(cap / 2), num(env.MAIL_STAFF_RESERVE, 20)); // the staff reserve never takes more than half the day's allowance, so voters always keep a share
   return { cap, staff, voters: Math.max(0, cap - staff), perList: num(env.MAIL_LIST_CAP, 25) };
 }
-const VOTER_KINDS = ["otp-member", "otp-member-new", "voter-note"];
+const VOTER_KINDS = ["otp-member", "otp-member-new", "voter-note", "otp-vote"];
 
 /** The Cloudflare Turnstile check (free). Not set up = no check. Set up = no code is sent, and nothing is counted, until it was passed. */
 export async function checkTurnstile(env: Env, token: string, ip: string): Promise<void> {

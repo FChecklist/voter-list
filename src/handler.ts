@@ -5,6 +5,7 @@ import { checkTurnstile, endSession, HttpError, sessionFrom, startCode, verifyCo
 import type { Env } from "./db";
 import * as attendance from "./attendance";
 import { eraseList, eraseStatus } from "./erase";
+import { mountElections } from "./elections-routes";
 import * as lists from "./lists";
 import * as orders from "./orders";
 import { RULES } from "./model";
@@ -180,6 +181,9 @@ route("GET", "/api/lists/:sid/attendance/sessions/:aid", async (r) => json(await
 route("GET", "/api/lists/:sid/attendance/sessions/:aid/sheet.csv", async (r) => { const x = await attendance.sheetCsv(await staffAny(r), r.params.aid!); return file(x.body, x.type, x.filename); });
 route("POST", "/api/lists/:sid/attendance/sessions/:aid/mark", async (r) => { const c = await staffAny(r); const b = await r.body(); return json(await attendance.markByTeam(c, r.params.aid!, b.voterId)); });
 route("POST", "/api/lists/:sid/attendance/sessions/:aid/close", async (r) => { const c = await staffAny(r); await r.body(); return json(await attendance.closeSession(c, r.params.aid!)); });
+
+// elections (dark unless ELECTIONS_ENABLED is "1"): the addresses are in elections-routes.ts
+mountElections({ route, json, staff, voter, slug: slugList, publicCache: PUBLIC_CACHE });
 
 // retention
 route("GET", "/api/lists/:sid/erase", async (r) => json(await eraseStatus(await staff(r))));

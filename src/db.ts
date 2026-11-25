@@ -50,6 +50,8 @@ export interface Env {
   PAY_SERVICE_URL?: string;
   /** Dollars for "Save as Version 1" (shown to societies outside India). Unset = not confirmed by the owner. */
   PRICE_USD?: string;
+  /** "1" switches Elections on. Anything else (the default) and every Elections address answers "not found": the product stays dark until the owner decides. */
+  ELECTIONS_ENABLED?: string;
 }
 
 export const uid = (prefix: string) => `${prefix}_${[...globalThis.crypto.getRandomValues(new Uint8Array(9))].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
