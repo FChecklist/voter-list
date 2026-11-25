@@ -1,10 +1,16 @@
 {
   "product": "voter-list",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "1d80cf4",
+  "commit": "1ec24618",
   "changes": [
+    {
+      "version": "0.3.8",
+      "releasedAt": null,
+      "commit": "1ec24618",
+      "notes": "Attendance fix after round 13: the two freeze tick boxes are now one plain button, Yes, freeze anyway, which sets the same confirmation the box did, so the server check is unchanged; the server messages no longer say to tick a box; when two marks by one e-mail ID meet at the same moment the answer is the plain one-person message, not an error; the README and assumptions now say that there is no tick box and the confirm button is the act; tests: the checkbox scan also fails on a box labelled agree, understand, looked at or accept, the Hindi consent exemptions are pinned to their exact Hindi, the English keys of the Hindi file are scanned for the possessive words, and the page route check resolves the attendance base address. The commit field names 1ec24618, the head this was built on. Not deployed yet."
+    },
     {
       "version": "0.3.7",
       "releasedAt": null,

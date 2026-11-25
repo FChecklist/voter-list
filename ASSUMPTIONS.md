@@ -19,10 +19,10 @@ A voter list is one row of `societies`. It has one common link (`/v/<16 hex>`), 
 - **Capacities:** Owner, Co-owner, Tenant, Proxy (and Member for "member only" lists). **Proxy appears only where the voting rule allows it** (rules 3 and 4). A proxy gives the owner's name and **must attach a Proxy Nomination Form** before sending. The list can require one supporting document from everybody.
 - **Documents:** up to 3 per record, 100 MB per list in total, PDF/JPG/PNG, 400 KB each, checked by content (not just the name). Kept once a record is approved. Every staff opening is logged. The page tells voters to cover any ID number; **no Aadhaar number is ever asked for.**
 - A voter can hold up to 5 homes. The same e-mail ID cannot enrol the same flat twice.
-- **Consent:** a tick is required before sending; the time is stored. A voter can withdraw a record (approved or not) while the list is open.
+- **Consent:** there is no tick box. Pressing the plain confirm button after the notice (with its Terms link) is the act; the time and the terms version are stored. A voter can withdraw a record (approved or not) while the list is open.
 - **Editing an approved record** sends it back for a fresh check; **the earlier approved details stay on the list** until the new ones are approved. The flat cannot be changed once approved.
 - **Uploaded people are "invited", not approved.** They sign in, check their details and confirm; only then are they checked by the team.
-- **Staff-added people are approved at once** (the staff member is the checker) and must tick that the person has agreed; the person sees the record and the notice when they sign in. A provisional (draft) list is shown without anyone who has since withdrawn or been removed; a signed final list is never changed.
+- **Staff-added people are approved at once** (the staff member is the checker) and there is no tick box for it; the dialog shows a notice with the Terms link, and the person sees the record and the notice when they sign in. A provisional (draft) list is shown without anyone who has since withdrawn or been removed; a signed final list is never changed.
 - Sign-in codes: six digits, valid 10 minutes, stored only as an HMAC hash; staff sessions 7 days (12 hours for the standing host), voter sessions 8 hours. SMS is not used (cost).
 - Text such as flat numbers and reasons may not contain phone numbers or e-mail IDs (they could otherwise reach the signed log).
 

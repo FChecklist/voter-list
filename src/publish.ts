@@ -140,10 +140,10 @@ export async function publishFrozen(ctx: StaffCtx, input: FreezeInput) {
   const seen = await stamp(); // read before the list is built: if any record changes after this, the batch below is refused and nothing is frozen
   const { roll, report, snaps } = await rollReport(env, society);
   if (report.errors > 0) throw new HttpError(409, `The checks still show ${report.errors} thing${report.errors === 1 ? "" : "s"} to fix. Please finish Step 5 first.`, "checks");
-  if (report.warnings > 0 && !input.ackWarnings) throw new HttpError(409, `The checks show ${report.warnings} thing${report.warnings === 1 ? "" : "s"} to glance at. Tick the box to say you have looked.`, "warnings");
+  if (report.warnings > 0 && !input.ackWarnings) throw new HttpError(409, `The checks show ${report.warnings} thing${report.warnings === 1 ? "" : "s"} to glance at. Press Yes, freeze anyway if you have looked at them.`, "warnings");
   const pending = await env.DB.prepare("SELECT COUNT(*) AS n FROM voters WHERE society_id = ? AND status IN ('submitted','draft','invited','sent_back')").bind(society.id).first<{ n: number }>();
   const stuck = (pending?.n ?? 0);
-  if (stuck > 0 && !input.ackPending) throw new HttpError(409, `${stuck} record${stuck === 1 ? " is" : "s are"} still waiting, with the voter, or not yet confirmed. They will not be on the frozen list (an earlier approved version stays). Tick the box to freeze anyway.`, "pending");
+  if (stuck > 0 && !input.ackPending) throw new HttpError(409, `${stuck} record${stuck === 1 ? " is" : "s are"} still waiting, with the voter, or not yet confirmed. They will not be on the frozen list (an earlier approved version stays). Press Yes, freeze anyway to go on.`, "pending");
   if (!snaps.length) throw new HttpError(409, "No one is on the list yet.", "empty");
   const gate = await paymentGate(ctx);
   const id = uid("pub");

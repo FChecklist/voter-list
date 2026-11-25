@@ -2,6 +2,15 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.8 - not deployed yet (IST)
+
+Fix after round 13 of Attendance chunks 1-2 (two audits of 0.3.7 found three Medium defects and two Low). The commit field names `1ec24618`, the head this was built on.
+
+- Freeze: the two acknowledgement tick boxes are now a plain button, "Yes, freeze anyway". It sets the same confirmation field the box did, so the server check is unchanged. The server messages no longer say "Tick the box".
+- Docs: README and ASSUMPTIONS now say that there is no tick box; pressing the confirm button after the notice is the act, recorded with the time and terms version. KNOWLEDGE.md lists the three checkboxes that remain (row select, close enrolment now, documents required), each a plain setting.
+- Attendance: when two marks by one e-mail ID meet at the same moment, the answer is the plain "one person" message (a UNIQUE failure of the index is no longer a 500).
+- Tests: the checkbox scan also fails on a box labelled agree, understand, looked at or accept; the Hindi consent exemptions are pinned to their exact Hindi; the English keys of `hi.js` are scanned for the possessive words; the page route check resolves the `base()` helper.
+
 ## 0.3.7 - not deployed yet (IST)
 
 Fix after round 12 of Attendance chunks 1-2 (two audits of 0.3.6 found two Medium defects and one Low).

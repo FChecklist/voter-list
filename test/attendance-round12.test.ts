@@ -36,13 +36,13 @@ describe("1. adding a person has no tick box and no consent flag", () => {
 });
 
 describe("2. no source holds a consent tick box or the words tick the box / I agree", () => {
-  // Functional checkboxes that are not a consent gate, by file and count (row select, a list setting, close now, two freeze acknowledgements). Any new one fails here.
-  const ALLOWED: Record<string, number> = { "public/assets/organizer-work.js": 4, "public/assets/organizer.js": 1 };
+  // Functional checkboxes that are not a consent gate, by file and count (row select, close now, a list setting). The two freeze acknowledgements became plain buttons in 0.3.8. Any new one fails here.
+  const ALLOWED: Record<string, number> = { "public/assets/organizer-work.js": 2, "public/assets/organizer.js": 1 };
   const files = [...filesUnder("src", /\.(js|ts)$/), ...filesUnder("public/assets", /\.(js|ts)$/)];
   test("the scan reads real files", () => { expect(files).toContain("src/review.ts"); expect(files).toContain("public/assets/ui.js"); });
   // The same kind of functional lines for the freeze checks and close-now box (not a consent gate), by file and count. Any new use fails here.
-  const WORDS_ALLOWED: Record<string, number> = { "src/publish.ts": 2, "public/assets/organizer-work.js": 1 };
-  test('words: no "tick the box" and no "I agree" except the listed freeze / close-now lines', () => {
+  const WORDS_ALLOWED: Record<string, number> = {};
+  test('words: no "tick the box" and no "I agree" anywhere (the freeze messages and close-now line were reworded in 0.3.8)', () => {
     expect(files.filter((f) => /\bI agree\b/i.test(read(f)))).toEqual([]);
     const found: Record<string, number> = {};
     for (const f of files) { const n = (read(f).match(/tick the box/gi) ?? []).length; if (n) found[f] = n; }
@@ -52,5 +52,19 @@ describe("2. no source holds a consent tick box or the words tick the box / I ag
     const found: Record<string, number> = {};
     for (const f of files) { const n = (read(f).match(/type:\s*"checkbox"/g) ?? []).length; if (n) found[f] = n; }
     expect(found).toEqual(ALLOWED);
+  });
+  test('no checkbox in any file under public/assets has an agree / understand / looked at / accept label or id near it', () => {
+    const all = filesUnder("public/assets", /./); const bad: string[] = [];
+    for (const f of all) {
+      const t = read(f);
+      for (const m of t.matchAll(/type:\s*["']checkbox["']|type=["']?checkbox/g)) {
+        const near = t.slice(Math.max(0, m.index! - 250), m.index! + 450);
+        if (/agree|understand|looked at|accept/i.test(near)) bad.push(f + " near " + JSON.stringify(near.slice(200, 260)));
+      }
+    }
+    expect(bad).toEqual([]);
+    // the scan is real: it sees a planted box in a planted text
+    const planted = 'el("input", { type: "checkbox", id: "x" }), "I understand. Freeze anyway."';
+    expect(/type:\s*["']checkbox["']/.test(planted) && /agree|understand|looked at|accept/i.test(planted)).toBe(true);
   });
 });

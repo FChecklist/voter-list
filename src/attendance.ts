@@ -135,7 +135,14 @@ async function mark(env: Env, society: SocietyRow, s: SessionRow, voterId: strin
     guardChanged(env, ERR.alreadyPresent),
   ];
   // the signed log names the voter and the marker only by private codes, and the flat only in a form that carries no phone number or e-mail ID
-  await commit(env, society.id, stmts, "attendance.marked", { pid, role: actorRole }, { session: s.id, voter: await pseudonym(env, idOf(line.row.email) + "|" + voterId), unit: looksPrivate(line.row.unit) ? "#" : line.row.unit, method, mode: s.mode }, now);
+  const voter = await pseudonym(env, idOf(line.row.email) + "|" + voterId);
+  try { await commit(env, society.id, stmts, "attendance.marked", { pid, role: actorRole }, { session: s.id, voter, unit: looksPrivate(line.row.unit) ? "#" : line.row.unit, method, mode: s.mode }, now); }
+  catch (e) {
+    // A second mark by the same e-mail ID that lands between the read above and the batch: the database says so as a guard message or as a UNIQUE failure of the one-mark-per-e-mail index. Either way the answer is the plain one.
+    const text = String((e as Error)?.message ?? e);
+    if (method === "email" && ((e instanceof HttpError && e.message === ERR.onePerEmail) || /UNIQUE constraint failed:.*att_marks.*marked_by|ux_att_marks_one_self_mark/i.test(text))) throw new HttpError(409, ERR.onePerEmail, "one_per_email");
+    throw e;
+  }
   return { ok: true, present: true, unit: line.row.unit, method };
 }
 

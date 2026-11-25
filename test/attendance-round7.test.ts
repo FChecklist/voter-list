@@ -253,10 +253,12 @@ const HI_CONSENT = /सहमति|सहमत|शर्त|नियम|स�
 /** The English words and the Hindi words together. */
 const CONSENT_ANY = new RegExp(/By pressing|\bTerms\b|\bI (agree|accept)\b|\bagree to\b|\bconsent\b/i.source + "|" + HI_CONSENT.source, "i");
 /** Every line (the English key, or a pattern) of a language file whose English or Hindi holds a consent word, apart from the `reviewed` ones. A pattern's Hindi is what its function writes. */
-const hindiConsentHits = (lang: { words: Record<string, string>; patterns: Array<[RegExp, (...a: any[]) => string]> }, reviewed: ReadonlySet<string> = new Set()): string[] => [
-  ...Object.entries(lang.words).filter(([k, v]) => !reviewed.has(k) && (CONSENT_ANY.test(k) || CONSENT_ANY.test(v))).map(([k]) => k),
-  ...lang.patterns.filter(([re, fn]) => !reviewed.has(String(re)) && (CONSENT_ANY.test(re.source) || patternOutputs(re, fn).some((t) => CONSENT_ANY.test(t)))).map(([re]) => String(re)),
+const hindiConsentHits = (lang: { words: Record<string, string>; patterns: Array<[RegExp, (...a: any[]) => string]> }, reviewed: ReadonlyMap<string, string> = new Map()): string[] => [
+  ...Object.entries(lang.words).filter(([k, v]) => reviewed.get(k) !== v && (CONSENT_ANY.test(k) || CONSENT_ANY.test(v))).map(([k]) => k),
+  ...lang.patterns.filter(([re, fn]) => reviewed.get(String(re)) !== pinOf(fn) && (CONSENT_ANY.test(re.source) || patternOutputs(re, fn).some((t) => CONSENT_ANY.test(t)))).map(([re]) => String(re)),
 ];
+/** What a reviewed pattern is pinned to: the Hindi its function writes for the sample "Sample" (a changed function is no longer exempt). */
+const pinOf = (fn: (...a: any[]) => string): string => { try { return String(fn("Sample")); } catch { return ""; } };
 /** What a pattern function writes: it is EXECUTED on sample inputs (one per capture group, in several shapes), never read as source text, so a line built from a table or pieces cannot hide a word. */
 const patternOutputs = (re: RegExp, fn: (...a: any[]) => string): string[] => {
   const groups = new RegExp(re.source + "|").exec("")!.length - 1;
@@ -267,19 +269,21 @@ const patternOutputs = (re: RegExp, fn: (...a: any[]) => string): string[] => {
   return outs;
 };
 /** Lines of the Voter List that were in hi.js before Attendance and hold one of those Hindi words without being a consent line (each is about the right to vote, the bye-laws or a proxy's written authority). */
-const REVIEWED_NOT_CONSENT: ReadonlySet<string> = new Set([
-  "Please choose what the bye-laws say. A registrar or a lawyer can confirm it.",
-  "You act for the owner, with their written authority",
-  "As the list stands now, you are not allowed to vote.",
-  "Dues unpaid - not allowed to vote",
-  "Tenant - not allowed to vote",
-  "Co-owner - not allowed to vote. Only the Owner / 1st name may vote",
-  "Not a member of the society - not allowed to vote",
-  "Proxy papers awaited - not allowed to vote for now",
-  "Not allowed to vote",
-  "Not allowed to vote (the reason has not been chosen yet)",
-  String(/^(.+) - not allowed to vote$/),
-  String(/^(.+) - not allowed to vote under this list's rule$/),
+const REVIEWED_NOT_CONSENT: ReadonlyMap<string, string> = new Map([
+  // each English line is pinned to its exact Hindi value: if the Hindi changes, the line is no longer exempt and the scan looks at it again
+  ["Please choose what the bye-laws say. A registrar or a lawyer can confirm it.", "कृपया चुनिए कि उप-नियम क्या कहते हैं। रजिस्ट्रार या वकील इसकी पुष्टि कर सकते हैं।"],
+  ["You act for the owner, with their written authority", "आप मालिक की लिखित अनुमति से उनकी ओर से काम करते हैं"],
+  ["As the list stands now, you are not allowed to vote.", "सूची की मौजूदा स्थिति के अनुसार, आपको वोट देने की अनुमति नहीं है।"],
+  ["Dues unpaid - not allowed to vote", "बकाया शुल्क जमा नहीं - वोट देने की अनुमति नहीं"],
+  ["Tenant - not allowed to vote", "किरायेदार - वोट देने की अनुमति नहीं"],
+  ["Co-owner - not allowed to vote. Only the Owner / 1st name may vote", "सह-मालिक - वोट देने की अनुमति नहीं। केवल मालिक / पहला नाम वोट दे सकता है"],
+  ["Not a member of the society - not allowed to vote", "सोसाइटी का सदस्य नहीं - वोट देने की अनुमति नहीं"],
+  ["Proxy papers awaited - not allowed to vote for now", "प्रॉक्सी के कागज़ात की प्रतीक्षा - अभी वोट देने की अनुमति नहीं"],
+  ["Not allowed to vote", "वोट देने की अनुमति नहीं"],
+  ["Not allowed to vote (the reason has not been chosen yet)", "वोट देने की अनुमति नहीं (कारण अभी चुना नहीं गया)"],
+  // the two patterns are pinned to what their function writes for the sample "Sample"
+  [String(/^(.+) - not allowed to vote$/), "Sample - वोट देने की अनुमति नहीं"],
+  [String(/^(.+) - not allowed to vote under this list's rule$/), "Sample - इस सूची के नियम के अनुसार वोट देने की अनुमति नहीं"],
 ]);
 
 /** The page texts this round adds (the pages are checked against these exact words in the tests above and below). */
@@ -368,7 +372,9 @@ describe("4. Hindi for the texts the server builds", () => {
     expect(hindiConsentHits({ words: {}, patterns: [[/^Two (.+) and (.+)$/, (a: string, b: string) => table.a + a + b]] })).toEqual(["/^Two (.+) and (.+)$/"]); // every group gets a sample
     expect(hindiConsentHits({ words: { "Terms and Conditions": "x" }, patterns: [] })).toEqual(["Terms and Conditions"]); // the English words still count
     expect(hindiConsentHits({ words: { "A plain English line": "यह एक सीधी पंक्ति है।" }, patterns: [] })).toEqual([]);
-    expect(hindiConsentHits({ words: { "As the list stands now, you are not allowed to vote.": "आपको वोट देने की अनुमति नहीं है।" }, patterns: [] }, REVIEWED_NOT_CONSENT)).toEqual([]); // a reviewed line of the Voter List
+    expect(hindiConsentHits({ words: { "As the list stands now, you are not allowed to vote.": "सूची की मौजूदा स्थिति के अनुसार, आपको वोट देने की अनुमति नहीं है।" }, patterns: [] }, REVIEWED_NOT_CONSENT)).toEqual([]); // a reviewed line of the Voter List, with its pinned Hindi
+    expect(hindiConsentHits({ words: { "As the list stands now, you are not allowed to vote.": "आपको वोट देने की अनुमति नहीं है।" }, patterns: [] }, REVIEWED_NOT_CONSENT)).toHaveLength(1); // the same English with other Hindi is not exempt
+    expect(hindiConsentHits({ words: {}, patterns: [[/^(.+) - not allowed to vote$/, (n: string) => n + " - आप सहमत हैं"]] }, REVIEWED_NOT_CONSENT)).toHaveLength(1); // a changed pattern is not exempt either
     expect(hindiConsentHits({ words: { "As the list stands now, you are not allowed to vote. And agree.": "आपको वोट देने की अनुमति नहीं है। सहमत हैं।" }, patterns: [] }, REVIEWED_NOT_CONSENT)).toHaveLength(1); // a new line is not let through by the reviewed ones
   });
 
@@ -377,7 +383,14 @@ describe("4. Hindi for the texts the server builds", () => {
     expect(hindiConsentHits(hi, REVIEWED_NOT_CONSENT)).toEqual([]);
     // the reviewed lines are lines of the Voter List about the right to vote, the bye-laws and a proxy's written authority; each one is still in hi.js (a stale entry would hide a gap)
     const all = new Set([...Object.keys(hi.words), ...(hi.patterns as [RegExp][]).map(([re]) => String(re))]);
-    for (const k of REVIEWED_NOT_CONSENT) expect(all.has(k), k).toBe(true);
+    for (const k of REVIEWED_NOT_CONSENT.keys()) expect(all.has(k), k).toBe(true);
+  });
+
+  test("a Hindi line changed after review is no longer exempt, and the English keys of hi.js have no my / mine / your / yours apart from the one allowed sentence", () => {
+    for (const [k, v] of REVIEWED_NOT_CONSENT) { if (k.startsWith("/")) continue; expect(hi.words[k], k).toBe(v); expect(hindiConsentHits({ words: { [k]: v + " सहमति" }, patterns: [] }, REVIEWED_NOT_CONSENT), k).toEqual([k]); }
+    expect(possessivesIn("Please give your name.").length).toBeGreaterThan(0); // the scanner sees a planted key
+    const keys = [...Object.keys(hi.words), ...(hi.patterns as [RegExp][]).map(([re]) => re.source)];
+    expect(keys.filter((k) => possessivesIn(k).length)).toEqual([]);
   });
 
   test("a fault inside the sheet reader or the decoder shows That file could not be read, never its own words; the reader's own messages still show, each with Hindi", async () => {

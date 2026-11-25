@@ -171,13 +171,17 @@
       err.clear();
       try { const x = await api("POST", `/api/lists/${S.sid}/publish/frozen`, { eventName: ev.value, eventType: type.value, confirm: typed.value, ...state }); toast("Final list published and signed."); await OR.reload("frozen"); }
       catch (e) {
-        if (e.code === "pending") { window.VL.fill(ack, el("div", { class: "note warn" }, e.message, el("label", { style: "display:flex;gap:10px;font-weight:400" }, el("input", { type: "checkbox", on: { change: (q) => { state.ackPending = q.target.checked; } } }), "I understand. Freeze anyway."))); }
-        else if (e.code === "warnings") { window.VL.fill(ack, el("div", { class: "note warn" }, e.message, el("label", { style: "display:flex;gap:10px;font-weight:400" }, el("input", { type: "checkbox", on: { change: (q) => { state.ackWarnings = q.target.checked; } } }), "I have looked at them. Freeze anyway."))); }
+        if (e.code === "pending" || e.code === "warnings") {
+          const field = e.code === "pending" ? "ackPending" : "ackWarnings";
+          const go = el("button", { class: "btn brass", type: "button", id: "freeze-anyway" }, "Yes, freeze anyway");
+          go.addEventListener("click", () => { state[field] = true; btn.click(); });
+          window.VL.fill(ack, el("div", { class: "note warn" }, e.message, el("div", { class: "row" }, go)));
+        }
         else err.show(e.message);
       }
     }));
     return [el("p", { class: "big" }, "Freeze the list as it stands. It becomes final, fingerprinted and signed. Nobody can change it afterwards."),
-      L.cutoffLocal ? el("p", { class: "note " + (cut === "passed" ? "ok" : "warn") }, cut === "passed" ? "The closing time has passed: " : "The closing time is ", el("b", {}, window.VL.localTime(L.cutoffLocal)), cut === "future" ? ". You can wait for it, or close enrolment now with the box below." : ".") : el("p", { class: "note warn" }, "No closing time is set. Tick the box below to close enrolment now, or set a closing time in Step 1."),
+      L.cutoffLocal ? el("p", { class: "note " + (cut === "passed" ? "ok" : "warn") }, cut === "passed" ? "The closing time has passed: " : "The closing time is ", el("b", {}, window.VL.localTime(L.cutoffLocal)), cut === "future" ? ". You can wait for it, or close enrolment now with the option below." : ".") : el("p", { class: "note warn" }, "No closing time is set. Use the option below to close enrolment now, or set a closing time in Step 1."),
       cut !== "passed" ? el("label", { style: "display:flex;gap:10px;align-items:center;font-weight:400" }, now, "Close enrolment now") : null,
       el("div", { class: "fieldrow" }, el("div", {}, el("label", { for: "ev" }, "What is the list for?"), ev), el("div", {}, el("label", { for: "et" }, "Kind of event"), type)),
       el("label", { for: "ft" }, "Type FREEZE to confirm"), typed, ack, err, el("div", { class: "row" }, btn), list,
