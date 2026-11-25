@@ -20,7 +20,7 @@ import { publicKeyFromPrivate, verifyMessage } from "./vendor/crypto";
 import { entryHash, signingMessage } from "./vendor/log";
 import { maskName, scanPublic } from "./vendor/masking";
 import {
-  buildContent, clean, fingerprintOf, mapNames, MODE_TEXT, normalizeClaim, parseClosing, RES, VISIBILITIES, type AttFacts, type Closing, type Content, type Kind, type ListFacts, type Visibility,
+  buildContent, clean, fingerprintOf, maskedContent, MODE_TEXT, OUTCOME_TEXT, normalizeClaim, parseClosing, RES, VISIBILITIES, type AttFacts, type Closing, type Content, type Kind, type ListFacts, type MaskedContent, type Visibility,
 } from "./results-core";
 
 // ------------------------------------------------------------------------------------------------------------------ the switch
@@ -104,11 +104,12 @@ async function build(env: Env, society: SocietyRow, c: Closing, meta: { revision
 }
 
 // ------------------------------------------------------------------------------------------------------------------ views
-const viewClosing = (r: ClosingRow, tz: number) => ({ id: r.id, kind: r.kind, ref: r.ref, revision: r.revision, source: r.source, title: r.title, closedAt: r.closed_at, closedAtLocal: msToLocal(r.closed_at, tz), createdAt: r.created_at });
+/** `safe` leaves out the reference and the title, which are free text (only the Organizer sees them). */
+const viewClosing = (r: ClosingRow, tz: number, safe = false) => ({ id: r.id, kind: r.kind, ...(safe ? {} : { ref: r.ref, title: r.title }), revision: r.revision, source: r.source, closedAt: r.closed_at, closedAtLocal: msToLocal(r.closed_at, tz), createdAt: r.created_at });
 
-function viewOf(r: ResultRow, tz: number, now: number, supersededBy: string | null) {
+function viewOf(r: ResultRow, tz: number, now: number, supersededBy: string | null, safe = false) {
   return {
-    id: r.id, closingId: r.closing_id, kind: r.kind, ref: r.ref, version: r.version, status: r.status, statusText: STATUS_TEXT[r.status], visibility: r.visibility, supersedes: r.supersedes, supersededBy,
+    id: r.id, closingId: r.closing_id, kind: r.kind, ...(safe ? {} : { ref: r.ref }), version: r.version, status: r.status, statusText: STATUS_TEXT[r.status], visibility: r.visibility, supersedes: r.supersedes, supersededBy,
     failedChecks: r.failed_checks, fingerprint: r.fingerprint, fingerprintShort: shortFingerprint(r.fingerprint), createdAt: r.created_at,
     challengeEndsAt: r.challenge_ends_at, challengeEndsLocal: msToLocal(r.challenge_ends_at, tz), challengeOpen: r.status === "draft" && now < r.challenge_ends_at,
     canFinalize: r.status === "draft" && r.failed_checks === 0 && now >= r.challenge_ends_at,
@@ -155,14 +156,14 @@ async function supersededByMap(env: Env, societyId: string): Promise<Map<string,
   return new Map(rs.results.map((x) => [x.supersedes, x.id]));
 }
 
-/** One result with everything about it. `names` decides how the names of people are shown (full, or passed through a mask). */
+/** One result with everything about it. With `names` (a mask) the view is the safe one: structured fields only, names masked, no free text (see maskedContent). Without it, everything. */
 async function fullView(env: Env, society: SocietyRow, row: ResultRow, names: ((n: string) => string) | null, now: number) {
   const content = JSON.parse(row.content_json) as Content;
   const by = (await supersededByMap(env, society.id)).get(row.id) ?? null;
   const cl = await env.DB.prepare("SELECT * FROM res_closings WHERE society_id = ? AND id = ?").bind(society.id, row.closing_id).first<ClosingRow>();
   return {
-    result: viewOf(row, society.tz_offset_min, now, by), notice: noticeOf(row, society.tz_offset_min, now), content: names ? mapNames(content, names) : content,
-    timeline: timelineOf(row, content, society.tz_offset_min), closing: cl ? viewClosing(cl, society.tz_offset_min) : null, headline: headlineOf(content),
+    result: viewOf(row, society.tz_offset_min, now, by, !!names), notice: noticeOf(row, society.tz_offset_min, now), content: names ? maskedContent(content, names) : content,
+    timeline: timelineOf(row, content, society.tz_offset_min), closing: cl ? viewClosing(cl, society.tz_offset_min, !!names) : null, headline: headlineOf(content),
   };
 }
 const namesFor = (ctx: StaffCtx): ((n: string) => string) | null => (seesFull(ctx) ? null : maskName);
@@ -192,7 +193,8 @@ export async function listClosings(ctx: StaffCtx) {
   need(ctx, "view"); notErased(ctx.society);
   const rs = await ctx.env.DB.prepare("SELECT * FROM res_closings WHERE society_id = ? ORDER BY created_at DESC, id LIMIT 200").bind(ctx.society.id).all<ClosingRow>();
   const made = await ctx.env.DB.prepare("SELECT id, closing_id, version, status FROM res_results WHERE society_id = ? ORDER BY version").bind(ctx.society.id).all<{ id: string; closing_id: string; version: number; status: Status }>();
-  return { closings: rs.results.map((r) => ({ ...viewClosing(r, ctx.society.tz_offset_min), results: made.results.filter((m) => m.closing_id === r.id).map((m) => ({ id: m.id, version: m.version, status: m.status })) })) };
+  const safe = !seesFull(ctx);
+  return { closings: rs.results.map((r) => ({ ...viewClosing(r, ctx.society.tz_offset_min, safe), results: made.results.filter((m) => m.closing_id === r.id).map((m) => ({ id: m.id, version: m.version, status: m.status })) })) };
 }
 
 // ------------------------------------------------------------------------------------------------------------------ making a result (CP-312 to CP-320)
@@ -219,8 +221,8 @@ export async function makeResult(ctx: StaffCtx, input: { closingId?: unknown }) 
 export async function listResults(ctx: StaffCtx) {
   need(ctx, "view"); notErased(ctx.society);
   const rs = await ctx.env.DB.prepare("SELECT * FROM res_results WHERE society_id = ? ORDER BY created_at DESC, version DESC, id LIMIT 200").bind(ctx.society.id).all<ResultRow>();
-  const by = await supersededByMap(ctx.env, ctx.society.id);
-  return { results: rs.results.map((r) => { const c = JSON.parse(r.content_json) as Content; return { ...viewOf(r, ctx.society.tz_offset_min, ctx.now, by.get(r.id) ?? null), title: c.title, closedAtLocal: msToLocal(c.closedAt, ctx.society.tz_offset_min), headline: headlineOf(c) }; }) };
+  const by = await supersededByMap(ctx.env, ctx.society.id), safe = !seesFull(ctx);
+  return { results: rs.results.map((r) => { const c = JSON.parse(r.content_json) as Content; return { ...viewOf(r, ctx.society.tz_offset_min, ctx.now, by.get(r.id) ?? null, safe), ...(safe ? {} : { title: c.title }), closedAtLocal: msToLocal(c.closedAt, ctx.society.tz_offset_min), headline: headlineOf(c) }; }) };
 }
 
 export async function openResult(ctx: StaffCtx, rid: string) {
@@ -286,14 +288,9 @@ export async function setVisibility(ctx: StaffCtx, rid: string, input: { visibil
 }
 
 // ------------------------------------------------------------------------------------------------------------------ the sheet (CP-327)
-/** One result as a sheet that opens in any spreadsheet program: what was decided, the rule, the checks and the fingerprint. Every download leaves a signed line in the audit trail. */
-export async function exportCsv(ctx: StaffCtx, rid: string) {
-  need(ctx, "view"); notErased(ctx.society);
-  const row = await resultOf(ctx.env, ctx.society.id, rid);
-  const full = seesFull(ctx);
-  const raw = JSON.parse(row.content_json) as Content;
-  const c = full ? raw : mapNames(raw, maskName);
-  const tz = ctx.society.tz_offset_min;
+const LEVEL_TEXT = { ok: "Passed", warn: "Please note", fail: "Failed" } as const;
+/** The sheet for the Organizer: everything, including the free text. */
+function fullRows(c: Content, row: ResultRow, tz: number): unknown[][] {
   const out: unknown[][] = [
     ["Result", c.title], ["Kind", KIND_TEXT[c.kind]], ["Reference", c.ref], ["Version", row.version], ["Status", STATUS_TEXT[row.status]], ["Closed", msToLocal(c.closedAt, tz)],
     ["How it was checked", MODE_TEXT[c.mode]], ["Rule", c.rule.text], ["Who may vote", c.rule.voterRule],
@@ -315,7 +312,43 @@ export async function exportCsv(ctx: StaffCtx, rid: string) {
     out.push([], ["Ballots cast", c.election.ballots]);
   }
   out.push([], ["Check", "Result", "What it says"]);
-  for (const k of c.checks) out.push([k.code, k.level === "ok" ? "Passed" : k.level === "warn" ? "Please note" : "Failed", k.text]);
+  for (const k of c.checks) out.push([k.code, LEVEL_TEXT[k.level], k.text]);
+  return out;
+}
+/** The sheet for a co-organizer: built only from the masked view, so no free text (title, reference, motion text, post names, rules, check texts) is written. */
+function safeRows(c: MaskedContent, row: ResultRow, tz: number): unknown[][] {
+  const out: unknown[][] = [
+    ["Kind", KIND_TEXT[c.kind]], ["Version", row.version], ["Status", STATUS_TEXT[row.status]], ["Closed", msToLocal(c.closedAt, tz)], ["How it was checked", MODE_TEXT[c.mode]],
+    ["Final voter list", `Final list ${c.list.finalNo}, fingerprint ${c.list.fingerprint}`], ["Fingerprint of this result", row.fingerprint],
+    ["Counted by", c.signoff.countedBy.join("; ")], ["Validated by", c.signoff.validatedBy.join("; ")], ["Observers", c.signoff.observers.join("; ")], ["Supervised by", c.signoff.supervisedBy.join("; ")],
+    [],
+  ];
+  if (c.motions) {
+    out.push(["Motion", "For", "Against", "Abstain", "Threshold", "Outcome"]);
+    for (const m of c.motions) out.push([m.number, m.for, m.against, m.abstain, m.threshold, OUTCOME_TEXT[m.outcome]]);
+  }
+  if (c.election) {
+    out.push(["Post", "Seats", "Candidate", "Votes", "Result"]);
+    for (const p of c.election.posts) {
+      for (const r of p.ranking) out.push([p.no, p.seats, r.name, r.votes, r.status === "won" ? "Won" : r.status === "tied" ? "Tied" : "Not elected"]);
+      if (p.none) out.push([p.no, p.seats, "None of the above", p.none, ""]);
+      if (p.vacant) out.push([p.no, p.seats, "Seats with no candidate", p.vacant, ""]);
+    }
+    out.push([], ["Ballots cast", c.election.ballots]);
+  }
+  out.push([], ["Check", "Result"]);
+  for (const k of c.checks) out.push([k.code, LEVEL_TEXT[k.level]]);
+  return out;
+}
+
+/** One result as a sheet that opens in any spreadsheet program: what was decided, the rule, the checks and the fingerprint. Every download leaves a signed line in the audit trail. */
+export async function exportCsv(ctx: StaffCtx, rid: string) {
+  need(ctx, "view"); notErased(ctx.society);
+  const row = await resultOf(ctx.env, ctx.society.id, rid);
+  const full = seesFull(ctx);
+  const raw = JSON.parse(row.content_json) as Content;
+  const tz = ctx.society.tz_offset_min;
+  const out: unknown[][] = full ? fullRows(raw, row, tz) : safeRows(maskedContent(raw, maskName), row, tz);
   await commit(ctx.env, ctx.society.id, [], "results.exported", await staffActor(ctx.env, ctx.email, ctx.role), { result: row.id, format: "csv", full }, ctx.now);
   return { body: toCsv(out), type: "text/csv; charset=utf-8", filename: `result-${row.kind}-v${row.version}.csv` };
 }
@@ -327,7 +360,7 @@ async function entryCheck(env: Env, societyId: string, seq: number | null, row: 
   const valid = !!e && e.entry.seq === seq && (await entryHash(e.entry)) === e.hash && (await verifyMessage(publicKey, signingMessage(e.entry.eid, e.entry.seq, e.hash), e.sig));
   const p = (e?.entry.payload ?? {}) as Record<string, unknown>;
   const carries = !!e && p.result === row.id && p.fingerprint === row.fingerprint;
-  return { valid, carries, auditSeq: seq };
+  return { valid, carries };
 }
 
 /** Anyone can check a result: what is stored still gives its fingerprint, and the signed audit entries that recorded it carry the same fingerprint. A code read from a paper or a screen can be compared too. */
@@ -357,12 +390,15 @@ async function visibleRow(env: Env, society: SocietyRow, rid: string): Promise<R
   return r;
 }
 
+/** The public never sees the internal sequence numbers of the audit trail. */
+const noSeq = <T extends { auditSeq: number; finalAuditSeq: number | null }>({ auditSeq: _a, finalAuditSeq: _f, ...rest }: T) => rest;
+
 /** Public: the results the Organizer chose to show. Titles, times, outcomes in numbers, and the fingerprint. No names. */
 export async function publicList(env: Env, society: SocietyRow, now: number) {
   notErased(society);
   const rs = await env.DB.prepare("SELECT * FROM res_results WHERE society_id = ? AND visibility <> 'hidden' ORDER BY created_at DESC, version DESC, id LIMIT 100").bind(society.id).all<ResultRow>();
   const by = await supersededByMap(env, society.id);
-  return { list: society.name, results: rs.results.map((r) => { const c = JSON.parse(r.content_json) as Content; return { ...viewOf(r, society.tz_offset_min, now, by.get(r.id) ?? null), title: c.title, closedAtLocal: msToLocal(c.closedAt, society.tz_offset_min), headline: headlineOf(c), notice: noticeOf(r, society.tz_offset_min, now) }; }) };
+  return { list: society.name, results: rs.results.map((r) => { const c = JSON.parse(r.content_json) as Content; return { ...noSeq(viewOf(r, society.tz_offset_min, now, by.get(r.id) ?? null, r.visibility === "masked")), ...(r.visibility === "masked" ? {} : { title: c.title }), closedAtLocal: msToLocal(c.closedAt, society.tz_offset_min), headline: headlineOf(c), notice: noticeOf(r, society.tz_offset_min, now) }; }) };
 }
 
 /** Public: one result. Names are shown in the form the Organizer chose: masked, or full. Never an e-mail ID or a phone number: none is ever stored in a result. */
@@ -370,7 +406,7 @@ export async function publicResult(env: Env, society: SocietyRow, rid: string, n
   notErased(society);
   const row = await visibleRow(env, society, rid);
   const v = await fullView(env, society, row, row.visibility === "masked" ? pubName : null, now);
-  return { list: society.name, result: v.result, notice: v.notice, content: v.content, timeline: v.timeline, headline: v.headline };
+  return { list: society.name, result: noSeq(v.result), notice: v.notice, content: v.content, timeline: v.timeline, headline: v.headline };
 }
 
 export async function publicVerify(env: Env, society: SocietyRow, rid: string, code?: unknown) {

@@ -363,13 +363,36 @@ export async function buildContent(c: Closing, b: Basis): Promise<{ content: Con
   return { content, fingerprint: await fingerprintOf(content), failed: checks.filter((x) => x.level === "fail").length };
 }
 
-/** The same content with every person's name passed through `f` (the public page can show names masked). Counts, rules and checks stay as they are. */
-export function mapNames(content: Content, f: (name: string) => string): Content {
-  const s = content.signoff;
+/** What anyone but the Organizer may see of a result: built from an allow-list of structured fields only (ids, counts, fingerprints, kinds, codes and masked names).
+ * Every free-text field is left out (title, reference, motion texts, post names, the reason of a correction, event and attendance titles, the words of the rules and of the checks),
+ * so a name typed into any of them can never reach this view. A new field in Content stays out of it until it is added here on purpose. */
+export interface MaskedContent {
+  v: 1; society: string; kind: Kind; version: number; closingRevision: number; source: string; closedAt: number; closedAtLocal: string; tz: number; mode: VerifyMode; challengeHours: number;
+  list: { pubId: string; finalNo: number; fingerprint: string; cutoffAt: number; publishedAt: number; voters: number; limit: number; weightMode: string; eventType: string };
+  attendance: { id: string; startsAt: string; startsAtMs: number; closedAt: number | null; status: string; eligible: number; present: number } | null;
+  quorum: QuorumStatus;
+  signoff: { countedBy: string[]; validatedBy: string[]; observers: string[]; supervisedBy: string[] };
+  correction: { supersedesFp: string } | null;
+  motions: Array<{ number: number; for: number; against: number; abstain: number; votes: number; threshold: Threshold; outcome: Outcome }> | null;
+  election: { ballots: number; turnoutBp: number; tieRule: TieRule; posts: Array<{ no: number; seats: number; none: number; total: number; uncontested: boolean; vacant: number; ranking: RankedCandidate[]; winners: string[]; tie: { open: number; among: string[]; decidedBy: TieRule | null } | null }> } | null;
+  checks: Array<{ code: string; level: Check["level"] }>;
+}
+export function maskedContent(content: Content, f: (name: string) => string): MaskedContent {
+  const s = content.signoff, l = content.list, a = content.attendance, e = content.election;
   return {
-    ...content,
+    v: content.v, society: content.society, kind: content.kind, version: content.version, closingRevision: content.closingRevision, source: content.source,
+    closedAt: content.closedAt, closedAtLocal: content.closedAtLocal, tz: content.tz, mode: content.mode, challengeHours: content.challengeHours,
+    list: { pubId: l.pubId, finalNo: l.finalNo, fingerprint: l.fingerprint, cutoffAt: l.cutoffAt, publishedAt: l.publishedAt, voters: l.voters, limit: l.limit, weightMode: l.weightMode, eventType: l.eventType },
+    attendance: a ? { id: a.id, startsAt: a.startsAt, startsAtMs: a.startsAtMs, closedAt: a.closedAt, status: a.status, eligible: a.eligible, present: a.present } : null,
+    quorum: { type: content.quorum.type, value: content.quorum.value, required: content.quorum.required, present: content.quorum.present, met: content.quorum.met },
     signoff: { countedBy: s.countedBy.map(f), validatedBy: s.validatedBy.map(f), observers: s.observers.map(f), supervisedBy: s.supervisedBy.map(f) },
-    election: content.election ? { ...content.election, posts: content.election.posts.map((p) => ({ ...p, ranking: p.ranking.map((r) => ({ ...r, name: f(r.name) })), winners: p.winners.map(f), tie: p.tie ? { ...p.tie, among: p.tie.among.map(f) } : null })) } : null,
+    correction: content.correction ? { supersedesFp: content.correction.supersedesFp } : null,
+    motions: content.motions ? content.motions.map((m) => ({ number: m.number, for: m.for, against: m.against, abstain: m.abstain, votes: m.votes, threshold: m.threshold, outcome: m.outcome })) : null,
+    election: e ? {
+      ballots: e.ballots, turnoutBp: e.turnoutBp, tieRule: e.tieRule,
+      posts: e.posts.map((p, i) => ({ no: i + 1, seats: p.seats, none: p.none, total: p.total, uncontested: p.uncontested, vacant: p.vacant, ranking: p.ranking.map((r) => ({ name: f(r.name), votes: r.votes, status: r.status })), winners: p.winners.map(f), tie: p.tie ? { open: p.tie.open, among: p.tie.among.map(f), decidedBy: p.tie.decidedBy } : null })),
+    } : null,
+    checks: content.checks.map((k) => ({ code: k.code, level: k.level })),
   };
 }
 

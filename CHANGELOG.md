@@ -2,6 +2,17 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.4.1 - not deployed yet (IST)
+
+Fixes to Results (first chunk) after two audits.
+
+- A masked result (the public page, and what a co-organizer sees) is now built only from structured fields: ids, counts, fingerprints, kinds, codes and masked names. Free text is left out: title, reference, motion texts, post names, the reason of a correction, the event and attendance titles, the words of the rules and the texts of the checks. A name typed into any of them can no longer show. The co-organizer sheet is built the same way. Only the Organizer sees the full text.
+- The public check no longer returns the internal audit sequence numbers (`declared.auditSeq`, `final.auditSeq`); public result pages leave out `auditSeq` and `finalAuditSeq` too.
+- Every note in `public/version.json` now names its own commit, and the top-level commit is the newest note's commit (the 0.4.0 note pointed at the wrong one). A test keeps them in step.
+- Tests added: a raw name planted in every free-text field is absent from the masked public JSON, the co-organizer view and the co-organizer sheet (and shown to the Organizer); a hidden and a masked result on one list give a public list with only the masked one; erase is refused for a co-organizer and for the Organizer before the retention time; the guide test also reads check codes written as `level:`; the public check has no sequence numbers; two version tests.
+- Test count from the real run: 364 tests in 27 files before, 368 in 28 files after (results: 28 before, 30 now; counting rules 31; guide 3; version 2). The 62 tests named under 0.4.0 were 31 + 28 + 3 at that time.
+- The guide `docs/RESULTS.md` now says where the link for an AI helper comes from.
+
 ## 0.4.0 - not deployed yet (IST)
 
 Results, first chunk (API only, dark). Full notes: `docs/RESULTS.md`.

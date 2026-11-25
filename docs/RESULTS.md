@@ -36,8 +36,8 @@ A failed check stops FINAL, in the code and in the database. A warning is shown 
 ## Who can do what
 
 - **Organizer:** enters a closing, makes a result, makes it final, corrects it, chooses who may see it.
-- **Co-organizer:** can read results, check them and download the sheet. Names in what a co-organizer sees are masked.
-- **The public:** sees only what the Organizer chose: **hidden** (the default; answers "not found", the same as a result that does not exist), **masked** (names shown like "As**** Co****") or **full**. Public pages ask search engines not to list them.
+- **Co-organizer:** can read results, check them and download the sheet. What a co-organizer sees is built from numbers, codes and masked names only: titles, references, motion texts, post names, correction reasons and check texts are left out.
+- **The public:** sees only what the Organizer chose: **hidden** (the default; answers "not found", the same as a result that does not exist), **masked** (names shown like "As**** Co****"; no free text, only numbers, codes and masked names) or **full**. Public pages ask search engines not to list them.
 - Meetings and Elections are separate products and are not in this repository, so for now only the Organizer can enter a closing, and every such result carries the warning `entered_by_hand`.
 
 ## Switching it on
@@ -45,6 +45,8 @@ A failed check stops FINAL, in the code and in the database. A warning is shown 
 `RESULTS_ENABLED` must be exactly `1`. Any other value, or none, keeps every Results address dark. `wrangler.toml` leaves it unset. The migration is `migrations/0012_results.sql`. Applying it to a real database, and the switch itself, wait for the owner's go-ahead. When it is applied, apply the migration before the new code is published, because erasing a list now also clears the two Results tables.
 
 ## For an AI helper
+
+The link to give the helper is the public address of this guide (`docs/RESULTS.md` in the Voter List repository). The Organizer page that will show it comes with the Results screens; until then it is copied from the repository.
 
 Copy this link and paste in your AI to work.
 

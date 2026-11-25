@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { HttpError } from "../src/errors";
 import {
-  buildContent, clean, fingerprintOf, mapNames, meetingResult, motionOutcome, normalizeClaim, parseClosing, postResult, quorumStatus, ruleText,
+  buildContent, clean, fingerprintOf, maskedContent, meetingResult, motionOutcome, normalizeClaim, parseClosing, postResult, quorumStatus, ruleText,
   type AttFacts, type Basis, type Closing, type ListFacts, type Post,
 } from "../src/results-core";
 
@@ -190,12 +190,14 @@ describe("the declared content and its fingerprint", () => {
     expect(ruleText(election({ tieRule: "chair" }))).toContain("casting vote");
     expect(ruleText(election({ tieRule: "revote" }))).toContain("fresh vote");
   });
-  test("names can be passed through a mask; counts, rules and checks stay as they are", async () => {
+  test("the masked view keeps counts, codes and masked names, and has no free text", async () => {
     const a = await buildContent(election({ posts: [{ name: "President", seats: 1, candidates: [{ name: "Asha Rao", votes: 5 }, { name: "Bharat Nair", votes: 3 }] }] }), base({ list: { ...LIST, eventType: "election" } }));
-    const m = mapNames(a.content, (n) => n.toUpperCase());
+    const m = maskedContent(a.content, (n) => n.toUpperCase());
     expect(m.signoff.countedBy).toEqual(["A COUNTER"]); expect(m.election?.posts[0]?.winners).toEqual(["ASHA RAO"]);
     expect(m.election?.posts[0]?.ranking.map((r) => r.name)).toEqual(["ASHA RAO", "BHARAT NAIR"]);
-    expect(m.election?.ballots).toBe(8); expect(m.checks).toEqual(a.content.checks); expect(m.rule).toEqual(a.content.rule);
+    expect(m.election?.ballots).toBe(8); expect(m.checks).toEqual(a.content.checks.map((k) => ({ code: k.code, level: k.level })));
+    expect(JSON.stringify(m)).not.toContain("President"); expect(JSON.stringify(m)).not.toContain(a.content.title);
+    expect(m).not.toHaveProperty("rule"); expect(m).not.toHaveProperty("title"); expect(m).not.toHaveProperty("ref");
     expect(a.content.signoff.countedBy).toEqual(["A Counter"]); // the original is not changed
   });
   test("a code typed from paper is reduced to letters and digits of a fingerprint", () => {

@@ -8,7 +8,7 @@ const doc = readFileSync("docs/RESULTS.md", "utf8");
 describe("the guide to Results matches the code", () => {
   test("every check that can fail or warn is named in the guide", () => {
     const src = readFileSync("src/results-core.ts", "utf8");
-    const codes = [...new Set([...src.matchAll(/add\("(?:warn|fail)", "([a-z_]+)"/g)].map((m) => m[1]!))];
+    const codes = [...new Set([...src.matchAll(/add\("(?:warn|fail)", "([a-z_]+)"/g), ...src.matchAll(/code: "([a-z_]+)"[^}]*level: "(?:warn|fail)"/g), ...src.matchAll(/level: "(?:warn|fail)"[^}]*code: "([a-z_]+)"/g)].map((m) => m[1]!))];
     expect(codes.length).toBeGreaterThanOrEqual(13);
     for (const c of codes) expect([c, doc.includes("`" + c + "`")]).toEqual([c, true]);
   });

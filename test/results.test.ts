@@ -8,7 +8,7 @@ const H = 3_600_000, DAY = 86_400_000;
 const must = (r: R, status: number): R => { if (r.status !== status) throw new Error(`expected ${status}, got ${r.status}: ${r.text.slice(0, 400)}`); return r; };
 
 /** A list with four voters and a frozen final list; an attendance session that three of them attended; the clock set to the morning after the meeting closed. */
-async function setup(o: { flag?: boolean; freeze?: boolean; attendance?: boolean; eventType?: "meeting" | "election"; retention?: boolean } = {}) {
+async function setup(o: { flag?: boolean; freeze?: boolean; attendance?: boolean; eventType?: "meeting" | "election"; retention?: boolean; eventName?: string; attTitle?: string } = {}) {
   const h = await makeHarness({ ...(o.flag === false ? {} : { RESULTS_ENABLED: "1" }), ...(o.retention ? { RETENTION_DAYS: "30" } : {}) });
   const { jar, sid, slug } = await newList(h);
   const people: Array<[string, string, string, string]> = [["asha@sample.example", "A-1", "Asha Sample", "9000000201"], ["bharat@sample.example", "B-2", "Bharat Sample", "9000000202"], ["chitra@sample.example", "C-3", "Chitra Sample", "9000000203"], ["dev@sample.example", "D-4", "Dev Sample", "9000000204"]];
@@ -19,12 +19,12 @@ async function setup(o: { flag?: boolean; freeze?: boolean; attendance?: boolean
   const idOf = (e: string) => (h.raw.query("SELECT id FROM voters WHERE email = ?").get(e) as { id: string }).id;
   let pub = "", att = "";
   if (o.freeze !== false) {
-    const f = must(await h.call("POST", `/api/lists/${sid}/publish/frozen`, { eventName: o.eventType === "election" ? "Committee election 2026" : "Annual general meeting 2026", eventType: o.eventType ?? "meeting", closeNow: true, ackWarnings: true, ackPending: true, confirm: "FREEZE" }, jar), 201);
+    const f = must(await h.call("POST", `/api/lists/${sid}/publish/frozen`, { eventName: o.eventName ?? (o.eventType === "election" ? "Committee election 2026" : "Annual general meeting 2026"), eventType: o.eventType ?? "meeting", closeNow: true, ackWarnings: true, ackPending: true, confirm: "FREEZE" }, jar), 201);
     pub = f.json.id;
   }
   if (o.attendance !== false) {
     h.clock.now = Date.UTC(2026, 10, 12, 4, 30); // 10:00 in India
-    att = must(await h.call("POST", `/api/lists/${sid}/attendance/sessions`, { title: "Club house", startsAt: "2026-11-12T10:00", place: "Club house", mode: "in_person" }, jar), 201).json.session.id;
+    att = must(await h.call("POST", `/api/lists/${sid}/attendance/sessions`, { title: o.attTitle ?? "Club house", startsAt: "2026-11-12T10:00", place: "Club house", mode: "in_person" }, jar), 201).json.session.id;
     for (const e of ["asha@sample.example", "bharat@sample.example", "chitra@sample.example"]) must(await h.call("POST", `/api/lists/${sid}/attendance/sessions/${att}/mark`, { voterId: idOf(e) }, jar), 200);
     h.clock.now = Date.UTC(2026, 10, 12, 14, 0); // 19:30 in India
     must(await h.call("POST", `/api/lists/${sid}/attendance/sessions/${att}/close`, {}, jar), 200);
@@ -325,7 +325,8 @@ describe("what the public may see", () => {
     expect((await pubGet(s, "/res_doesnotexist")).status).toBe(404); expect((await pubGet(s, `/${id}/verify`)).status).toBe(404);
     const v = must(await visibility(s, id, "masked"), 200); expect(v.json).toMatchObject({ changed: true, result: { visibility: "masked" } });
     const list = await pubGet(s); expect(list.status).toBe(200); expect(list.headers.get("x-robots-tag")).toBe("noindex");
-    expect(list.json.results).toHaveLength(1); expect(list.json.results[0]).toMatchObject({ id, title: "Owners assembly", status: "draft", headline: { motions: 3, passed: 2 } });
+    expect(list.json.results).toHaveLength(1); expect(list.json.results[0]).toMatchObject({ id, status: "draft", headline: { motions: 3, passed: 2 } }); expect(list.json.results[0]).not.toHaveProperty("title"); // a masked result shows no free text
+    must(await visibility(s, id, "full"), 200); expect((await pubGet(s)).json.results[0].title).toBe("Owners assembly"); must(await visibility(s, id, "masked"), 200);
     const one = await pubGet(s, `/${id}`); expect(one.status).toBe(200);
     expect(one.json.content.signoff).toEqual({ countedBy: ["As**** Co****"], validatedBy: ["Vi**** Va****"], observers: ["Om**** Ob****"], supervisedBy: ["Su**** Su****"] });
     expect(one.json.notice).toContain("challenge window is open until 2026-11-13T13:30");
@@ -354,6 +355,10 @@ describe("what the public may see", () => {
     const short = r.json.result.fingerprintShort as string;
     expect((await s.h.call("GET", `/api/v/${s.slug}/results/${id}/verify?code=${encodeURIComponent(short)}`)).json).toMatchObject({ ok: true, claim: { matches: true }, final: { valid: true } });
     expect((await s.h.call("GET", `/api/v/${s.slug}/results/${id}/verify?code=abc`)).status).toBe(400);
+    const pv = (await s.h.call("GET", `/api/v/${s.slug}/results/${id}/verify`)).json;
+    expect(pv.declared).toEqual({ valid: true, carries: true }); expect(pv.final).toEqual({ valid: true, carries: true }); expect(JSON.stringify(pv)).not.toContain("auditSeq");
+    const pr = (await pubGet(s, `/${id}`)).json; expect(pr.result).not.toHaveProperty("auditSeq"); expect(pr.result).not.toHaveProperty("finalAuditSeq");
+    expect(JSON.stringify((await pubGet(s)).json)).not.toContain("uditSeq");
     must(await s.h.call("POST", url(s, id, "/correct"), { reason: "A count was copied wrongly", closing: meeting(s) }, s.jar), 201);
     const old = await pubGet(s, `/${id}`); expect(old.json.notice).toContain("replaced by a correction"); expect(old.json.result.supersededBy).toBeTruthy();
     expect((await pubGet(s)).json.results.map((x: any) => x.version)).toEqual([2, 1]); // the correction inherited "masked", so both are shown
@@ -410,7 +415,14 @@ describe("the sheet, the timeline and the erase", () => {
   test("erasing the list takes the results and closings with it, the signed trail stays and still verifies, and every Results address answers gone", async () => {
     const s = await setup({ retention: true }); const { id } = await declared(s); s.h.clock.now += 3 * H; must(await final(s, id), 200);
     expect(s.h.raw.query("SELECT COUNT(*) AS n FROM res_results").get()).toEqual({ n: 1 });
+    const count = () => s.h.raw.query("SELECT (SELECT COUNT(*) FROM res_results) AS r, (SELECT COUNT(*) FROM res_closings) AS c").get();
+    const jo = await s.h.staff("organizer@sample.example");
+    const early = await s.h.call("POST", `/api/lists/${s.sid}/erase`, { confirm: "ERASE" }, jo); expect([early.status, early.json.code]).toEqual([409, "retention"]); // before the retention time is over
+    expect(count()).toEqual({ r: 1, c: 1 }); expect(s.h.raw.query("SELECT erased_at AS e FROM societies WHERE id = ?").get(s.sid)).toEqual({ e: null });
     s.h.clock.now += 400 * DAY; const j2 = await s.h.staff("organizer@sample.example");
+    const jc = await s.h.staff("co@sample.example");
+    expect((await s.h.call("POST", `/api/lists/${s.sid}/erase`, { confirm: "ERASE" }, jc)).status).toBe(403); // a co-organizer may not erase, even after the time
+    expect(count()).toEqual({ r: 1, c: 1 }); expect(s.h.raw.query("SELECT erased_at AS e FROM societies WHERE id = ?").get(s.sid)).toEqual({ e: null });
     must(await s.h.call("POST", `/api/lists/${s.sid}/erase`, { confirm: "ERASE" }, j2), 200);
     expect(s.h.raw.query("SELECT (SELECT COUNT(*) FROM res_results) AS r, (SELECT COUNT(*) FROM res_closings) AS c").get()).toEqual({ r: 0, c: 0 });
     const j3 = await s.h.staff("organizer@sample.example");
@@ -418,6 +430,46 @@ describe("the sheet, the timeline and the erase", () => {
     expect(trail.json.entries.map((x: any) => x.entry.type)).toEqual(expect.arrayContaining(["results.declared", "results.finalized", "list.erased"]));
     for (const [m, p] of [["GET", url(s)], ["GET", url(s, id)], ["POST", url(s, "closings")]] as const) expect([m, p, (await s.h.call(m, p, m === "GET" ? undefined : {}, j3)).status]).toEqual([m, p, 410]);
     for (const p of ["", `/${id}`]) expect((await pubGet(s, p)).status).toBe(410);
+  });
+});
+
+describe("masked is safe by construction: no free text reaches the public or a co-organizer", () => {
+  const RAW = ["Zebulon Quarterly", "Zebulon", "Quarterly"];
+  const plant = (t: string) => `${t} Zebulon Quarterly`;
+  test("a raw full name planted in every free-text field is absent from the masked public JSON, the co-organizer view and the co-organizer sheet, and shown to the Organizer", async () => {
+    const s = await setup({ eventName: plant("Meeting of"), attTitle: plant("Hall of") });
+    const m = await declared(s, meeting(s, { ref: "Zebulon Quarterly", title: plant("Title of"), countedBy: ["Zebulon Quarterly"], motions: [{ text: plant("Thank"), for: 3, against: 0 }, { text: plant("Appoint"), for: 2, against: 1 }] }));
+    const e = await enter(s, election(s, { ref: "Quarterly Zebulon", title: plant("Poll of"), posts: [{ name: plant("Chair"), seats: 1, candidates: [{ name: "Zebulon Quarterly", votes: 2 }, { name: "Bharat Nair", votes: 1 }] }] }), s.jar);
+    const ev = must(await make(s, must(e, 201).json.closing.id), 201).json.result.id as string;
+    must(await visibility(s, m.id, "masked"), 200); must(await visibility(s, ev, "masked"), 200);
+    const c = must(await s.h.call("POST", url(s, m.id, "/correct"), { reason: plant("Fixed for"), closing: meeting(s, { ref: "Zebulon Quarterly", title: plant("Title of"), motions: [{ text: plant("Thank"), for: 3, against: 0 }, { text: plant("Appoint"), for: 2, against: 1 }] }) }, s.jar), 201);
+    const m2 = c.json.result.id as string;
+    expect(c.json.result.visibility).toBe("masked");
+    const seen: Array<[string, string]> = [];
+    for (const id of [m.id, m2, ev]) {
+      seen.push(["public " + id, (await pubGet(s, `/${id}`)).text], ["public verify " + id, (await pubGet(s, `/${id}/verify`)).text]);
+      for (const more of ["", "/export.csv"]) seen.push([`co ${id}${more}`, (await get(s, id, more, s.coJar)).text]);
+    }
+    seen.push(["public list", (await pubGet(s)).text], ["co list", (await get(s, "", "", s.coJar)).text], ["co closings", (await get(s, "closings", "", s.coJar)).text]);
+    for (const [where, text] of seen) { expect([where, text.length > 20]).toEqual([where, true]); for (const raw of RAW) expect([where, raw, text.includes(raw)]).toEqual([where, raw, false]); }
+    // the same data is all there for the Organizer
+    for (const id of [m.id, ev]) { const o = (await get(s, id)).text; expect(o).toContain("Zebulon Quarterly"); }
+    expect((await get(s, m2)).text).toContain("Fixed for Zebulon Quarterly");
+    for (const id of [m.id, ev]) expect((await get(s, id, "/export.csv")).text).toContain("Zebulon Quarterly");
+    expect((await get(s, "closings")).text).toContain("Zebulon Quarterly");
+    // the masked view still says what was decided
+    const pub = (await pubGet(s, `/${ev}`)).json.content; expect(pub.election.posts[0].ranking[0]).toEqual({ name: "Ze**** Qu****", votes: 2, status: "won" }); expect(pub.election.posts[0]).not.toHaveProperty("name");
+    expect(pub.checks.every((k: any) => Object.keys(k).sort().join() === "code,level")).toBe(true);
+  });
+
+  test("one hidden and one masked result on one list: the public list holds only the masked one", async () => {
+    const s = await setup(); const a = await declared(s);
+    const b = must(await make(s, must(await enter(s, meeting(s, { ref: "AGM-2027" })), 201).json.closing.id), 201).json.result.id as string;
+    must(await visibility(s, b, "masked"), 200);
+    expect(s.h.raw.query("SELECT visibility AS v FROM res_results WHERE id = ?").get(a.id)).toEqual({ v: "hidden" });
+    const list = (await pubGet(s)).json.results as Array<{ id: string }>;
+    expect(list.map((x) => x.id)).toEqual([b]);
+    expect((await pubGet(s, `/${a.id}`)).status).toBe(404); expect((await pubGet(s, `/${b}`)).status).toBe(200);
   });
 });
 
