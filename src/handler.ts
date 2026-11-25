@@ -3,6 +3,7 @@
 import { auditAll, auditEntries, auditHead, pseudonym, verifyAudit, verifySegment } from "./audit";
 import { checkTurnstile, endSession, HttpError, sessionFrom, startCode, verifyCode, MEMBER_SESSION_MS, STAFF_SESSION_MS, type Session } from "./auth";
 import type { Env } from "./db";
+import * as attendance from "./attendance";
 import { eraseList, eraseStatus } from "./erase";
 import * as lists from "./lists";
 import * as orders from "./orders";
@@ -11,7 +12,7 @@ import { overview } from "./overview";
 import * as publish from "./publish";
 import * as records from "./records";
 import * as review from "./review";
-import { societyBySlug, staffCtx, type StaffCtx } from "./store";
+import { societyBySlug, staffCtx, type SocietyRow, type StaffCtx } from "./store";
 import { buildTemplateXlsx, TEMPLATE_CSV } from "./xlsx";
 import { publicKeyFromPrivate } from "./vendor/crypto";
 
@@ -46,14 +47,21 @@ async function staffSession(r: Req): Promise<Session> {
   if (!s || s.kind !== "staff") throw new HttpError(401, "Please sign in.", "signed_out");
   return s;
 }
-const staff = async (r: Req): Promise<StaffCtx> => staffCtx(r.env, r.now, (await staffSession(r)).email, r.params.sid!);
-const slugList = async (r: Req) => { const s = await societyBySlug(r.env, r.params.slug!); if (!s) throw new HttpError(404, "This link is not valid.", "not_found"); return s; };
+// Attendance routes and the signed audit trail accept both kinds of list; every other staff route is for a Voter List only and answers 404 for a roster upload list
+const staffAny = async (r: Req): Promise<StaffCtx> => staffCtx(r.env, r.now, (await staffSession(r)).email, r.params.sid!);
+const staff = async (r: Req): Promise<StaffCtx> => { const c = await staffAny(r); if (c.society.purpose !== "voter_list") throw new HttpError(404, "Not found.", "not_found"); return c; };
+// a link of a list made only for attendance (from an uploaded Excel sheet) opens attendance and sign-in, nothing of the Voter List
+const anySlug = async (r: Req) => { const s = await societyBySlug(r.env, r.params.slug!); if (!s) throw new HttpError(404, "This link is not valid.", "not_found"); return s; };
+const liveSlug = async (r: Req) => { const s = await anySlug(r); if (s.erased_at) throw new HttpError(410, "This list has been closed and its details erased.", "erased"); return s; }; // the same answer as /start
+const slugList = async (r: Req) => { const s = await anySlug(r); if (s.purpose !== "voter_list") throw new HttpError(404, "This link is not valid.", "not_found"); return s; };
 async function voter(r: Req): Promise<records.VoterCtx> {
   const society = await slugList(r);
   const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
   if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");
   return { env: r.env, now: r.now, email: s.email, society };
 }
+// The e-mail ID of a voter signed in (with the e-mailed code) for this list's link, or null. It says only who signed in; the list itself decides whether they are on it.
+const memberEmail = async (r: Req, society: SocietyRow): Promise<string | null> => { const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now); return s && s.kind === "member" && s.societyId === society.id ? s.email : null; };
 const str = (v: unknown, max = 500): string => (typeof v === "string" ? v.slice(0, max) : "");
 const bool = (v: unknown) => v === true;
 const intq = (v: string | null, d: number) => { if (v === null || v.trim() === "") return d; const n = Number(v); return Number.isFinite(n) ? n : d; };
@@ -75,7 +83,7 @@ route("POST", "/api/auth/verify", async (r) => {
 route("POST", "/api/auth/logout", async (r) => { await endSession(r.env, cookies(r.req).vl ?? null, r.now); return json({ ok: true }, 200, { "set-cookie": setCookie(r.env, "vl", "", 0) }); });
 route("GET", "/api/me", async (r) => {
   const s = await staffSession(r);
-  const rs = await r.env.DB.prepare("SELECT s.id, s.name, s.phase, m.role, m.permanent FROM memberships m JOIN societies s ON s.id = m.society_id WHERE m.email = ? AND m.status = 'active' ORDER BY s.created_at DESC LIMIT 200").bind(s.email).all();
+  const rs = await r.env.DB.prepare("SELECT s.id, s.name, s.phase, m.role, m.permanent FROM memberships m JOIN societies s ON s.id = m.society_id WHERE m.email = ? AND m.status = 'active' AND s.purpose = 'voter_list' ORDER BY s.created_at DESC LIMIT 200").bind(s.email).all();
   return json({ email: s.email, lists: rs.results, countries: lists.COUNTRIES, kinds: lists.KINDS, rules: RULES.map((x) => ({ code: x.code, name: x.name, blurb: x.blurb, proxy: x.proxy })), permanentHost: lists.permanentHostEmail(r.env) });
 });
 
@@ -86,14 +94,14 @@ for (const fmt of ["pdf", "csv"] as const) route("GET", `/api/v/:slug/list.${fmt
 route("GET", "/api/v/:slug/proof", async (r) => json(await publish.publicProof(r.env, await slugList(r), r.url.searchParams.get("pub") ?? undefined), 200, PUBLIC_CACHE));
 
 route("POST", "/api/v/:slug/start", async (r) => {
-  const soc = await slugList(r); const b = await r.body();
+  const soc = await anySlug(r); const b = await r.body();
   if (soc.erased_at) throw new HttpError(410, "This list has been closed and its details erased.", "erased");
   await checkTurnstile(r.env, str(b.turnstileToken, 4096), r.ip);
   await startCode(r.env, str(b.email, 200), "member", { id: soc.id, name: soc.name }, r.ip, r.now);
   return json(SENT); // the same words whether or not the e-mail ID is already known
 });
 route("POST", "/api/v/:slug/verify", async (r) => {
-  const soc = await slugList(r); const b = await r.body();
+  const soc = await liveSlug(r); const b = await r.body();
   const { token, session } = await verifyCode(r.env, str(b.email, 200), str(b.code, 12), "member", soc.id, r.ip, r.now);
   return json({ ok: true, email: session.email }, 200, { "set-cookie": setCookie(r.env, "vlm", token, MEMBER_SESSION_MS / 1000) });
 });
@@ -106,6 +114,33 @@ route("POST", "/api/v/:slug/records/:rid/withdraw", async (r) => json(await reco
 route("POST", "/api/v/:slug/records/:rid/docs", async (r) => { const b = await r.body(); return json(await records.addDoc(await voter(r), r.params.rid!, { docType: str(b.docType, 40), filename: str(b.filename, 120), mime: str(b.mime, 40), base64: typeof b.base64 === "string" ? b.base64 : "" }), 201); });
 route("DELETE", "/api/v/:slug/records/:rid/docs/:did", async (r) => json(await records.removeDoc(await voter(r), r.params.rid!, r.params.did!)));
 route("GET", "/api/v/:slug/records/:rid/docs/:did", async (r) => { const d = await records.getMyDoc(await voter(r), r.params.rid!, r.params.did!); return file(d.body, d.type, d.filename, true); });
+
+// attendance: public counts (no personal data), and a voter who signed in marks themselves present in an online session
+// The public answer is the same for everyone except that a voter on the list, signed in for this link, also gets the title and place (for every kind of list). So a cache must tell the askers apart (Vary),
+// an answer with that text is for that voter only and is never cached, and a request that carries any cookie is answered "private, no-store"; only a request with no cookie at all may be cached for 30 seconds.
+const BY_COOKIE = { vary: "Cookie" };
+const carriesCookie = (r: Req) => (r.req.headers.get("cookie") ?? "").trim() !== "";
+const attendanceCache = (r: Req, personal: boolean) => (personal || carriesCookie(r) ? { "cache-control": "private, no-store", ...BY_COOKIE } : { ...PUBLIC_CACHE, ...BY_COOKIE });
+route("GET", "/api/v/:slug/attendance", async (r) => { const soc = await liveSlug(r); const x = await attendance.publicSessions(r.env, soc, await memberEmail(r, soc)); return json(x.body, 200, attendanceCache(r, x.personal)); });
+route("GET", "/api/v/:slug/attendance/:aid", async (r) => { const soc = await liveSlug(r); const x = await attendance.publicSession(r.env, soc, r.params.aid!, await memberEmail(r, soc)); return json(x.body, 200, attendanceCache(r, x.personal)); });
+route("GET", "/api/v/:slug/attend/me", async (r) => {
+  const society = await liveSlug(r); const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
+  if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");
+  return json(await attendance.myRows(r.env, society, s.email));
+});
+route("POST", "/api/v/:slug/attendance/:aid/here", async (r) => {
+  const society = await liveSlug(r); const b = await r.body();
+  const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
+  if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");
+  return json(await attendance.markSelf(r.env, r.now, society, s.email, r.params.aid!, b.voterId));
+});
+
+// Attendance for an organizer with no Voter List: the Excel template and the upload that makes the list
+route("GET", "/api/attendance/template.xlsx", async () => file(buildTemplateXlsx({ rows: 300, title: "Attendance list template" }), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "attendance-list-template.xlsx"));
+route("GET", "/api/attendance/template.csv", async () => file(TEMPLATE_CSV, "text/csv; charset=utf-8", "attendance-list-template.csv"));
+route("GET", "/api/attendance/lists", async (r) => json(await attendance.myLists(r.env, (await staffSession(r)).email)));
+route("POST", "/api/attendance/rosters", async (r) => { const s = await staffSession(r); const x = await attendance.uploadRoster(r.env, r.now, s.email, (await r.body()) as attendance.RosterInput); return json(x, x.dryRun ? 200 : 201); });
+route("GET", "/api/attendance/rosters", async (r) => { const s = await staffSession(r); return json({ lists: (await r.env.DB.prepare("SELECT s.id, s.name, s.verify_slug FROM memberships m JOIN societies s ON s.id = m.society_id WHERE m.email = ? AND m.status = 'active' AND s.purpose = 'attendance_upload' ORDER BY s.created_at DESC LIMIT 200").bind(s.email).all<{ id: string; name: string; verify_slug: string }>()).results.map((x) => ({ id: x.id, name: x.name, link: `/v/${x.verify_slug}` })) }); });
 
 // ------------------------------------------------------------------------------------------------------------------ the Organizer's and Hosts' page
 route("POST", "/api/lists", async (r) => { const s = await staffSession(r); const b = await r.body(); const soc = await lists.createList(r.env, r.now, s.email, b as unknown as lists.ListInput); return json({ list: lists.viewList(soc) }, 201); });
@@ -145,6 +180,14 @@ route("POST", "/api/lists/:sid/team", async (r) => json(await lists.inviteHost(a
 route("POST", "/api/lists/:sid/team/organizer", async (r) => { const b = await r.body(); return json(await lists.transferOrganizer(await staff(r), str(b.email, 200))); });
 route("DELETE", "/api/lists/:sid/team/:email", async (r) => json(await lists.removeHost(await staff(r), (() => { try { return decodeURIComponent(r.params.email!); } catch { throw new HttpError(400, "That e-mail ID could not be read.", "bad_email"); } })())));
 
+// attendance sessions (Voter List or uploaded list): create, list, open, mark present, close
+route("POST", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.createSession(await staffAny(r), await r.body()), 201));
+route("GET", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.listSessions(await staffAny(r))));
+route("GET", "/api/lists/:sid/attendance/sessions/:aid", async (r) => json(await attendance.openSession(await staffAny(r), r.params.aid!, r.url.searchParams.get("find") ?? "")));
+route("GET", "/api/lists/:sid/attendance/sessions/:aid/sheet.csv", async (r) => { const x = await attendance.sheetCsv(await staffAny(r), r.params.aid!); return file(x.body, x.type, x.filename); });
+route("POST", "/api/lists/:sid/attendance/sessions/:aid/mark", async (r) => { const c = await staffAny(r); const b = await r.body(); return json(await attendance.markByTeam(c, r.params.aid!, b.voterId)); });
+route("POST", "/api/lists/:sid/attendance/sessions/:aid/close", async (r) => { const c = await staffAny(r); await r.body(); return json(await attendance.closeSession(c, r.params.aid!)); });
+
 // retention
 route("GET", "/api/lists/:sid/erase", async (r) => json(await eraseStatus(await staff(r))));
 route("POST", "/api/lists/:sid/erase", async (r) => { const b = await r.body(); return json(await eraseList(await staff(r), { confirm: str(b.confirm, 12) })); });
@@ -156,7 +199,7 @@ route("POST", "/api/lists/:sid/orders/:oid/verify", async (r) => { const b = awa
 
 // the signed audit trail
 route("GET", "/api/lists/:sid/audit", async (r) => {
-  const c = await staff(r); const sp = r.url.searchParams; const head = await auditHead(r.env, c.society.id);
+  const c = await staffAny(r); const sp = r.url.searchParams; const head = await auditHead(r.env, c.society.id);
   const from = sp.has("from") ? Math.max(1, Number(sp.get("from")) || 1) : Math.max(1, (head?.seq ?? 1) - 99);
   // The log names people by a private code; this table lets the Organizer read it in plain words (who is who, by role).
   const team = await r.env.DB.prepare("SELECT email, role, permanent FROM memberships WHERE society_id = ? AND status = 'active'").bind(c.society.id).all<{ email: string; role: string; permanent: number }>();
@@ -164,10 +207,10 @@ route("GET", "/api/lists/:sid/audit", async (r) => {
   for (const m of team.results) people[await pseudonym(r.env, m.email)] = { who: c.role === "organizer" || m.permanent ? m.email : m.email.replace(/^(.).*(@.*)$/, "$1****$2"), role: m.permanent ? "standing co-organizer" : m.role };
   return json({ entries: await auditEntries(r.env, c.society.id, { from, limit: 100 }), head, people, publicKey: await publicKeyFromPrivate(r.env.SIGNING_KEY) });
 });
-route("GET", "/api/lists/:sid/audit/verify", async (r) => { const c = await staff(r); const sp = r.url.searchParams; return json(await verifySegment(r.env, c.society.id, intq(sp.get("from"), 1), intq(sp.get("limit"), 100))); });
-route("GET", "/api/lists/:sid/audit/head", async (r) => { const c = await staff(r); return json({ list: c.society.id, head: await auditHead(r.env, c.society.id), publicKey: await publicKeyFromPrivate(r.env.SIGNING_KEY) }); });
+route("GET", "/api/lists/:sid/audit/verify", async (r) => { const c = await staffAny(r); const sp = r.url.searchParams; return json(await verifySegment(r.env, c.society.id, intq(sp.get("from"), 1), intq(sp.get("limit"), 100))); });
+route("GET", "/api/lists/:sid/audit/head", async (r) => { const c = await staffAny(r); return json({ list: c.society.id, head: await auditHead(r.env, c.society.id), publicKey: await publicKeyFromPrivate(r.env.SIGNING_KEY) }); });
 route("GET", "/api/lists/:sid/audit/export.json", async (r) => {
-  const c = await staff(r); const entries = await auditAll(r.env, c.society.id);
+  const c = await staffAny(r); const entries = await auditAll(r.env, c.society.id);
   const verification = c.role === "organizer" ? await verifyAudit(r.env, c.society.id) : null;
   const body = JSON.stringify({ list: c.society.id, publicKey: await publicKeyFromPrivate(r.env.SIGNING_KEY), count: entries.length, head: entries.length ? { seq: entries[entries.length - 1]!.entry.seq, hash: entries[entries.length - 1]!.hash } : null, verified: verification ? verification.ok : null, entries });
   return file(body, "application/json", "audit-trail.json");

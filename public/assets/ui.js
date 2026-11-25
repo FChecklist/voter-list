@@ -20,6 +20,14 @@
     return n;
   };
   const el = VL.el;
+  // An on/off setting as a plain button (never a tick box). label is the spoken name; words are the two shown words. Returns the button; btn.isOn() reads the state; onChange(bool) runs after each press.
+  VL.toggle = function toggle(label, pressed, onChange, words, disabled) {
+    const w = words || ["On", "Off"]; let on = !!pressed;
+    const b = el("button", { type: "button", class: "btn ghost", role: "switch", "aria-label": label, "aria-pressed": String(on), disabled: !!disabled }, on ? w[0] : w[1]);
+    b.isOn = () => on;
+    b.addEventListener("click", () => { on = !on; b.setAttribute("aria-pressed", String(on)); b.textContent = on ? w[0] : w[1]; if (onChange) onChange(on); });
+    return b;
+  };
   VL.api = async function api(method, path, body) {
     const init = { method, credentials: "same-origin", headers: { "x-vl": "1" } };
     if (body !== undefined) { init.headers["content-type"] = "application/json"; init.body = JSON.stringify(body); }
@@ -61,17 +69,16 @@
         let input;
         if (f.type === "select") input = el("select", { id }, f.options.map((o) => el("option", { value: o.value ?? o, selected: (o.value ?? o) === f.value }, o.label ?? o)));
         else if (f.type === "textarea") input = el("textarea", { id, value: f.value || "" });
-        else if (f.type === "checkbox") input = el("input", { id, type: "checkbox", checked: !!f.value });
         else input = el("input", { id, type: f.type || "text", value: f.value || "", autocomplete: "off", maxlength: f.max });
         inputs[f.name] = input;
-        form.append(f.type === "checkbox" ? el("label", {}, input, " ", f.label) : [el("label", { for: id }, f.label), input], f.help ? el("p", { class: "tiny muted" }, f.help) : null);
+        form.append([el("label", { for: id }, f.label), input], f.help ? el("p", { class: "tiny muted" }, f.help) : null);
       }
       const ok = el("button", { class: "btn brass", type: "submit", value: "ok" }, okLabel || "OK");
       const no = el("button", { class: "btn ghost", type: "button", on: { click: () => d.close("cancel") } }, "Cancel");
       form.append(el("div", { class: "row end" }, no, ok));
       d.append(form); document.body.append(d);
       d.addEventListener("close", () => {
-        const out = d.returnValue === "ok" ? Object.fromEntries(Object.entries(inputs).map(([k, i]) => [k, i.type === "checkbox" ? i.checked : i.value])) : null;
+        const out = d.returnValue === "ok" ? Object.fromEntries(Object.entries(inputs).map(([k, i]) => [k, i.value])) : null;
         d.remove(); resolve(out);
       });
       d.showModal(); const first = Object.values(inputs)[0]; if (first) first.focus();

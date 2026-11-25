@@ -8,9 +8,9 @@ A single-page product for AOA, HOA and RWA societies to build, check, publish an
 
 ## What it does
 
-**One common link per voter list.** Voters open `/v/<link>`, sign in with their e-mail ID and a 6-digit code (no passwords), and move down one page: Sign in, Enrol (Owner / Co-owner / Tenant / Proxy, as the list allows), Check and send, Your information, Documents, Where things stand, The public list.
+**One common link per voter list.** Voters open `/v/<link>`, sign in with their e-mail ID and a 6-digit code (no passwords), and move down one page: Sign in, Enrol (Owner / Co-owner / Tenant / Proxy, as the list allows), Check and send, Voter information, Documents, Where things stand, The public list.
 
-**The Organizer and Hosts** use `/`: Set up, Share the link, Your team, Check the records, Final checks, Publish the draft list, Publish the final list. Each record is Approved, or Not approved (sent back to the voter with a reason); the voter fixes it and sends it again, and it comes back for a fresh check. Bulk actions and Undo are there.
+**The Organizer and co-organizers** use `/`: Set up, Share the link, The team, Check the records, Final checks, Publish the draft list, Publish the final list. Each record is Approved, or Not approved (sent back to the voter with a reason); the voter fixes it and sends it again, and it comes back for a fresh check. Bulk actions and Undo are there.
 
 **Publishing.** A **draft** list is public at once, masked and marked provisional, and can be replaced. A **final** list is frozen at a date-and-time cut-off: immutable (the database refuses changes), fingerprinted and signed, with a proof page anyone can check. The public page shows the flat number, a masked name, the role, may-vote, the mobile's last 4 digits and the e-mail ID's last 4 characters, and nothing else.
 
@@ -65,7 +65,7 @@ bun test --isolate && bun run typecheck && bun run build:pages
 wrangler login
 wrangler d1 create voter-list           # copy the printed id into wrangler.toml, database_id
 wrangler d1 create voter-list-preview   # copy the id into wrangler.toml, [env.preview], database_id
-wrangler d1 migrations apply voter-list-preview --remote --env preview    # applies migrations 0001 to 0008 to the PREVIEW database only
+wrangler d1 migrations apply voter-list-preview --remote --env preview    # applies migrations 0001 to 0015 to the PREVIEW database only (sibling PRs add their own 0012 files; they are renumbered at merge)
 ```
 
 **Step 3. Create secrets outside the repo.** Production secrets must be new, not the dev ones; keep the signing key backed up offline, because it signs the audit trail and the final lists.
@@ -114,12 +114,12 @@ Environment: `SIGNING_KEY`, `PEPPER` (required); `ORGANIZERS` (comma-separated e
 
 ## Data protection note for Organizers (DPDP Act 2023)
 
-The society (through its Organizer) decides why and how the voter list is used, so it is most likely the data fiduciary; Townhall Records processes the data for it. Voters give consent with a tick before a record is sent, and can withdraw it before the list is final. The notice says what is public (flat number, role, may-vote, a masked name, the mobile's last 4 digits and the e-mail ID's last 4 characters). The signed log records who opened which record. If something goes wrong with personal data, the Board must be told within 72 hours, and a person's request for correction or erasure should be answered within 90 days; the Organizer is the contact. **The owner decided that voter records are kept always** (no automatic erase); corrections are made by the Organizer and signed into the log. The one exception is a record that a voter withdraws by their own choice: it is cleared after 30 days, and the voter is told so. Permanent keeping sits uneasily with the Act's purpose-limitation and erase-on-request ideas, so a lawyer should review it before launch. This note is a plain reading, not legal advice: a lawyer should confirm it before launch.
+The society (through its Organizer) decides why and how the voter list is used, so it is most likely the data fiduciary; Townhall Records processes the data for it. There is no tick box: a voter presses the plain confirm button after reading the notice with its Terms link, and the time and the terms version are recorded. A voter can withdraw a record before the list is final. The notice says what is public (flat number, role, may-vote, a masked name, the mobile's last 4 digits and the e-mail ID's last 4 characters). The signed log records who opened which record. If something goes wrong with personal data, the Board must be told within 72 hours, and a person's request for correction or erasure should be answered within 90 days; the Organizer is the contact. **The owner decided that voter records are kept always** (no automatic erase); corrections are made by the Organizer and signed into the log. The one exception is a record that a voter withdraws by their own choice: it is cleared after 30 days, and the voter is told so. Permanent keeping sits uneasily with the Act's purpose-limitation and erase-on-request ideas, so a lawyer should review it before launch. This note is a plain reading, not legal advice: a lawyer should confirm it before launch.
 
 ## Layout
 
 ```
-migrations/   0001..0004 (core, lists, workflow, hardening; the old tables stay unused), 0005_enrolment (voters, documents, events, publications, roles), 0006_indexes (for the clean-up)
+migrations/   0001..0004 (core, lists, workflow, hardening; the old tables stay unused), 0005_enrolment (voters, documents, events, publications, roles), 0006_indexes (for the clean-up), then 0007 to 0015 (up to the flat kept on the attendance mark; sibling PRs add 0012 files that are renumbered at merge)
 src/          handler.ts (router and API), lists / records / review / publish / overview / erase / orders (services), store.ts (access rules),
               auth.ts, audit.ts, checks.ts, importer.ts, csv.ts, xlsx.ts, text.ts, model.ts, vendor/
 functions/    the Pages Function that calls the handler

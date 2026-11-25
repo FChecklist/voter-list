@@ -331,8 +331,200 @@
     "This list has already been erased.": "इस सूची की जानकारी पहले ही मिटाई जा चुकी है।",
     "This link is not valid.": "यह लिंक सही नहीं है।",
     "Not found.": "नहीं मिला।",
+    // Attendance pages (new). A native Hindi reader should review these once. No consent line has a Hindi entry, by the owner's rule.
+    "Send a code": "कोड भेजें",
+    "We will e-mail a 6-digit code. There is no password.": "हम 6 अंकों का कोड ई-मेल करेंगे। कोई पासवर्ड नहीं है।",
+    "If this e-mail ID is set up, a 6-digit code is on its way to": "यदि यह ई-मेल आईडी जुड़ी है, तो 6 अंकों का कोड यहाँ भेजा जा रहा है:",
+    ". It works for 10 minutes.": "। यह 10 मिनट तक चलता है।",
+    "Attendance": "उपस्थिति",
+    "Please type a title of 2 to 80 letters.": "कृपया 2 से 80 अक्षरों का शीर्षक लिखिए।",
+    "Please choose how people are checked: in person, online or offline.": "कृपया चुनिए कि लोगों की उपस्थिति कैसे ली जाएगी: सामने आकर, ऑनलाइन या ऑफ़लाइन।",
+    "Please pick the date and time again.": "कृपया तारीख़ और समय फिर से चुनिए।",
+    "This session is closed. Nobody can be marked now.": "यह सत्र बंद हो चुका है। अब किसी की उपस्थिति दर्ज नहीं हो सकती।",
+    "This person is not on the list for this session.": "यह व्यक्ति इस सत्र की सूची में नहीं है।",
+    "This person is already marked present.": "इस व्यक्ति की उपस्थिति पहले ही दर्ज हो चुकी है।",
+    "This session is not online. Please ask the Organizer or a co-organizer to mark you present.": "यह सत्र ऑनलाइन नहीं है। कृपया आयोजक या सह-आयोजक से उपस्थिति दर्ज करने को कहिए।",
+    "This session has not started yet. Please try again 15 minutes before it starts.": "यह सत्र अभी शुरू नहीं हुआ है। कृपया शुरू होने से 15 मिनट पहले फिर कोशिश कीजिए।",
+    "This session ended more than 12 hours ago. Please ask the Organizer or a co-organizer to mark you present.": "यह सत्र 12 घंटे से भी पहले खत्म हो चुका है। कृपया आयोजक या सह-आयोजक से उपस्थिति दर्ज करने को कहिए।",
+    "This e-mail ID is not on the list for this session.": "यह ई-मेल आईडी इस सत्र की सूची में नहीं है।",
+    "This e-mail ID is on the list more than once. Please say which one.": "यह ई-मेल आईडी सूची में एक से ज़्यादा बार है। कृपया बताइए कि कौन सी है।",
+    "New lists are started by Organizers that Townhall Records has set up. Please ask us to add the e-mail ID, and you can begin right away.": "नई सूची वे आयोजक शुरू करते हैं जिन्हें टाउनहॉल रिकॉर्ड्स ने जोड़ा है। कृपया हमसे ई-मेल आईडी जुड़वा लीजिए, फिर आप तुरंत शुरू कर सकते हैं।",
+    "Choose an Excel file, a CSV file or paste the list.": "कृपया एक्सेल फ़ाइल, CSV फ़ाइल चुनिए या सूची चिपकाइए।",
+    "Please type a name for this list, 2 to 80 letters.": "कृपया इस सूची का नाम लिखिए, 2 से 80 अक्षर।",
+    "There is nothing to bring in: every row had a problem.": "जोड़ने के लिए कुछ नहीं है: हर पंक्ति में कोई समस्या थी।",
+    "A list can hold up to 6000 people.": "एक सूची में अधिकतम 6000 लोग हो सकते हैं।",
+    "One person can organise up to 10 lists here.": "एक व्यक्ति यहाँ अधिकतम 10 सूचियाँ चला सकता है।",
+    "Too many tries. Please wait a little and try again.": "बहुत बार कोशिश हो चुकी है। कृपया थोड़ी देर रुककर फिर कोशिश कीजिए।",
+    "This role cannot do this. Please ask the Organizer.": "यह काम इस भूमिका से नहीं हो सकता। कृपया आयोजक से कहिए।",
+    "This list has been closed. Nothing can be marked here.": "यह सूची बंद हो चुकी है। यहाँ किसी की उपस्थिति दर्ज नहीं हो सकती।",
+    "Make a session, mark who is present, close it and download the sheet. For Organizers and co-organizers.": "सत्र बनाइए, उपस्थित लोगों को दर्ज कीजिए, उसे बंद कीजिए और शीट डाउनलोड कीजिए। आयोजक और सह-आयोजकों के लिए।",
+    "Voters do not sign in here. They use the link on the page of the list.": "मतदाता यहाँ साइन इन नहीं करते। वे सूची के पन्ने पर दिया गया लिंक इस्तेमाल करते हैं।",
+    "Step 1. Choose the list": "चरण 1. सूची चुनिए",
+    "Step 2. Sessions": "चरण 2. सत्र",
+    "Step 3. Mark present, close and download": "चरण 3. उपस्थित दर्ज करें, बंद करें और डाउनलोड करें",
+    "Step 2. Mark present": "चरण 2. उपस्थित दर्ज करें",
+    "Sessions": "सत्र",
+    "Mark": "दर्ज करें",
+    "Opens after a list is chosen": "सूची चुनने के बाद खुलता है",
+    "Opens after a session is chosen": "सत्र चुनने के बाद खुलता है",
+    "Opens after sign in": "साइन इन के बाद खुलता है",
+    "Choose the list that people will be marked from.": "वह सूची चुनिए जिससे लोगों को दर्ज किया जाएगा।",
+    "There is no list yet. Upload a sheet below to start.": "अभी कोई सूची नहीं है। शुरू करने के लिए नीचे शीट अपलोड कीजिए।",
+    "Uploaded sheet": "अपलोड की गई शीट",
+    "Voter List": "मतदाता सूची",
+    "Upload a sheet": "शीट अपलोड कीजिए",
+    "Paste the rows": "पंक्तियाँ चिपकाइए",
+    "CSV file": "CSV फ़ाइल",
+    "Excel file": "Excel फ़ाइल",
+    "Flat / House / Member ID, Name, E-mail ID": "फ़्लैट / मकान / सदस्य आईडी, नाम, ई-मेल आईडी",
+    "Please choose a file.": "कृपया फ़ाइल चुनिए।",
+    "The list is ready.": "सूची तैयार है।",
+    "Check the sheet": "शीट जाँचिए",
+    "Make the list": "सूची बनाइए",
+    "Name of the list": "सूची का नाम",
+    "Country": "देश",
+    "How to bring in the rows": "पंक्तियाँ कैसे लानी हैं",
+    "Rows": "पंक्तियाँ",
+    "Or choose a file": "या फ़ाइल चुनिए",
+    "Each row needs a Flat / House / Member ID, a Name and an e-mail ID. The e-mail ID is how a person signs in.": "हर पंक्ति में फ़्लैट / मकान / सदस्य आईडी, नाम और ई-मेल आईडी चाहिए। ई-मेल आईडी से ही व्यक्ति साइन इन करता है।",
+    "Get the template:": "टेम्पलेट लीजिए:",
+    "Excel": "Excel",
+    "CSV": "CSV",
+    "Voters sign in and mark present at this link:": "मतदाता इस लिंक पर साइन इन करके उपस्थित दर्ज करते हैं:",
+    "Copy the link": "लिंक कॉपी करें",
+    "Only the Organizer makes or closes a session. A co-organizer can mark people present.": "सत्र केवल आयोजक बनाता या बंद करता है। सह-आयोजक लोगों को उपस्थित दर्ज कर सकता है।",
+    "There is no session yet.": "अभी कोई सत्र नहीं है।",
+    "Title": "शीर्षक",
+    "Date and time": "तारीख़ और समय",
+    "Place": "स्थान",
+    "How": "कैसे",
+    "Present": "उपस्थित",
+    "Closed": "बंद",
+    "In person": "सामने उपस्थित",
+    "Online": "ऑनलाइन",
+    "Offline": "ऑफ़लाइन",
+    "Open for marking": "दर्ज करने के लिए खुला",
+    "Create the session": "सत्र बनाइए",
+    "Session created.": "सत्र बन गया।",
+    "New session": "नया सत्र",
+    "How people are checked": "लोगों की जाँच कैसे होगी",
+    "In an online session, voters mark themselves present after they sign in. In an in person or offline session, the Organizer or a co-organizer marks them.": "ऑनलाइन सत्र में मतदाता साइन इन करके खुद को उपस्थित दर्ज करते हैं। सामने या ऑफ़लाइन सत्र में आयोजक या सह-आयोजक उन्हें दर्ज करता है।",
+    "Flat / House / Member ID or Name": "फ़्लैट / मकान / सदस्य आईडी या नाम",
+    "Find a person": "व्यक्ति खोजिए",
+    "Find": "खोजें",
+    "Flat / House / Member ID": "फ़्लैट / मकान / सदस्य आईडी",
+    "Not marked": "दर्ज नहीं",
+    "Mark present": "उपस्थित दर्ज करें",
+    "Only the first 50 matches are shown. Use the find box, or download the sheet.": "केवल पहले 50 नतीजे दिखते हैं। खोज बॉक्स इस्तेमाल कीजिए, या शीट डाउनलोड कीजिए।",
+    "Mark only a person who is present in the room or on paper.": "केवल उसी व्यक्ति को दर्ज कीजिए जो कमरे में या कागज़ पर उपस्थित है।",
+    "Download the sheet (CSV)": "शीट डाउनलोड करें (CSV)",
+    "Close the session": "सत्र बंद कीजिए",
+    "Marked present.": "उपस्थित दर्ज हुआ।",
+    "Close this session?": "यह सत्र बंद करें?",
+    "Nobody can be marked after it is closed.": "बंद होने के बाद किसी को दर्ज नहीं किया जा सकता।",
+    "Yes, close it": "हाँ, बंद कीजिए",
+    "Session closed.": "सत्र बंद हो गया।",
+    "This e-mail ID is not on the list.": "यह ई-मेल आईडी सूची में नहीं है।",
+    "There is no open session now.": "अभी कोई खुला सत्र नहीं है।",
+    "This session is not online. Please ask the Organizer or a co-organizer to mark present.": "यह सत्र ऑनलाइन नहीं है। कृपया आयोजक या सह-आयोजक से उपस्थित दर्ज करने को कहिए।",
+    "Already marked present.": "उपस्थित पहले ही दर्ज है।",
+    "will be added.": "जोड़े जाएँगे।",
+    "will be left out.": "छोड़ दिए जाएँगे।",
+    "No e-mail ID, or the e-mail ID is not valid. The e-mail ID is how a person is verified.": "ई-मेल आईडी नहीं है, या मान्य नहीं है। ई-मेल आईडी से ही व्यक्ति की पहचान होती है।",
+    "No Flat / House / Member ID.": "फ़्लैट / मकान / सदस्य आईडी नहीं है।",
+    "The Flat / House / Member ID looks wrong (for example a phone number or an e-mail ID).": "फ़्लैट / मकान / सदस्य आईडी गलत लगती है (जैसे फ़ोन नंबर या ई-मेल आईडी)।",
+    "No name, or the name is too long.": "नाम नहीं है, या नाम बहुत लंबा है।",
+    "The same ID and e-mail ID appear earlier.": "यही आईडी और ई-मेल आईडी पहले आ चुकी हैं।",
+
+    // ---- NEEDS NATIVE REVIEW (version 0.3.3) ----------------------------------------------------------------------------------------
+    // Every Hindi line added in version 0.3.3 was written without a native Hindi reader, and a native Hindi reader must read each one before release.
+    // This includes the patterns at the end of this file for the place, title and name messages, the country list message and "N of M". They are plain and
+    // polite like the rest of the file. None of them is a consent line: the owner allows no Hindi on a consent line. The English of each line is listed here
+    // ("3 of 10" stands for the pattern that turns "N of M" into "M में से N"):
+    //   1. "This e-mail ID has already marked one person present in this session. An e-mail ID counts as one person, even on more than one flat. To mark someone else, please ask the Organizer or a co-organizer."
+    //   2. "This session was closed at the same moment."
+    //   3. "This session is already closed."
+    //   4. "Several codes were sent to this e-mail ID already. Please check the inbox (and the spam folder), or try again in an hour."
+    //   5. "This e-mail ID has had all its codes for today. Please try again tomorrow."
+    //   6. "Someone else changed this at the same moment. Please look again and try once more."
+    //   7. "Something went wrong on our side. Nothing was lost; please try again."
+    //   8. "That record is fixed and cannot be changed."
+    //   9. "Please do not write phone numbers or e-mail IDs in the title."
+    //   10. "Please do not write phone numbers or e-mail IDs in the place."
+    //   11. "Please do not write phone numbers or e-mail IDs in the name."
+    //   12. "We could not find the heading row. The first column should be called 'Flat / House / Member ID' (or 'ID'). Please use the template."
+    //   13. "The Excel file is empty."
+    //   14. "There is nothing to read. Please choose a file or paste the list."
+    //   15. "The heading row was found but there are no people below it."
+    //   16. "More than 6000 rows. Please split the list."
+    //   17. "This does not look like an Excel (.xlsx) file."
+    //   18. "This Excel file has too many parts."
+    //   19. "The Excel file is damaged."
+    //   20. "This Excel file expands to an unreasonable size."
+    //   21. "This Excel file uses a compression this reader does not know."
+    //   22. "This Excel file is larger than 8 MB. Please split the list."
+    //   23. "The first sheet of the Excel file could not be found."
+    //   24. "This file is larger than 3 MB. Please split the list."
+    //   25. "A quotation mark was opened and never closed. Please check the file."
+    //   26. "India"
+    //   27. "Bangladesh"
+    //   28. "Bhutan"
+    //   29. "Nepal"
+    //   30. "Sri Lanka"
+    //   31. "Singapore"
+    //   32. "United Arab Emirates"
+    //   33. "United Kingdom"
+    //   34. "United States"
+    //   35. "3 of 10"
+    //   36. "Limited view: names and e-mail IDs are partly hidden, here and in the downloaded sheet. Only the Organizer sees them in full."
+    //   37. "Full view: names and e-mail IDs are shown in full, here and in the downloaded sheet."
+    //   38. "This e-mail ID is on more than one flat. It counts as one person, so it can mark one person present in each session. To mark someone else, please ask the Organizer or a co-organizer."
+    //   39. "This page could not be opened just now. Nothing was changed. Please try again."
+    //   40. "Try again"
+    // ---- END NEEDS NATIVE REVIEW ----------------------------------------------------------------------------------------------------
+    // Server messages built in the sign-in code, the signed log and the sheet reader (a native Hindi reader should check these too)
+    "This e-mail ID has already marked one person present in this session. An e-mail ID counts as one person, even on more than one flat. To mark someone else, please ask the Organizer or a co-organizer.": "इस ई-मेल आईडी से इस सत्र में एक व्यक्ति की उपस्थिति पहले ही दर्ज हो चुकी है। एक ई-मेल आईडी एक व्यक्ति गिनी जाती है, चाहे वह एक से ज़्यादा फ़्लैट में हो। किसी और की उपस्थिति दर्ज कराने के लिए कृपया आयोजक या सह-आयोजक से कहिए।",
+    "This session was closed at the same moment.": "यह सत्र ठीक उसी समय बंद कर दिया गया।",
+    "This session is already closed.": "यह सत्र पहले ही बंद हो चुका है।",
+    "Several codes were sent to this e-mail ID already. Please check the inbox (and the spam folder), or try again in an hour.": "इस ई-मेल आईडी पर कई कोड पहले ही भेजे जा चुके हैं। कृपया इनबॉक्स (और स्पैम फ़ोल्डर) देखिए, या एक घंटे बाद फिर कोशिश कीजिए।",
+    "This e-mail ID has had all its codes for today. Please try again tomorrow.": "इस ई-मेल आईडी के लिए आज के सभी कोड भेजे जा चुके हैं। कृपया कल फिर कोशिश कीजिए।",
+    "Someone else changed this at the same moment. Please look again and try once more.": "उसी समय किसी और ने इसे बदल दिया। कृपया फिर से देखिए और एक बार और कोशिश कीजिए।",
+    "Something went wrong on our side. Nothing was lost; please try again.": "हमारी तरफ़ से कुछ गड़बड़ हो गई। कुछ भी खोया नहीं है; कृपया फिर कोशिश कीजिए।",
+    "That record is fixed and cannot be changed.": "यह रिकॉर्ड पक्का हो चुका है और इसे बदला नहीं जा सकता।",
+    "We could not find the heading row. The first column should be called 'Flat / House / Member ID' (or 'ID'). Please use the template.": "हमें शीर्षक वाली पंक्ति नहीं मिली। पहले कॉलम का नाम 'Flat / House / Member ID' (या 'ID') होना चाहिए। कृपया टेम्पलेट इस्तेमाल कीजिए।",
+    "The Excel file is empty.": "Excel फ़ाइल खाली है।",
+    "There is nothing to read. Please choose a file or paste the list.": "पढ़ने के लिए कुछ नहीं है। कृपया फ़ाइल चुनिए या सूची चिपकाइए।",
+    "The heading row was found but there are no people below it.": "शीर्षक वाली पंक्ति मिली, पर उसके नीचे कोई व्यक्ति नहीं है।",
+    "More than 6000 rows. Please split the list.": "6000 से ज़्यादा पंक्तियाँ हैं। कृपया सूची को बाँट लीजिए।",
+    "This does not look like an Excel (.xlsx) file.": "यह Excel (.xlsx) फ़ाइल नहीं लगती।",
+    "This Excel file has too many parts.": "इस Excel फ़ाइल में बहुत ज़्यादा हिस्से हैं।",
+    "The Excel file is damaged.": "Excel फ़ाइल ख़राब है।",
+    "This Excel file expands to an unreasonable size.": "यह Excel फ़ाइल खुलने पर बहुत ज़्यादा बड़ी हो जाती है।",
+    "This Excel file uses a compression this reader does not know.": "यह Excel फ़ाइल ऐसे ढंग से सिकोड़ी गई है जिसे यह प्रोग्राम पढ़ नहीं सकता।",
+    "This Excel file is larger than 8 MB. Please split the list.": "यह Excel फ़ाइल 8 MB से बड़ी है। कृपया सूची को बाँट लीजिए।",
+    "The first sheet of the Excel file could not be found.": "Excel फ़ाइल की पहली शीट नहीं मिली।",
+    "This file is larger than 3 MB. Please split the list.": "यह फ़ाइल 3 MB से बड़ी है। कृपया सूची को बाँट लीजिए।",
+    "A quotation mark was opened and never closed. Please check the file.": "एक उद्धरण-चिह्न खोला गया पर बंद नहीं हुआ। कृपया फ़ाइल जाँच लीजिए।",
+    // Country names (the list a sheet may name; the page sends the English name to the server)
+    "India": "भारत",
+    "Bangladesh": "बांग्लादेश",
+    "Bhutan": "भूटान",
+    "Nepal": "नेपाल",
+    "Sri Lanka": "श्रीलंका",
+    "Singapore": "सिंगापुर",
+    "United Arab Emirates": "संयुक्त अरब अमीरात",
+    "United Kingdom": "यूनाइटेड किंगडम",
+    "United States": "संयुक्त राज्य अमेरिका",
+    // Attendance pages: the view of a co-organizer and of the Organizer, the one-person rule, and the kind error with a retry
+    "Limited view: names and e-mail IDs are partly hidden, here and in the downloaded sheet. Only the Organizer sees them in full.": "सीमित दृश्य: यहाँ और डाउनलोड की गई शीट में नाम और ई-मेल आईडी आंशिक रूप से ढके हैं। उन्हें पूरा केवल आयोजक देखता है।",
+    "Full view: names and e-mail IDs are shown in full, here and in the downloaded sheet.": "पूरा दृश्य: यहाँ और डाउनलोड की गई शीट में नाम और ई-मेल आईडी पूरे दिखते हैं।",
+    "This e-mail ID is on more than one flat. It counts as one person, so it can mark one person present in each session. To mark someone else, please ask the Organizer or a co-organizer.": "यह ई-मेल आईडी एक से ज़्यादा फ़्लैट में है। यह एक व्यक्ति गिनी जाती है, इसलिए हर सत्र में एक व्यक्ति की उपस्थिति दर्ज कर सकती है। किसी और की उपस्थिति दर्ज कराने के लिए कृपया आयोजक या सह-आयोजक से कहिए।",
+    "This page could not be opened just now. Nothing was changed. Please try again.": "यह पन्ना अभी खुल नहीं सका। कुछ भी नहीं बदला है। कृपया फिर कोशिश कीजिए।",
+    "Try again": "फिर कोशिश कीजिए",
   },
   patterns: [
+    [/^Please choose a country from the list: (.+)\.$/, (c) => "कृपया सूची में से देश चुनिए: " + c.split(", ").map((x) => window.VL.tr(x)).join(", ") + "।"],
+    [/^Mark present: ?(.*)$/, (u) => "उपस्थित दर्ज करें: " + u],
     [/^Test mode: the code is (.+)$/, (c) => "टेस्ट मोड: कोड है " + c],
     [/^(.+) becomes the Organizer, and you become a Co-organizer\. Only the Organizer can publish\.$/, (e) => e + " आयोजक बनेंगे, और आप सह-आयोजक बनेंगे। केवल आयोजक प्रकाशित कर सकता है।"],
     [/^(\d+) of (\d+) co-organizer seats used \(the Townhall Records co-organizer is extra\)\.$/, (a, b) => b + " में से " + a + " सह-आयोजक जगहें भरी हैं (टाउनहॉल रिकॉर्ड्स का सह-आयोजक अलग है)।"],
@@ -357,5 +549,13 @@
     [/^You can add up to (\d+) documents \(PDF, JPG or PNG, 400 KB each\)\. Please cover any Aadhaar or other ID number before you add a photo or scan\.$/, (n) => "आप अधिकतम " + n + " दस्तावेज़ जोड़ सकते हैं (PDF, JPG या PNG, प्रत्येक 400 KB तक)। फ़ोटो या स्कैन जोड़ने से पहले कृपया आधार या किसी अन्य पहचान-संख्या को ढक दीजिए।"],
     [/^One e-mail ID can enrol up to (\d+) homes\.$/, (n) => "एक ई-मेल आईडी से अधिकतम " + n + " घर दर्ज हो सकते हैं।"],
     [/^Enrolment and changes are open until (.+)$/, (d) => d + " तक नाम दर्ज कराया और जानकारी बदली जा सकती है"],
+    // Attendance pages (new)
+    [/^(\d+) of (\d+) present\.$/, (a, b) => b + " में से " + a + " उपस्थित।"],
+    [/^(\d+) sessions?$/, (n) => n + " सत्र"],
+    [/^(\d+) (?:person|people)$/, (n) => n + " व्यक्ति"],
+    [/^(\d+) rows?$/, (n) => n + " पंक्तियाँ"],
+    // Added in version 0.3.3 (needs a native Hindi reader, see the list above): the sessions table count, and the place, title and name messages
+    [/^(\d+) of (\d+)$/, (a, b) => b + " में से " + a],
+    [/^Please do not write phone numbers or e-mail IDs in the (title|place|name)\.$/, (w) => "कृपया " + ({ title: "शीर्षक", place: "स्थान", name: "नाम" })[w] + " में फ़ोन नंबर या ई-मेल आईडी न लिखिए।"],
   ],
 };

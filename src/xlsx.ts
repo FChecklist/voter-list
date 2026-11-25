@@ -132,12 +132,12 @@ const colL = (i: number) => String.fromCharCode(65 + i);
 const is = (r: number, c: number, text: string, style: number) => `<c r="${colL(c)}${r}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${esc(text)}</t></is></c>`;
 
 /** An empty, ready-to-fill sheet for the Organizer: instructions, grey headings, drop-downs, a few hundred formatted rows. */
-export function buildTemplateXlsx(opts: { rows?: number; societyName?: string } = {}): Uint8Array {
+export function buildTemplateXlsx(opts: { rows?: number; societyName?: string; title?: string } = {}): Uint8Array {
   const n = Math.max(1, Math.min(3000, Math.floor(opts.rows ?? 200)));
   const first = 4, last = first + n;
   const how = "HOW TO FILL: one person per row. A flat with several people gets one row each, with the same ID; write Yes under 'Authorized to vote' for each person the Organizer authorizes to vote (a flat with one person needs no mark; any number of people in a flat may be authorized). Name, Mobile and E-mail are needed for every row. Weight is optional (blank = 1). Write No under 'Authorized to vote' or 'Allowed to vote' only for a person who may not vote, and give the reason in the last column (for example Dues unpaid, Tenant, Co-owner); a No with no reason has to be fixed before the list can be published. Do not change the headings. Save as .xlsx or .csv and upload it.";
   const rows: string[] = [];
-  rows.push(`<row r="1" ht="22" customHeight="1">${is(1, 0, `Townhall Records | Voter list template${opts.societyName ? " | " + opts.societyName : ""}`, 1)}</row>`);
+  rows.push(`<row r="1" ht="22" customHeight="1">${is(1, 0, `Townhall Records | ${opts.title ?? "Voter list template"}${opts.societyName ? " | " + opts.societyName : ""}`, 1)}</row>`);
   rows.push(`<row r="2" ht="64" customHeight="1">${is(2, 0, how, 2)}</row>`);
   rows.push(`<row r="3" ht="6" customHeight="1"/>`);
   rows.push(`<row r="4" ht="42" customHeight="1">${TEMPLATE_HEADERS.map((h, i) => is(4, i, h, 3)).join("")}</row>`);

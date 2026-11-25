@@ -42,7 +42,7 @@ for (const v of invited) { if (!v.email) continue; const j = await voter(slug, v
 const w = ((await call("GET", `/api/lists/${sid}/records?status=submitted&limit=200`, org)).records as { id: string; revision: number }[]).map((r) => ({ id: r.id, rev: r.revision }));
 if (w.length) {
   await call("POST", `/api/lists/${sid}/records/decide`, org, { items: w.slice(1), decision: "approve" });
-  await call("POST", `/api/lists/${sid}/records/decide`, org, { items: w.slice(0, 1), decision: "send_back", reason: "Please give your name as it is in the sale deed." });
+  await call("POST", `/api/lists/${sid}/records/decide`, org, { items: w.slice(0, 1), decision: "send_back", reason: "Please give the name as it is in the sale deed." });
 }
 await call("POST", `/api/lists/${sid}/publish/draft`, org, {});
 raw.query("DELETE FROM rate_hits").run(); // the demo signed many people in at once; the dev server starts with clean limits

@@ -71,7 +71,7 @@ describe("wording: neutral, short, imperative", () => {
   });
 
   test("the page HTML has no my / mine / your / yours either", () => {
-    for (const f of ["public/index.html", "public/v/index.html", "public/terms/index.html"]) expect(POSSESSIVE.test(readFileSync(f, "utf8").replace(/<[^>]*>/g, " ")), f).toBe(false);
+    for (const f of ["public/index.html", "public/v/index.html", "public/terms/index.html", "public/attendance/index.html", "public/attend/index.html"]) expect(POSSESSIVE.test(readFileSync(f, "utf8").replace(/<[^>]*>/g, " ")), f).toBe(false);
   });
 
   test("the word host reads co-organizer wherever people read it", () => {
