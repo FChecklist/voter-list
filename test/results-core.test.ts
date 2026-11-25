@@ -220,6 +220,11 @@ describe("the checks that guard a result", () => {
     const r = await checks(meeting(), base({ att: { ...ATT, status: "open", closedAt: null }, list: { ...LIST, eventType: "election" }, now: 7000 + 8 * 86_400_000 }));
     expect(r.failed).toBe(0); expect(r.codes).toEqual(expect.arrayContaining(["attendance_open:warn", "list_event:warn", "late_entry:warn", "no_observers:warn", "no_supervisor:warn"]));
   });
+  test("a list that gives voters unequal weight carries a note, because the counts are whole votes and the weights are not applied", async () => {
+    expect((await checks(meeting(), base())).codes).not.toContain("weights_not_applied:warn");
+    const w = await checks(meeting(), base({ list: { ...LIST, weightMode: "unequal" } }));
+    expect(w.codes).toContain("weights_not_applied:warn"); expect(w.failed).toBe(0);
+  });
   test("an election fails on more ballots than the list allows, more votes in a post than ballots, and an unsettled tie", async () => {
     const e = (over: Record<string, unknown>) => election(over);
     const b = base({ list: { ...LIST, eventType: "election" } });

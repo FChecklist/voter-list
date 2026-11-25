@@ -300,6 +300,7 @@ export function makeChecks(c: Closing, b: Basis, qs: QuorumStatus, motions: Moti
   else add("fail", "list_frozen_late", `The final voter list was frozen after the ${noun} closed. A result needs a final list that was fixed first.`);
   if (b.list.eventType === c.kind) add("ok", "list_event", `The final voter list was frozen for this ${noun}.`);
   else add("warn", "list_event", `The final voter list was frozen for ${b.list.eventType ? "a " + b.list.eventType : "another event"}, and this is ${c.kind === "meeting" ? "a meeting" : "an election"}.`);
+  if (b.list.weightMode !== "equal") add("warn", "weights_not_applied", "This list gives voters unequal weight. The counts in this result are whole votes, one for each voter on the list, and the weights are not applied.");
   if (!b.att) add("warn", "attendance_missing", "No attendance session is linked, so the number of people present was not checked.");
   else if (b.att.status !== "closed") add("warn", "attendance_open", "The attendance session is still open, so the number of people present may still change.");
   else add("ok", "attendance_linked", `The attendance session is linked and closed: ${b.att.present} of ${b.att.eligible} marked present.`);

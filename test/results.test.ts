@@ -93,7 +93,7 @@ describe("a closed meeting is entered, and a result is made from it", () => {
     expect(r.json.result.challengeEndsAt).toBe(s.h.clock.now + 2 * H); expect(r.json.result.challengeEndsLocal).toBe("2026-11-13T13:30");
     expect(r.json.content.motions.map((m: any) => m.outcome)).toEqual(["passed", "passed", "not_passed"]);
     expect(r.json.content.checks.filter((c: any) => c.level === "fail")).toEqual([]);
-    expect(r.json.content).toMatchObject({ quorum: { met: true, present: 3, required: 3 }, attendance: { present: 3, eligible: 4, status: "closed" }, list: { finalNo: 1, voters: 4, eventType: "meeting" }, source: "organizer", version: 1 });
+    expect(r.json.content).toMatchObject({ quorum: { met: true, present: 3, required: 3 }, attendance: { present: 3, eligible: 4, status: "closed" }, list: { finalNo: 1, voters: 4, eventType: "meeting", weightMode: "equal" }, source: "organizer", version: 1 });
     expect(r.json.headline).toEqual({ motions: 3, passed: 2, notPassed: 1, noVotes: 0 });
     expect(r.json.notice).toContain("challenge window is open until 2026-11-13T13:30");
     expect(r.json.result.auditSeq).toBe(r.json.audit);

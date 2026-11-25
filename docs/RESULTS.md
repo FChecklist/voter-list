@@ -31,7 +31,7 @@ A failed check stops FINAL, in the code and in the database. A warning is shown 
 | `votes_over_present` | fail | More votes on a motion than people marked present. |
 | `votes_over_ballots` | fail | A post has more votes than its ballots can give (ballots times seats). |
 | `tie_unsettled` | fail | A tie is not settled by the stated rule. |
-| `list_event`, `attendance_missing`, `attendance_open`, `entered_by_hand`, `late_entry`, `no_observers`, `no_supervisor` | warning | Things a reader should know. |
+| `list_event`, `weights_not_applied`, `attendance_missing`, `attendance_open`, `entered_by_hand`, `late_entry`, `no_observers`, `no_supervisor` | warning | Things a reader should know. `weights_not_applied` says the list gives voters unequal weight and the counts here are whole votes. |
 
 ## Who can do what
 
@@ -85,6 +85,7 @@ Limits: 30 writes an hour for a list (closings, results and corrections together
 - Challenge forms for voters (CP-285, CP-294).
 - Sign-off by e-mail from the people who counted and validated (CP-410 to CP-413). Their names are recorded as the Organizer typed them.
 - Automatic delivery of a closing from the Meetings and Elections products. They are not in this repository.
+- Weighted tallies. A list that gives voters unequal weight gets a warning, and the counts are whole votes, one for each voter on the list.
 - Results for a list made from an uploaded attendance sheet. Such a list has no final voter list to stand on, so every Results address answers "not found" for it.
 - An archive certificate (CP-339). Erasing a list removes its results with it, and the audit trail still checks out.
 - Page tests for each country (CP-350).
@@ -92,6 +93,6 @@ Limits: 30 writes an hour for a list (closings, results and corrections together
 
 ## Tests
 
-`test/results-core.test.ts` (30 tests) covers the counting rules, the cleaning of a closing and the fingerprint with no database, and checks the counting on thousands of seeded random posts and on every pair of votes up to 60. `test/results.test.ts` (28 tests) goes through the real handler and the real migrations: dark by default, a full meeting, a failed check that blocks FINAL (also with a direct write to the database), an election with an open tie and its correction, the chain of corrections, the database guards, checking and tampering, what the public sees, permissions between lists, the sheet, the timeline, erase, a list made from an uploaded sheet (it has no Results), and two requests at the same moment (one wins, the other gets a plain 409).
+`test/results-core.test.ts` (31 tests) covers the counting rules, the cleaning of a closing and the fingerprint with no database, and checks the counting on thousands of seeded random posts and on every pair of votes up to 60. `test/results.test.ts` (28 tests) goes through the real handler and the real migrations: dark by default, a full meeting, a failed check that blocks FINAL (also with a direct write to the database), an election with an open tie and its correction, the chain of corrections, the database guards, checking and tampering, what the public sees, permissions between lists, the sheet, the timeline, erase, a list made from an uploaded sheet (it has no Results), and two requests at the same moment (one wins, the other gets a plain 409).
 
 Each rule was also broken on purpose to prove its test fails: the challenge window, the hidden answer, the two-thirds line, the one live result, the plain 409 for a clash, and the guard on FINAL.
