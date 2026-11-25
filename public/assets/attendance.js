@@ -11,13 +11,21 @@
   const when = (s) => window.VL.localTime(s);
   const terms = () => el("a", { href: "/terms/", target: "_blank", rel: "noopener" }, "Terms and Conditions");
 
+  // A first load that fails must never leave the bare "Loading…" line: it shows a plain, kind message and a button to try again. (No sign-in (401) is not a failure: that opens the sign-in page.)
+  function drawFailed(e, again) {
+    root.replaceChildren(el("div", { class: "page" }, el("div", { class: "hero" }, el("h1", {}, "Attendance")),
+      el("section", { class: "card" }, el("p", { class: "note bad", role: "alert" }, "This page could not be opened just now. Nothing was changed. Please try again."), e && e.status !== undefined && e.message ? el("p", { class: "tiny muted" }, e.message) : null,
+        el("div", { class: "row" }, el("button", { class: "btn brass", type: "button", on: { click: again } }, "Try again")))));
+  }
   async function boot() {
-    try { S.me = await api("GET", "/api/attendance/lists"); } catch (e) { if (e.status !== 401) { fail(e); return; } S.me = null; }
-    if (!S.me) { drawSignIn(); return; }
-    const want = (location.hash.match(/^#\/(soc_[0-9a-f]+)/) || [])[1];
-    S.sid = S.me.lists.some((l) => l.id === want) ? want : S.me.lists[0] ? S.me.lists[0].id : null;
-    S.open = S.sid ? "sessions" : "list";
-    if (S.sid) await loadSessions(); else draw();
+    try {
+      try { S.me = await api("GET", "/api/attendance/lists"); } catch (e) { if (e.status !== 401) throw e; S.me = null; }
+      if (!S.me) { drawSignIn(); return; }
+      const want = (location.hash.match(/^#\/(soc_[0-9a-f]+)/) || [])[1];
+      S.sid = S.me.lists.some((l) => l.id === want) ? want : S.me.lists[0] ? S.me.lists[0].id : null;
+      S.open = S.sid ? "sessions" : "list";
+      if (S.sid) await loadSessions(); else draw();
+    } catch (e) { drawFailed(e, boot); }
   }
   async function loadSessions() {
     S.sessions = (await api("GET", base())).sessions;
@@ -147,7 +155,10 @@
     const d = S.detail; if (!d) return [];
     const s = d.session; const open = s.status === "open"; const out = [];
     out.push(el("p", {}, el("b", {}, s.title), " | ", when(s.startsAt), " | ", s.modeText, " | ", open ? "Open for marking" : "Closed"), el("p", {}, s.counts.present + " of " + s.counts.eligible + " present."));
-    const find = el("input", { id: "fd", type: "search", value: S.find, maxlength: "60", placeholder: "Flat / House / Member ID or Name" });
+    // which view this is comes from the server (the Organizer sees names and e-mail IDs in full, a co-organizer partly hidden); the sheet and the find box follow it
+    const limited = (d.view || (isOrg() ? "full" : "limited")) === "limited";
+    out.push(el("p", { class: "note" }, limited ? "Limited view: names and e-mail IDs are partly hidden, here and in the downloaded sheet. Only the Organizer sees them in full." : "Full view: names and e-mail IDs are shown in full, here and in the downloaded sheet."));
+    const find = el("input", { id: "fd", type: "search", value: S.find, maxlength: "60", placeholder: limited ? "Flat / House / Member ID" : "Flat / House / Member ID or Name" });
     out.push(el("form", { on: { submit: async (e) => { e.preventDefault(); S.find = find.value; await loadDetail(s.id); draw(); } } }, el("label", { for: "fd" }, "Find a person"), find, el("div", { class: "row" }, el("button", { class: "btn small", type: "submit" }, "Find"))));
     out.push(window.VL.table(["Flat / House / Member ID", "Name", "E-mail ID", "Status", ""], d.people.map((p) => el("tr", {}, el("td", {}, p.unit), el("td", {}, p.name), el("td", {}, p.email), el("td", {}, p.present ? "Present" : "Not marked"),
       el("td", {}, !p.present && open ? el("button", { class: "btn small", type: "button", "aria-label": "Mark present: " + p.unit, on: { click: () => markOne(s.id, p.voterId) } }, "Mark present") : null)))));

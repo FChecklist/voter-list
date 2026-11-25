@@ -33,6 +33,10 @@ export function guardChanged(env: Env, message: string): D1Stmt {
 export function guardExists(env: Env, message: string, existsSql: string, ...binds: unknown[]): D1Stmt {
   return env.DB.prepare(`INSERT INTO guard_assert (ok, why) SELECT EXISTS(${existsSql}), ?`).bind(...binds, message.slice(0, 200));
 }
+/** Abort the whole batch with `message` when `existsSql` (with `binds`) returns a row. The other way round from guardExists: put it before the statement that would write the row. */
+export function guardMissing(env: Env, message: string, existsSql: string, ...binds: unknown[]): D1Stmt {
+  return env.DB.prepare(`INSERT INTO guard_assert (ok, why) SELECT NOT EXISTS(${existsSql}), ?`).bind(...binds, message.slice(0, 200));
+}
 
 async function head(env: Env, societyId: string): Promise<SignedEntry | null> {
   const last = await env.DB.prepare("SELECT hash, sig, entry_json FROM audit_entries WHERE society_id = ? ORDER BY seq DESC LIMIT 1").bind(societyId).first<{ hash: string; sig: string; entry_json: string }>();

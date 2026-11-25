@@ -1,9 +1,9 @@
 // Attendance Management (first chunk): a session for a list, one mark per voter per session, and a public count with no personal data.
 // The list is either a Voter List, or a list made from an uploaded Excel sheet (purpose 'attendance_upload'). Both are `societies` rows with `voters`,
 // so masking, roles and the signed audit trail are exactly those of the Voter List.
-import { ERR, badCountry, COUNTRY_TZ } from "./error-messages";
+import { ERR, badCountry, COUNTRY_TZ, MODE_WORDS, ROSTER_WHY } from "./error-messages";
 import { HttpError, rateLimit, signupOpen, isListedOrganizer } from "./auth";
-import { commit, guardChanged, guardExists, looksPrivate, pseudonym, staffActor } from "./audit";
+import { commit, guardChanged, guardExists, guardMissing, looksPrivate, pseudonym, staffActor } from "./audit";
 import { uid, type D1Stmt, type Env } from "./db";
 import { localToMs, msToLocal, noContactDetails } from "./lists";
 import { parseUpload } from "./importer";
@@ -17,12 +17,12 @@ export const MODES = ["in_person", "online", "offline"] as const;
 export type Mode = (typeof MODES)[number];
 const SELF_MARK_LATE_MS = 12 * 3_600_000; // and until 12 hours after it starts
 const SELF_MARK_EARLY_MS = 15 * 60_000; // a voter can mark themselves from 15 minutes before the start
-const MODE_WORDS: Record<Mode, string> = { in_person: "In person", online: "Online", offline: "Offline" };
 
 interface SessionRow { id: string; society_id: string; title: string; starts_at: number; place: string; mode: Mode; status: "open" | "closed"; created_by: string; created_at: number; closed_at: number | null }
 
-const viewSession = (s: SessionRow, tz: number, eligible: number, present: number) => ({
-  id: s.id, title: s.title, startsAt: msToLocal(s.starts_at, tz), place: s.place, mode: s.mode, modeText: MODE_WORDS[s.mode], status: s.status, closedAt: s.closed_at, counts: { eligible, present },
+/** One session as a page reads it. The title and the place are free text typed by the Organizer, so `withText` false leaves both out (the time, how, state and counts stay). */
+const viewSession = (s: SessionRow, tz: number, eligible: number, present: number, withText = true) => ({
+  id: s.id, ...(withText ? { title: s.title } : {}), startsAt: msToLocal(s.starts_at, tz), ...(withText ? { place: s.place } : {}), mode: s.mode, modeText: MODE_WORDS[s.mode], status: s.status, closedAt: s.closed_at, counts: { eligible, present },
 });
 
 /** Everyone who may attend: on the list now (approved) and allowed to attend. Only these can be marked. */
@@ -68,7 +68,10 @@ export async function listSessions(ctx: StaffCtx) {
   return { sessions: out };
 }
 
-/** One session for the team: counts, who is present (masked for a co-organizer), and a find box by flat / member ID or name. */
+/** Which view a team member has: the Organizer sees names and e-mail IDs in full, a co-organizer sees them partly hidden (the rule of the Voter List, `seesFull`). The page and the sheet both follow it. */
+const viewOf = (ctx: Pick<StaffCtx, "role">): "full" | "limited" => (seesFull(ctx) ? "full" : "limited");
+
+/** One session for the team: counts, who is present (masked for a co-organizer), which view this is, and a find box. The Organizer finds a person by flat / member ID or name; a co-organizer by flat / member ID only, because a name typed into the box must not show which row holds it. */
 export async function openSession(ctx: StaffCtx, id: string, find = "") {
   need(ctx, "view"); notErased(ctx.society);
   const s = await sessionOf(ctx.env, ctx.society.id, id);
@@ -76,25 +79,25 @@ export async function openSession(ctx: StaffCtx, id: string, find = "") {
   const marks = new Map((await ctx.env.DB.prepare("SELECT voter_id, method, marked_at FROM att_marks WHERE session_id = ?").bind(id).all<{ voter_id: string; method: string; marked_at: number }>()).results.map((m) => [m.voter_id, m]));
   const q = squeeze(find).toLowerCase();
   const lines = await eligibleLines(ctx.env, ctx.society.id);
-  const shown = lines.filter((l) => !q || l.row.unit.toLowerCase().includes(q) || l.row.name.toLowerCase().includes(q)).slice(0, 50)
+  const shown = lines.filter((l) => !q || l.row.unit.toLowerCase().includes(q) || (full && l.row.name.toLowerCase().includes(q))).slice(0, 50)
     .map((l) => ({ voterId: l.voterId, unit: l.row.unit, name: full ? l.row.name : maskName(l.row.name), email: full ? l.row.email : maskEmail(l.row.email), present: marks.has(l.voterId), method: marks.get(l.voterId)?.method ?? null, markedAt: marks.get(l.voterId)?.marked_at ?? null }));
-  return { session: viewSession(s, ctx.society.tz_offset_min, lines.length, marks.size), people: shown };
+  return { session: viewSession(s, ctx.society.tz_offset_min, lines.length, marks.size), people: shown, view: viewOf(ctx) };
 }
 
-/** A simple attendance sheet for one session, as CSV: everyone who may attend, present or not. A co-organizer gets masked names and e-mail IDs. Every download leaves a row in the signed log. */
+/** A simple attendance sheet for one session, as CSV: everyone who may attend, present or not. A co-organizer gets the limited view: names and e-mail IDs partly hidden, said in the column names and in the file name. Every download leaves a row in the signed log. */
 export async function sheetCsv(ctx: StaffCtx, id: string) {
   need(ctx, "view"); notErased(ctx.society);
   const s = await sessionOf(ctx.env, ctx.society.id, id);
   const full = seesFull(ctx);
   const marks = new Map((await ctx.env.DB.prepare("SELECT voter_id, method, marked_at FROM att_marks WHERE session_id = ?").bind(id).all<{ voter_id: string; method: string; marked_at: number }>()).results.map((m) => [m.voter_id, m]));
   const lines = await eligibleLines(ctx.env, ctx.society.id);
-  const rows: unknown[][] = [["Flat / House / Member ID", "Name", "E-mail ID", "Present", "Marked how", "Marked at"]];
+  const rows: unknown[][] = [["Flat / House / Member ID", full ? "Name" : "Name (partly hidden)", full ? "E-mail ID" : "E-mail ID (partly hidden)", "Present", "Marked how", "Marked at"]];
   for (const l of lines) {
     const m = marks.get(l.voterId);
     rows.push([l.row.unit, full ? l.row.name : maskName(l.row.name), full ? l.row.email : maskEmail(l.row.email), m ? "Yes" : "No", m ? (m.method === "email" ? "E-mail code" : "Organizer or co-organizer") : "", m ? msToLocal(m.marked_at, ctx.society.tz_offset_min) : ""]);
   }
   await commit(ctx.env, ctx.society.id, [], "attendance.sheet_exported", await staffActor(ctx.env, ctx.email, ctx.role), { session: s.id, lines: lines.length, full }, ctx.now);
-  return { body: toCsv(rows), type: "text/csv; charset=utf-8", filename: "attendance-sheet.csv" };
+  return { body: toCsv(rows), type: "text/csv; charset=utf-8", filename: full ? "attendance-sheet.csv" : "attendance-sheet-limited.csv", view: viewOf(ctx) };
 }
 
 /** For a signed-in voter: where this e-mail ID is on the list (flat / member ID only), so the page can ask which one when there is more than one. */
@@ -117,8 +120,13 @@ async function mark(env: Env, society: SocietyRow, s: SessionRow, voterId: strin
   if (!line) throw new HttpError(404, ERR.personNotOnList, "not_on_list");
   if (await env.DB.prepare("SELECT 1 AS x FROM att_marks WHERE session_id = ? AND voter_id = ?").bind(s.id, voterId).first()) throw new HttpError(409, ERR.alreadyPresent, "already_present");
   const pid = await pseudonym(env, actorEmail);
+  // An e-mail ID counts as one person, even when it is on more than one flat: it can mark one person in a session. (The team marks by flat and is not held to this;
+  // the database holds the same rule for every mark made by e-mail code, so two requests at the same moment still give one mark.)
+  const byThisEmail = "SELECT 1 FROM att_marks WHERE session_id = ? AND method = 'email' AND marked_by = ?";
+  if (method === "email" && (await env.DB.prepare(byThisEmail).bind(s.id, pid).first())) throw new HttpError(409, ERR.onePerEmail, "one_per_email");
   const stmts: D1Stmt[] = [
-    guardExists(env, "This session was closed at the same moment.", "SELECT 1 FROM att_sessions WHERE id = ? AND status = 'open'", s.id),
+    guardExists(env, ERR.closedMeanwhile, "SELECT 1 FROM att_sessions WHERE id = ? AND status = 'open'", s.id),
+    ...(method === "email" ? [guardMissing(env, ERR.onePerEmail, byThisEmail, s.id, pid)] : []),
     env.DB.prepare("INSERT OR IGNORE INTO att_marks (session_id, society_id, voter_id, method, marked_by, marked_at) VALUES (?, ?, ?, ?, ?, ?)").bind(s.id, society.id, voterId, method, pid, now),
     guardChanged(env, ERR.alreadyPresent),
   ];
@@ -154,22 +162,35 @@ export async function closeSession(ctx: StaffCtx, sessionId: string) {
   need(ctx, "attendSetup"); notErased(ctx.society);
   const s = await sessionOf(ctx.env, ctx.society.id, sessionId);
   await commit(ctx.env, ctx.society.id, [
-    ctx.env.DB.prepare("UPDATE att_sessions SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'").bind(ctx.now, s.id), guardChanged(ctx.env, "This session is already closed."),
+    ctx.env.DB.prepare("UPDATE att_sessions SET status = 'closed', closed_at = ? WHERE id = ? AND status = 'open'").bind(ctx.now, s.id), guardChanged(ctx.env, ERR.alreadyClosed),
   ], "attendance.session_closed", await staffActor(ctx.env, ctx.email, ctx.role), { session: s.id }, ctx.now);
   const { eligible, present } = await counts(ctx.env, ctx.society, s.id);
   return { session: viewSession(await sessionOf(ctx.env, ctx.society.id, s.id), ctx.society.tz_offset_min, eligible, present) };
 }
 
-/** Public: titles, times and counts. No names, no e-mail IDs, no flat numbers. */
-export async function publicSessions(env: Env, society: SocietyRow) {
+/** Is this e-mail ID one of the people on the list now (approved and allowed to attend)? */
+const onTheList = (lines: Array<{ row: { email: string } }>, email: string | null) => !!email && lines.some((l) => l.row.email.toLowerCase() === email.toLowerCase());
+
+/**
+ * Public: times, how, state and counts. No names, no e-mail IDs, no flat numbers.
+ * The title and the place are free text typed by the Organizer. For a Voter List link (a page that anyone can reach) they are shown only to a voter who signed in
+ * with the e-mail code for this link and is on its list: `viewer` is that e-mail ID, or null. A list made from an uploaded sheet keeps showing them.
+ * `personal` says the answer holds text for this voter only, so the caller must not let it be cached or shared.
+ */
+export async function publicSessions(env: Env, society: SocietyRow, viewer: string | null = null) {
   const rs = await env.DB.prepare("SELECT * FROM att_sessions WHERE society_id = ? ORDER BY starts_at DESC, id LIMIT 100").bind(society.id).all<SessionRow>();
-  const n = society.erased_at ? 0 : (await eligibleLines(env, society.id)).length;
-  const out = []; for (const s of rs.results) { const c = await counts(env, society, s.id, n); out.push(viewSession(s, society.tz_offset_min, c.eligible, c.present)); }
-  return { list: society.name, sessions: out };
+  const lines = society.erased_at ? [] : await eligibleLines(env, society.id);
+  const personal = society.purpose === "voter_list" && onTheList(lines, viewer);
+  const withText = society.purpose !== "voter_list" || personal;
+  const out = []; for (const s of rs.results) { const c = await counts(env, society, s.id, lines.length); out.push(viewSession(s, society.tz_offset_min, c.eligible, c.present, withText)); }
+  return { body: { list: society.name, sessions: out }, personal };
 }
-export async function publicSession(env: Env, society: SocietyRow, id: string) {
-  const s = await sessionOf(env, society.id, id); const c = await counts(env, society, id);
-  return { list: society.name, session: viewSession(s, society.tz_offset_min, c.eligible, c.present) };
+export async function publicSession(env: Env, society: SocietyRow, id: string, viewer: string | null = null) {
+  const s = await sessionOf(env, society.id, id);
+  const lines = society.erased_at ? [] : await eligibleLines(env, society.id);
+  const personal = society.purpose === "voter_list" && onTheList(lines, viewer);
+  const c = await counts(env, society, id, lines.length);
+  return { body: { list: society.name, session: viewSession(s, society.tz_offset_min, c.eligible, c.present, society.purpose !== "voter_list" || personal) }, personal };
 }
 
 // ------------------------------------------------------------------------------------------------------------------ Excel upload for an organizer with no Voter List
@@ -202,7 +223,7 @@ export async function uploadRoster(env: Env, now: number, email: string, input: 
   }
   const report = {
     read: parsed.rowsRead, willAdd: add.length, skipped,
-    why: { noEmail: "No e-mail ID, or the e-mail ID is not valid. The e-mail ID is how a person is verified.", noUnit: "No Flat / House / Member ID.", badUnit: "The Flat / House / Member ID looks wrong (for example a phone number or an e-mail ID).", noName: "No name, or the name is too long.", duplicate: "The same ID and e-mail ID appear earlier." },
+    why: ROSTER_WHY,
     problems: parsed.problems.slice(0, 50), unknownColumns: parsed.unknownColumns,
     sample: add.slice(0, 5).map((a) => ({ unit: a.unit, name: maskName(a.name), email: maskEmail(a.email) })),
   };

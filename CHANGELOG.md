@@ -2,6 +2,18 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.3 - not deployed yet (IST)
+
+Fixes after round 7 of Attendance chunks 1-2.
+
+- The public session list of a Voter List link (`/api/v/<link>/attendance` and the one-session answer) no longer shows the title or the place. It still shows the time, how, state and counts. A voter who signed in with the e-mail code for that link and is on its list still sees the title and place; that answer is never cached, and the public answer varies by cookie. A list made from an uploaded sheet keeps showing titles and places (a question to the owner, below).
+- One e-mail ID marks one person in a session, even when it is on more than one flat. The voter page says so before the button, and a second try gets a plain message (`one_per_email`). The Organizer and co-organizers can still mark the other flats. Migration 0012 holds the same rule in the database for marks made by e-mail code.
+- A co-organizer's view is now stated: the page says "Limited view" (the Organizer's says "Full view"); the sheet's column names say "(partly hidden)" and the file is `attendance-sheet-limited.csv`; the find box takes a flat or member ID only (a name typed there showed which row held it). The session answer carries `view`.
+- Hindi lines for texts the server builds that had none: the sheet reader messages, the two code limits, the same-moment and already-closed messages, the failure message, the messages for a phone number in a title, place or name, the country names, and the count ("3 of 10") in the sessions table. The mode texts (In person, Online, Offline) already had Hindi lines; a test now ties every server-built text to a Hindi line. Every Hindi line added is listed in `lang/hi.js` as needing a native Hindi reader. No Hindi on any consent line.
+- The wording scan for my / mine / your / yours now covers every source file, the dev scripts and all pages, reads template strings fully, and a second scan checks the real answers, e-mails and sheets. One dev seed message was fixed.
+- A first load that fails (not a missing sign-in, which opens the sign-in page, and not a closed list) shows a plain message and a Try again button on both pages, instead of a Loading line that never ends.
+- Question for the owner: should the title and place of a list made from an uploaded sheet also be hidden from people who are not signed in? Today they are shown (the order named Voter List links only).
+
 ## 0.3.2 - not deployed yet (IST)
 
 Fixes after round 6 of Attendance chunks 1-2.

@@ -9,15 +9,23 @@
   const terms = () => el("a", { href: "/terms/", target: "_blank", rel: "noopener" }, "Terms and Conditions");
   const maskMail = (e) => (/@[^@.]+$/.test(e) ? e.replace(/^(.)[^@]*@/, "$1****@") : e.replace(/^(.).*(@)(.).*(\..+)$/, "$1****$2$3****$4"));
 
+  // A load that fails must never leave the bare "Loading…" line: it shows a plain, kind message and a button to try again. (No sign-in (401) and a closed list (410) have their own screens.)
+  function drawFailed(e) {
+    root.replaceChildren(el("div", { class: "page" }, el("div", { class: "hero" }, el("h1", {}, "Attendance")),
+      el("section", { class: "card" }, el("p", { class: "note bad", role: "alert" }, "This page could not be opened just now. Nothing was changed. Please try again."), e && e.status !== undefined && e.message ? el("p", { class: "tiny muted" }, e.message) : null,
+        el("div", { class: "row" }, el("button", { class: "btn brass", type: "button", on: { click: load } }, "Try again")))));
+  }
   async function load() {
-    try { S.pub = await api("GET", A("/attendance")); } catch (e) {
-      if (e.status !== 410) throw e;
-      document.getElementById("who").replaceChildren();
-      root.replaceChildren(el("div", { class: "page" }, el("div", { class: "hero" }, el("h1", {}, "Attendance"), el("p", { class: "muted" }, "This list has been closed. Nothing can be marked here."))));
-      return;
-    }
-    try { S.me = await api("GET", A("/attend/me")); } catch (e) { if (e.status === 401) S.me = null; else throw e; }
-    draw();
+    try {
+      try { S.pub = await api("GET", A("/attendance")); } catch (e) {
+        if (e.status !== 410) throw e;
+        document.getElementById("who").replaceChildren();
+        root.replaceChildren(el("div", { class: "page" }, el("div", { class: "hero" }, el("h1", {}, "Attendance"), el("p", { class: "muted" }, "This list has been closed. Nothing can be marked here."))));
+        return;
+      }
+      try { S.me = await api("GET", A("/attend/me")); } catch (e) { if (e.status === 401) S.me = null; else throw e; }
+      draw();
+    } catch (e) { drawFailed(e); }
   }
   async function signOut() { try { await api("POST", A("/logout"), {}); } catch { /* already out */ } S.me = null; S.codeSent = false; draw(); }
 
@@ -72,7 +80,9 @@
       try { await api("POST", A(`/attendance/${s.id}/here`), which ? { voterId: which.value } : {}); toast("Marked present."); S.pub = await api("GET", A("/attendance")); draw(); }
       catch (x) { if (x.code === "already_present") { toast("Already marked present."); } else err.show(x.message); }
     }));
-    return el("section", { class: "card" }, body, which ? [el("label", { for: "w" + s.id }, "Flat / House / Member ID"), which] : null, err, el("div", { class: "row" }, btn),
+    // an e-mail ID counts as one person, so it can mark one person in a session even when it is on more than one flat: say so before the button, not only after a refusal
+    const rule = many ? el("p", { class: "note" }, "This e-mail ID is on more than one flat. It counts as one person, so it can mark one person present in each session. To mark someone else, please ask the Organizer or a co-organizer.") : null;
+    return el("section", { class: "card" }, body, which ? [el("label", { for: "w" + s.id }, "Flat / House / Member ID"), which] : null, rule, err, el("div", { class: "row" }, btn),
       el("p", { class: "tiny muted" }, "By pressing Mark present, this e-mail ID is recorded as present under the ", terms(), "."));
   }
 
