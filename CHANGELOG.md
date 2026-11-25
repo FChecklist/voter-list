@@ -2,6 +2,17 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.4.0 - not deployed yet (IST)
+
+Elections, first chunks. Dark: every address answers "not found" until `ELECTIONS_ENABLED` is `1`. No payment code.
+
+- New product inside the Voter List app for a society election on the frozen final voter list: draft, notice (rules fixed in the pages and in the database), nominations with a proposer and a seconder, scrutiny by the returning officer, appeals decided by someone else, the final candidate list (contested, unopposed or vacant posts, with a fingerprint), voting, closing and extending (never shortening), the count, recounts, a challenge time with written answers, the declaration by the returning officer, and one public report.
+- Voting online (a ballot code by e-mail, then a one-time ticket, then the vote), in person with paper ballots (given only to people on the list, and only to people marked present when an attendance session is named), or both.
+- Secret ballot: the register of who voted and the sealed ballots share no column; a ballot has a random id, a post, a weight and a sealed choice, with no voter, no time and no counter. A blank ballot is made for every contested post. Receipts are kept only as hashes. Nothing is added up before the close.
+- The count is checked against the register, the ballots, the receipts and the signed trail before it is stored and again before it is declared; a changed box stops the declaration. A tie is settled by a draw that anyone can repeat from public facts.
+- New migration `0012_elections.sql` (append-only register, ballots, receipts, counts and trail; rules frozen after the notice). Erasing a list removes every person's details and votes of its elections.
+- Plain-English guide: `docs/ELECTIONS.md`. Tests: `test/elections.test.ts`, `test/elections-vote.test.ts`, `test/elections-count.test.ts`, `test/elections-secrecy.test.ts` (shared set-up in `test/elections-world.ts`).
+
 ## 0.3.2 - not deployed yet (IST)
 
 Fixes after round 6 of Attendance chunks 1-2.

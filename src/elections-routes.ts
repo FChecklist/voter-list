@@ -49,7 +49,7 @@ export function mountElections(M: Mount): void {
 
   // ---------------------------------------------------------------------------------------------------------------- a signed-in voter
   route("GET", "/api/v/:slug/elections/:eid/me", async (r) => json(await vote.myElection(await voter(r), eid(r))));
-  route("GET", "/api/v/:slug/elections/:eid/my-nominations", async (r) => json(await el.myNominations(await voter(r), eid(r))));
+  route("GET", "/api/v/:slug/elections/:eid/own-nominations", async (r) => json(await el.myNominations(await voter(r), eid(r))));
   route("POST", "/api/v/:slug/elections/:eid/nominations", async (r) => json(await el.submitNomination(await voter(r), eid(r), await r.body()), 201));
   route("POST", "/api/v/:slug/elections/:eid/nominations/:nid/withdraw", async (r) => { await r.body(); return json(await el.withdrawNomination(await voter(r), eid(r), r.params.nid!)); });
   route("POST", "/api/v/:slug/elections/:eid/nominations/:nid/appeal", async (r) => json(await el.appealNomination(await voter(r), eid(r), r.params.nid!, await r.body())));

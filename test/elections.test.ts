@@ -172,7 +172,7 @@ describe("scrutiny, appeals and withdrawal", () => {
     expect((await decide(w, ro, nid, { decision: "maybe" })).status).toBe(400);
     const r = await decide(w, ro, nid, { decision: "rejected", reason: "The proposer is not a voter of this society." }); expect(r.status).toBe(200);
     expect((await decide(w, ro, nid, { decision: "accepted" })).json.code).toBe("decided");
-    const mine = await w.h.call("GET", voterUrl(w, "/my-nominations"), undefined, await asMember(w, emailOf(0)));
+    const mine = await w.h.call("GET", voterUrl(w, "/own-nominations"), undefined, await asMember(w, emailOf(0)));
     expect(mine.json.nominations[0]).toMatchObject({ status: "rejected", decisionReason: "The proposer is not a voter of this society." });
     expect(mine.json.nominations[0].appealUntil).toBe(at("2026-11-13T10:00") + 24 * 3_600_000);
     // the official list hides the candidates' e-mail IDs from everyone but the returning officer

@@ -4,7 +4,7 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 ## Version
 
-- Current version: **0.3.2** (not deployed yet; first release date to be set when it is deployed).
+- Current version: **0.4.0** (not deployed yet; first release date to be set when it is deployed).
 - `public/version.json` holds the version, release time, commit and a list of past changes. The site serves it at `/version.json` (the file is in `public/`, which is what `bun run build:pages` copies to `dist/`).
 - `package.json` carries the same version number. Keep the two equal.
 - `CHANGELOG.md` has the notes in plain words, newest first, dated in IST.
@@ -27,6 +27,14 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 - Attendance screens: the voter page lists the open sessions of the list from the public counts (cached for 30 seconds), so a session closed a moment ago can still show a "Mark present" button; the server then answers that the session is closed and the page shows that answer. This is accepted.
 - Attendance sheet CSV: the Organizer gets full names and e-mail IDs, as in the Voter List full export; a co-organizer gets masked values. The download leaves a signed-log row (session, line count, full or masked) and no personal data. Marks cannot be removed (append-only), so a wrong mark is handled by the Organizer outside the sheet. This is accepted for now.
+- Elections (dark behind `ELECTIONS_ENABLED`): the database file keeps free pages and a physical order that an expert could study. Ballot rows have no time and no counter and the table has no row number, but nothing here can promise that the layout of a copied file reveals nothing. This is accepted; the key to open a sealed choice is a server secret and is never in the database.
+- Elections: the final voter list decides who votes. If it allows several people of one flat to vote, each of them has one vote; Elections adds no one-vote-per-flat rule of its own.
+- Elections: the notice is not e-mailed to every voter. The Organizer shares the common link. Each online vote uses two e-mails (the sign-in code and the ballot code), so the daily e-mail allowance has to cover the expected turnout.
+- Elections: only the returning officer declares a result. If that person cannot be reached, the election waits; the Organizer cannot declare in their place. Who may be returning officer is an owner decision.
+- Elections: paper numbers are typed in by the counting team and the software cannot check them against the paper. It checks that they add up, and the paper ballots counted must equal the paper ballots given out.
+- Elections: the team at the desk can see whether a person has voted (not what), and anyone with a receipt code can see that its ballot is in the box (nothing else). Turnout is shown while voting is open, as at a polling station.
+- Elections: weighted votes keep one weight on each ballot, so they need online voting and at least 5 voters in each weight group. Whether weighted secret ballots are wanted at all is an owner decision.
+
 - Attendance pages: Hindi lines for the server error messages of chunk 1 (session closed, not on the list, wrong code, too many tries, list closed and the rest) are in `lang/hi.js`, and a test checks that every server error message has one. The Hindi was written to be simple and polite, but **a native Hindi reader must check it** before release. The notice line with the Terms link has no Hindi line, by the owner's rule.
 - The voter page for a list made from an uploaded sheet is `/attend/<link>` (the organizer page shows it). The `/v/<link>` page of such a list still shows the Voter List steps.
 

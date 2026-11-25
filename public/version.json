@@ -1,10 +1,15 @@
 {
   "product": "voter-list",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "86394a1",
+  "commit": "2bd234f",
   "changes": [
+    {
+      "version": "0.4.0",
+      "releasedAt": null,
+      "notes": "Elections, first chunks (dark: every address answers not found until ELECTIONS_ENABLED is 1): a society election on the frozen final voter list with nominations, a notice that fixes the rules, scrutiny and appeals, a final candidate list, a secret ballot online or on paper, the count, recounts, a repeatable draw for a tie, challenges, the declaration by the returning officer and one public report. The register of who voted and the sealed ballots share no column; tests read the real database to prove it. New migration 0012_elections. Plain-English guide in docs/ELECTIONS.md."
+    },
     {
       "version": "0.3.2",
       "releasedAt": null,
