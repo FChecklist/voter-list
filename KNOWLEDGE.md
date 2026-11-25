@@ -4,11 +4,11 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 ## Version
 
-- Current version: **0.4.0** (not deployed yet; first release date to be set when it is deployed).
+- Current version: **0.4.1** (not deployed yet; first release date to be set when it is deployed).
 - `public/version.json` holds the version, release time, commit and a list of past changes. The site serves it at `/version.json` (the file is in `public/`, which is what `bun run build:pages` copies to `dist/`).
 - `package.json` carries the same version number. Keep the two equal.
 - `CHANGELOG.md` has the notes in plain words, newest first, dated in IST.
-- The `commit` field is the commit the release was built on. The release's own commit cannot name itself, so it points at the one just before. For 0.1.0 that is the public snapshot `1259492`.
+- The `commit` field is the commit the release was built on. The release's own commit cannot name itself, so it points at the one just before (the parent of the version bump). The top-level `commit` and the newest entry in `changes` carry the same value; a test (`test/elections-audit-fixes.test.ts`) fails if they differ. For 0.1.0 that is the public snapshot `1259492`.
 
 ### How to bump (every deployed change)
 
@@ -35,6 +35,7 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 - Elections: the team at the desk can see whether a person has voted (not what), and anyone with a receipt code can see that its ballot is in the box (nothing else). Turnout is shown while voting is open, as at a polling station.
 - Elections: the count opens every sealed ballot inside one request, and the declaration does it again as a fresh check. Opening one ballot is quick, but a large election could need more processing time in one request than the free plan allows. Try it on the real plan with a large test election before a real vote of hundreds of people; if it is too slow, the count has to be split into steps.
 - Elections: voting does not close by itself. No vote is accepted after the closing time (the database refuses it inside the vote step), but the Organizer still has to type CLOSE before the count can start. Whether voting should close on its own at the closing time is an owner decision.
+- Elections (secrecy, small turnout): the register keeps the DAY a person voted, never the hour; the signed entry of a vote carries the date and its time is the start of that day. Used codes and tickets are deleted. But the order of the signed entries (their sequence numbers) is the order of voting, and the day count of a small society can still say something; and other tables outside Elections (the mail outbox, the sign-in code table, server logs) can hold the time a person asked for a code. A very small turnout can still be matched by someone who also sees those. This is accepted for now and is a reason to set a minimum turnout.
 - Elections: weighted votes keep one weight on each ballot, so they need online voting and at least 5 voters in each weight group. Whether weighted secret ballots are wanted at all is an owner decision.
 
 - Attendance pages: Hindi lines for the server error messages of chunk 1 (session closed, not on the list, wrong code, too many tries, list closed and the rest) are in `lang/hi.js`, and a test checks that every server error message has one. The Hindi was written to be simple and polite, but **a native Hindi reader must check it** before release. The notice line with the Terms link has no Hindi line, by the owner's rule.

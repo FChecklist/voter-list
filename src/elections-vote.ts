@@ -10,6 +10,7 @@ import type { D1Stmt, Env } from "./db";
 import { EL } from "./election-messages";
 import { gate, getElection, HOUR, nominationsOf, pickRow, postsOf, rollFor, rollRow, weightOf, type ActorRole, type ElectionRow, type MemberCtx } from "./elections";
 import { presentInSession } from "./elections-links";
+import { localToMs, msToLocal } from "./lists";
 import type { SocietyRow } from "./store";
 import { aesDecrypt, aesEncrypt, deriveKey32, hmacHex, randomHex, randomInt, sha256Hex, timingSafeEqual, type Bytes } from "./vendor/crypto";
 
@@ -32,6 +33,10 @@ export async function openChoiceWith(key: Bytes, eid: string, ballotId: string, 
     return Array.isArray(v.s) && v.s.every((x) => typeof x === "string") && (v.n === 0 || v.n === 1) ? v : null;
   } catch { return null; }
 }
+
+/** The only time kept next to a voter: the calendar day in the society's own time zone (YYYY-MM-DD), and the start of that day for the signed trail. Never the hour or the minute. */
+export const dayOf = (now: number, tz: number): string => msToLocal(now, tz).slice(0, 10);
+const dayStartMs = (day: string, tz: number): number => localToMs(`${day}T00:00`, tz)!;
 
 const codeHash = (env: Env, eid: string, rollId: number, code: string) => hmacHex(env.PEPPER, `elcode|${eid}|${rollId}|${code}`);
 const ticketId = (eid: string, ticket: string) => sha256Hex(`elticket|${eid}|${ticket}`);
@@ -95,16 +100,21 @@ export async function openBallot(m: MemberCtx, eid: string, input: { code?: unkn
   if (await registered(m.env, e.id, line.id)) throw new HttpError(409, EL.alreadyVoted, "already_voted");
   await rateLimit(m.env, `elopen:${e.id}:${line.id}`, 12, HOUR, m.now, EL.tooManyCodes);
   const code = String(input.code ?? "").replace(/\s/g, "");
-  const live = (await m.env.DB.prepare("SELECT id, code_hash, attempts FROM el_codes WHERE election_id = ? AND roll_row_id = ? AND used_at IS NULL AND expires_at > ? ORDER BY id DESC LIMIT 3").bind(e.id, line.id, m.now).all<{ id: number; code_hash: string; attempts: number }>()).results.filter((r) => r.attempts < MAX_CODE_TRIES);
+  const live = (await m.env.DB.prepare("SELECT id, code_hash, attempts FROM el_codes WHERE election_id = ? AND roll_row_id = ? AND expires_at > ? ORDER BY id DESC LIMIT 3").bind(e.id, line.id, m.now).all<{ id: number; code_hash: string; attempts: number }>()).results.filter((r) => r.attempts < MAX_CODE_TRIES);
   const bad = new HttpError(401, EL.badCode, "bad_code");
   if (!live.length) throw bad;
   const ch = await codeHash(m.env, e.id, line.id, code);
   const hit = /^\d{6}$/.test(code) ? live.find((r) => timingSafeEqual(r.code_hash, ch)) : undefined;
   if (!hit) { await m.env.DB.batch(live.map((r) => m.env.DB.prepare("UPDATE el_codes SET attempts = attempts + 1 WHERE id = ?").bind(r.id))); throw bad; }
-  const used = await m.env.DB.prepare("UPDATE el_codes SET used_at = ? WHERE id = ? AND used_at IS NULL").bind(m.now, hit.id).run();
-  if (!used.meta?.changes) throw bad; // one code, one ballot
+  // a used code is not kept at all (no person, no time): this one and any other code asked for by the same person are deleted, and the ticket is made, in one step
   const ticket = randomHex(16);
-  await m.env.DB.prepare("INSERT INTO el_tickets (id, election_id, roll_row_id, expires_at) VALUES (?, ?, ?, ?)").bind(await ticketId(e.id, ticket), e.id, line.id, m.now + TICKET_TTL).run();
+  try {
+    await m.env.DB.batch([
+      m.env.DB.prepare("DELETE FROM el_codes WHERE id = ?").bind(hit.id), guardChanged(m.env, EL.badCode), // one code, one ballot
+      m.env.DB.prepare("DELETE FROM el_codes WHERE election_id = ? AND roll_row_id = ?").bind(e.id, line.id),
+      m.env.DB.prepare("INSERT INTO el_tickets (id, election_id, roll_row_id, expires_at) VALUES (?, ?, ?, ?)").bind(await ticketId(e.id, ticket), e.id, line.id, m.now + TICKET_TTL),
+    ]);
+  } catch (err) { if (/guard_failed/.test(String((err as Error)?.message ?? err))) throw bad; throw err; }
   return { ticket, minutes: TICKET_TTL / 60_000, ballot: await ballotFor(m.env, e) };
 }
 
@@ -117,8 +127,8 @@ export async function castVote(m: MemberCtx, eid: string, input: { ticket?: unkn
   const ticket = String(input.ticket ?? "");
   if (!/^[0-9a-f]{32}$/.test(ticket)) throw new HttpError(401, EL.badTicket, "bad_ticket");
   const tid = await ticketId(e.id, ticket);
-  const t = await m.env.DB.prepare("SELECT roll_row_id, expires_at, used_at FROM el_tickets WHERE id = ? AND election_id = ?").bind(tid, e.id).first<{ roll_row_id: number; expires_at: number; used_at: number | null }>();
-  if (!t || t.used_at !== null || t.expires_at <= m.now) throw new HttpError(401, EL.badTicket, "bad_ticket");
+  const t = await m.env.DB.prepare("SELECT roll_row_id, expires_at FROM el_tickets WHERE id = ? AND election_id = ?").bind(tid, e.id).first<{ roll_row_id: number; expires_at: number }>();
+  if (!t || t.expires_at <= m.now) throw new HttpError(401, EL.badTicket, "bad_ticket");
   const line = await rollRow(m.env, e, t.roll_row_id);
   if (!line || line.email.trim().toLowerCase() !== m.email.trim().toLowerCase()) throw new HttpError(403, EL.notOnRoll, "not_on_roll");
   if (await registered(m.env, e.id, line.id)) throw new HttpError(409, EL.alreadyVoted, "already_voted");
@@ -147,16 +157,19 @@ export async function castVote(m: MemberCtx, eid: string, input: { ticket?: unkn
     return { post: p, choice: { s: [...ids].sort(), n: 0 } as Choice };
   });
 
-  const weight = weightOf(e, line), receipt = newReceipt(), pid = await pseudonym(m.env, m.email), db = m.env.DB;
+  const day = dayOf(m.now, m.society.tz_offset_min), weight = weightOf(e, line), receipt = newReceipt(), pid = await pseudonym(m.env, m.email), db = m.env.DB;
   const sealed = await Promise.all(picks.map(async (x) => { const id = randomHex(16); return { id, post: x.post.id, sealed: await sealChoice(m.env, e, id, x.post.id, x.choice) }; }));
   const stmts: D1Stmt[] = [
     guardExists(m.env, EL.tooLate, "SELECT 1 FROM el_elections WHERE id = ? AND status = 'voting' AND voting_open_at <= ? AND voting_close_at > ?", e.id, m.now, m.now),
-    db.prepare("UPDATE el_tickets SET used_at = ? WHERE id = ? AND used_at IS NULL AND expires_at > ?").bind(m.now, tid, m.now), guardChanged(m.env, EL.badTicket),
-    db.prepare("INSERT INTO el_voted (election_id, roll_row_id, channel, by_pid, voted_at) VALUES (?, ?, 'online', ?, ?)").bind(e.id, line.id, pid, m.now),
+    db.prepare("DELETE FROM el_tickets WHERE id = ? AND expires_at > ?").bind(tid, m.now), guardChanged(m.env, EL.badTicket), // a used ticket is gone: no person, no time
+    db.prepare("DELETE FROM el_codes WHERE election_id = ? AND roll_row_id = ?").bind(e.id, line.id),
+    db.prepare("DELETE FROM rate_hits WHERE k IN (?, ?)").bind(`elcode:${e.id}:${line.id}`, `elopen:${e.id}:${line.id}`), // the exact times of this person's code requests
+    db.prepare("INSERT INTO el_voted (election_id, roll_row_id, channel, by_pid, voted_at) VALUES (?, ?, 'online', ?, ?)").bind(e.id, line.id, pid, day),
     ...sealed.map((b) => db.prepare("INSERT INTO el_ballots (id, election_id, post_id, weight_milli, sealed) VALUES (?, ?, ?, ?, ?)").bind(b.id, e.id, b.post, weight, b.sealed)),
     db.prepare("INSERT INTO el_receipts (election_id, receipt_hash) VALUES (?, ?)").bind(e.id, await receiptHash(e.id, receipt)),
   ];
-  try { await commit(m.env, m.society.id, stmts, "election.vote_cast", { pid, role: "voter" }, { election: e.id, channel: "online" }, m.now); }
+  // the signed entry carries the date (its time is the start of that day), never the hour or the minute
+  try { await commit(m.env, m.society.id, stmts, "election.vote_cast", { pid, role: "voter" }, { election: e.id, channel: "online", date: day }, dayStartMs(day, m.society.tz_offset_min)); }
   catch (err) { if (uniqueIn(err, "el_voted")) throw new HttpError(409, EL.alreadyVoted, "already_voted"); throw err; }
   return { voted: true, receipt, note: "The vote was put in the box. Keep this receipt to check later that it is there. The receipt does not show what was chosen." };
 }
@@ -213,10 +226,10 @@ export async function issuePaper(env: Env, now: number, society: SocietyRow, act
   if (!line) throw new HttpError(404, EL.noPerson, "not_found");
   if (e.attendance_session_id && !(await presentInSession(env, society.id, e.attendance_session_id, line.unit_key, line.email))) throw new HttpError(409, EL.notPresent, "not_present");
   if (await registered(env, e.id, line.id)) throw new HttpError(409, EL.alreadyVoted, "already_voted");
-  const pid = await pseudonym(env, actor.email);
+  const pid = await pseudonym(env, actor.email), day = dayOf(now, society.tz_offset_min);
   const stmts: D1Stmt[] = [
     guardExists(env, EL.tooLate, "SELECT 1 FROM el_elections WHERE id = ? AND status = 'voting' AND voting_open_at <= ? AND voting_close_at > ?", e.id, now, now),
-    env.DB.prepare("INSERT INTO el_voted (election_id, roll_row_id, channel, by_pid, voted_at) VALUES (?, ?, 'paper', ?, ?)").bind(e.id, line.id, pid, now),
+    env.DB.prepare("INSERT INTO el_voted (election_id, roll_row_id, channel, by_pid, voted_at) VALUES (?, ?, 'paper', ?, ?)").bind(e.id, line.id, pid, day),
   ];
   try { await commit(env, society.id, stmts, "election.paper_issued", { pid, role: actor.role }, { election: e.id }, now); }
   catch (err) { if (uniqueIn(err, "el_voted")) throw new HttpError(409, EL.alreadyVoted, "already_voted"); throw err; }

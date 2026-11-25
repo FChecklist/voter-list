@@ -15,7 +15,7 @@ A society election, start to finish, on the frozen final voter list of a Voter L
 | Observer | Reads the count. Nothing else. |
 | Voter | A person on the final voter list. Stands for a post, proposes or seconds, votes, checks a receipt, sends a challenge. |
 
-The person who sets up the election and the officials cannot stand as candidates (the pages refuse it, and the database has a second lock for officials). A candidate needs a proposer and a seconder who are on the list.
+The person who sets up the election, the officials, the Organizer and every co-organizer cannot stand as candidates (checked when a nomination is sent and again when voting is opened). The returning officer cannot be the Organizer, cannot open the voting and cannot decide an appeal. The pages refuse each of these, and the database has a second lock for the officials. A candidate needs a proposer and a seconder who are on the list.
 
 ## The steps
 
@@ -37,6 +37,7 @@ The person who sets up the election and the officials cannot stand as candidates
 - **A ballot for every contested post.** A voter who leaves a post blank still puts a blank ballot in, so the number of ballots tells nothing about who skipped what.
 - **Nothing is added up before the close.** No address and no function counts a choice while voting is open. The open pages show how many have voted, never what.
 - **The receipt.** After voting the voter gets a code. Only a hash of it is kept, in a table of its own. Anyone with the code can check that a ballot with it is in the box. It shows nothing about the choice and cannot be joined to the voter.
+- **No time next to a person.** The register keeps the calendar day a person voted (in the society's time zone), never the hour or the minute. A ballot code and a ticket are deleted as soon as they are used, so they keep no person and no time. The signed entry of a vote carries the date (its time is the start of that day), the private code of the voter and no ballot id. This matters in a small society, where voters who vote one after the other could otherwise be matched to what was written in the same step. What is *not* hidden: the order of the signed entries, the day, and any time kept by systems outside Elections (for example the e-mail outbox).
 - **One vote.** The register's key is the election and the person; the database refuses a second line. Two votes sent at the same moment give one set of ballots.
 - **One step.** The register line, the ballots, the receipt and the signed-trail entry are written together or not at all.
 - **A changed box is caught.** Before the count is stored, and again before the result is declared, the register, the ballots, the receipts and the signed trail are checked against each other. A ballot taken out, added, changed or swapped, a register line taken out or added, or a receipt taken out stops the declaration.

@@ -182,8 +182,12 @@ describe("scrutiny, appeals and withdrawal", () => {
   });
 
   test("a rejected candidate can appeal once, in time; a different person decides the appeal", async () => {
-    const b = await base({ voters: 8 }); const w = await draft(b, { officials: { returningOfficer: { email: "organizer@sample.example", name: "The Organizer" } } }); await notice(w);
-    w.h.clock.now = at("2026-11-12T11:00"); const nid = (await nominate(w, 0, 0)).json.nomination.id as string;
+    const b = await base({ voters: 8 }); const w = await draft(b);
+    // the pages refuse an Organizer as returning officer (tested below); old data is put in by hand here, to prove that the appeal step stands on its own
+    await notice(w); w.h.clock.now = at("2026-11-12T11:00"); const nid = (await nominate(w, 0, 0)).json.nomination.id as string;
+    for (const t of ["trg_el_officials_frozen_d", "trg_el_officials_frozen_i"]) w.h.raw.query(`DROP TRIGGER ${t}`).run();
+    w.h.raw.query("DELETE FROM el_officials WHERE election_id = ? AND role = 'returning_officer'").run(w.eid);
+    w.h.raw.query("INSERT INTO el_officials (election_id, email, role, name, added_at) VALUES (?, 'organizer@sample.example', 'returning_officer', 'The Organizer', 1)").run(w.eid);
     w.h.clock.now = at("2026-11-13T10:00"); const ro = await asMember(w, "organizer@sample.example");
     await decide(w, ro, nid, { decision: "rejected", reason: "The seconder is not a voter of this society." });
     const me = await asMember(w, emailOf(0)), appeal = (text: unknown) => w.h.call("POST", voterUrl(w, `/nominations/${nid}/appeal`), { text }, me);

@@ -67,7 +67,7 @@ describe("one voter, one vote", () => {
     expect((await call("/ballot-code", {})).json.code).toBe("already_voted");
     expect(q(w, "SELECT COUNT(*) AS n FROM el_voted")[0]).toEqual({ n: 1 }); expect(q(w, "SELECT COUNT(*) AS n FROM el_ballots")[0]).toEqual({ n: 2 });
     const row = q(w, "SELECT roll_row_id FROM el_voted")[0].roll_row_id;
-    expect(() => w.h.raw.query("INSERT INTO el_voted (election_id, roll_row_id, channel, by_pid, voted_at) VALUES (?, ?, 'online', 'p_x', 1)").run(w.eid, row)).toThrow(); // the primary key
+    expect(() => w.h.raw.query("INSERT INTO el_voted (election_id, roll_row_id, channel, by_pid, voted_at) VALUES (?, ?, 'online', 'p_x', '2026-11-20')").run(w.eid, row)).toThrow(); // the primary key
     for (const sql of ["UPDATE el_voted SET channel = 'paper'", "DELETE FROM el_voted", "UPDATE el_ballots SET weight_milli = 5", "DELETE FROM el_ballots", "UPDATE el_receipts SET receipt_hash = 'x'", "DELETE FROM el_receipts"]) expect(() => w.h.raw.query(sql).run()).toThrow();
   });
 

@@ -6,6 +6,7 @@
 --   * WHAT was chosen is a ballot (el_ballots): a random id, the post, a weight and the choice SEALED with a key the database does not hold.
 --     A ballot has no voter, no time, no counter and no row number (WITHOUT ROWID, random key), so no column in any table links a ballot to a person.
 --   * A receipt (el_receipts) is a hash of a random code. It is not linked to a voter or a ballot; it only proves "a ballot was counted".
+--   * No exact time sits next to a person: the register keeps only the DAY, used codes and tickets are deleted, and the signed entry of a vote carries the day.
 --   * The register, the ballots and the receipts are written in ONE batch, so they always agree; the count checks that they do.
 PRAGMA foreign_keys = ON;
 
@@ -137,17 +138,15 @@ CREATE TABLE el_codes (
   code_hash   TEXT NOT NULL,
   created_at  INTEGER NOT NULL,
   expires_at  INTEGER NOT NULL,
-  attempts    INTEGER NOT NULL DEFAULT 0,
-  used_at     INTEGER
-);
+  attempts    INTEGER NOT NULL DEFAULT 0
+);                                                                                 -- a used code is deleted at once (nothing keeps who used it, or when)
 CREATE INDEX idx_el_codes ON el_codes(election_id, roll_row_id, id);
 CREATE TABLE el_tickets (
   id          TEXT PRIMARY KEY,                                                      -- a hash of the ticket, never the ticket
   election_id TEXT NOT NULL REFERENCES el_elections(id),
   roll_row_id INTEGER NOT NULL,
-  expires_at  INTEGER NOT NULL,
-  used_at     INTEGER
-);
+  expires_at  INTEGER NOT NULL
+);                                                                                 -- deleted when the vote is cast: a used ticket keeps no person and no time
 
 -- THE REGISTER: who has voted (and how: online or on paper). One row per voter per election; the database refuses a second.
 CREATE TABLE el_voted (
@@ -155,7 +154,7 @@ CREATE TABLE el_voted (
   roll_row_id INTEGER NOT NULL,
   channel     TEXT NOT NULL CHECK (channel IN ('online','paper')),
   by_pid      TEXT NOT NULL,                                                         -- private code of the voter (online) or of the person who gave the paper ballot
-  voted_at    INTEGER NOT NULL,
+  voted_at    TEXT NOT NULL CHECK (voted_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'), -- the calendar day only (society time zone), never the hour: sequential voters cannot be matched to a time
   PRIMARY KEY (election_id, roll_row_id)
 ) WITHOUT ROWID;
 

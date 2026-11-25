@@ -2,6 +2,17 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.4.1 - not deployed yet (IST)
+
+Elections fixes after the audit of 0.4.0. Still dark behind `ELECTIONS_ENABLED`. No payment code.
+
+- Secret ballot in a small society: no exact time of voting sits next to a person. The register keeps only the day (YYYY-MM-DD, in the society's time zone); a used ballot code and a used ticket are deleted in the same step as the vote, so no used code or ticket keeps a roll row id or a time; the exact times of asking for a code are cleared; the signed entry of a vote carries the date (its time is the start of that day) and no ballot id.
+- The Organizer and every co-organizer of the list cannot stand, checked at nomination and again when voting is opened, also for a co-organizer added after the nomination.
+- The returning officer cannot be the Organizer, cannot open the voting and cannot decide an appeal.
+- The count's check of the signed trail reads the entry's fields (`json_extract`), not the exact spelling of the entry.
+- Tests: a failing test for each of the above, a list of the database locks by name (a rename fails with the name), a test that the ballot-update lock works, and a test that `public/version.json` names the newest entry's own commit.
+- Migration 0012 was changed in place because it has not been released. A database that already ran the old 0012 must be made again (nothing is deployed yet).
+
 ## 0.4.0 - not deployed yet (IST)
 
 Elections, first chunks. Dark: every address answers "not found" until `ELECTIONS_ENABLED` is `1`. No payment code.

@@ -1,13 +1,20 @@
 {
   "product": "voter-list",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "2bd234f",
+  "commit": "97310a9",
   "changes": [
+    {
+      "version": "0.4.1",
+      "releasedAt": null,
+      "commit": "97310a9",
+      "notes": "Elections fixes after the audit of 0.4.0 (still dark and not deployed): no exact time of voting is kept next to a person any more. The register keeps only the day (in the society's time zone), a used ballot code and a used ticket are deleted at once, and the signed entry of a vote carries the date, not the time. The Organizer and every co-organizer cannot stand, checked when a nomination is sent and again when voting is opened; the returning officer cannot be the Organizer, cannot open the voting and cannot decide an appeal. The count's check of the signed trail now reads the entry's fields, not its spelling. New tests for each, a list of the database locks by name, and a check that the version files agree. Migration 0012 is changed (it was not released)."
+    },
     {
       "version": "0.4.0",
       "releasedAt": null,
+      "commit": "2bd234f",
       "notes": "Elections, first chunks (dark: every address answers not found until ELECTIONS_ENABLED is 1): a society election on the frozen final voter list with nominations, a notice that fixes the rules, scrutiny and appeals, a final candidate list, a secret ballot online or on paper, the count, recounts, a repeatable draw for a tie, challenges, the declaration by the returning officer and one public report. The register of who voted and the sealed ballots share no column; tests read the real database to prove it. New migration 0012_elections. Plain-English guide in docs/ELECTIONS.md."
     },
     {

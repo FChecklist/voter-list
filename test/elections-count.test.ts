@@ -236,7 +236,7 @@ describe("a changed box cannot be declared", () => {
   test("a person taken out of the register, or a vote added by hand", async () => {
     const { w, ro } = await ready(); drop(w, "trg_el_voted_no_delete"); w.h.raw.query("DELETE FROM el_voted WHERE roll_row_id = (SELECT roll_row_id FROM el_voted LIMIT 1)").run();
     expect((await declare(w, ro)).json.code).toBe("mismatch");
-    const w2 = (await ready()); w2.w.h.raw.query("INSERT INTO el_voted (election_id, roll_row_id, channel, by_pid, voted_at) SELECT ?, id, 'online', 'p_x', 1 FROM publication_rows WHERE publication_id = (SELECT roll_pub_id FROM el_elections) AND is_voter = 1 AND can_vote = 1 AND id NOT IN (SELECT roll_row_id FROM el_voted) LIMIT 1").run(w2.w.eid);
+    const w2 = (await ready()); w2.w.h.raw.query("INSERT INTO el_voted (election_id, roll_row_id, channel, by_pid, voted_at) SELECT ?, id, 'online', 'p_x', '2026-11-20' FROM publication_rows WHERE publication_id = (SELECT roll_pub_id FROM el_elections) AND is_voter = 1 AND can_vote = 1 AND id NOT IN (SELECT roll_row_id FROM el_voted) LIMIT 1").run(w2.w.eid);
     expect((await declare(w2.w, w2.ro)).json.code).toBe("mismatch");
   });
   test("a receipt taken out", async () => {

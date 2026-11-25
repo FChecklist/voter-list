@@ -65,9 +65,8 @@ export async function reconcile(env: Env, e: ElectionRow, posts: PostRow[], pape
   const receipts = await num(env, "SELECT COUNT(*) AS n FROM el_receipts WHERE election_id = ?", e.id);
   const problems: string[] = [];
   const ballotsPerPost: Record<string, number> = {};
-  const needle = `"election":"${e.id}"`;
-  const chainVotes = await num(env, "SELECT COUNT(*) AS n FROM audit_entries WHERE society_id = ? AND type = 'election.vote_cast' AND instr(entry_json, ?) > 0", e.society_id, needle);
-  const chainPaper = await num(env, "SELECT COUNT(*) AS n FROM audit_entries WHERE society_id = ? AND type = 'election.paper_issued' AND instr(entry_json, ?) > 0", e.society_id, needle);
+  const chainVotes = await num(env, "SELECT COUNT(*) AS n FROM audit_entries WHERE society_id = ? AND type = 'election.vote_cast' AND json_extract(entry_json, '$.payload.election') = ?", e.society_id, e.id);
+  const chainPaper = await num(env, "SELECT COUNT(*) AS n FROM audit_entries WHERE society_id = ? AND type = 'election.paper_issued' AND json_extract(entry_json, '$.payload.election') = ?", e.society_id, e.id);
   const weightOfVoters = e.weighting === "by_list"
     ? await num(env, "SELECT IFNULL(SUM(r.weight_milli), 0) AS n FROM el_voted v JOIN publication_rows r ON r.id = v.roll_row_id WHERE v.election_id = ? AND v.channel = 'online'", e.id)
     : onlineVoters * 1000;

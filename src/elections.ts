@@ -87,6 +87,12 @@ export function eventStmt(env: Env, societyId: string, eid: string, now: number,
     .bind(eid, eid, now, type, role, summary.slice(0, 300), societyId);
 }
 
+// ------------------------------------------------------------------------------------------------------------------ independence
+/** Everyone who can run an election of this list now: the Organizer and every active co-organizer (lower case). */
+export const staffEmailsOf = async (env: Env, societyId: string, role?: "organizer"): Promise<string[]> =>
+  (await env.DB.prepare(`SELECT email FROM memberships WHERE society_id = ? AND status = 'active'${role ? " AND role = 'organizer'" : ""}`).bind(societyId).all<{ email: string }>()).results.map((r) => r.email.toLowerCase());
+const officerOf = async (env: Env, eid: string): Promise<string | null> => (await officialsOf(env, eid)).find((o) => o.role === "returning_officer")?.email.toLowerCase() ?? null;
+
 // ------------------------------------------------------------------------------------------------------------------ who is acting
 export type ActorRole = "organizer" | "co-organizer" | OfficialRole;
 export interface Sessions { staffEmail: string | null; memberEmail: string | null }
@@ -113,7 +119,7 @@ export function rulesInWords(e: ElectionRow, posts: PostRow[], society: Pick<Soc
   out.push(`Election: ${e.title}${e.term ? `, term ${e.term}` : ""}, for ${society.name}.`);
   out.push(`How people vote: ${MODE_WORDS[e.mode].toLowerCase()}.`);
   out.push(e.roll_pub_id ? `Who may vote: each person marked as the voter for a flat or house on the final voter list (${e.roll_voters ?? 0} people), fixed on ${msToLocal(e.notice_at ?? 0, tz).replace("T", " ")}.` : "Who may vote: each person marked as the voter for a flat or house on the final voter list. The list is fixed when the notice goes out.");
-  out.push("Who may stand: a person who is on the final voter list as a voter. The returning officer, the counting agents and the observers cannot stand, and nor can the person who made the election.");
+  out.push("Who may stand: a person who is on the final voter list as a voter. The returning officer, the counting agents, the observers, the Organizer and the co-organizers cannot stand.");
   for (const p of posts) out.push(`Post ${p.n}, ${p.title}: ${p.seats} seat${p.seats === 1 ? "" : "s"}; each voter may choose up to ${p.max_votes}.`);
   out.push(e.weighting === "equal" ? "Every vote counts the same." : "A vote counts as many parts as the voter list gives to the flat or house.");
   out.push(e.nota ? "The ballot has a \"none of the above\" choice for each post." : "The ballot has no \"none of the above\" choice.");
@@ -193,6 +199,8 @@ async function parseDraft(ctx: StaffCtx, input: ElectionInput, base: ElectionRow
     for (const a of Array.isArray(o.countingAgents) ? o.countingAgents.slice(0, 10) : []) add(a, "counting_agent");
     for (const a of Array.isArray(o.observers) ? o.observers.slice(0, 10) : []) add(a, "observer");
     if (new Set(list.map((x) => x.email)).size !== list.length) throw new HttpError(400, EL.officialTwice, "official_twice");
+    const ro = list.find((x) => x.role === "returning_officer");
+    if (ro && (await staffEmailsOf(ctx.env, ctx.society.id, "organizer")).includes(ro.email)) throw new HttpError(409, EL.officerIsOrganizer, "officer_is_organizer");
     out.officials = list;
   }
   if (input.attendanceSessionId !== undefined) {
@@ -323,6 +331,7 @@ export async function issueNotice(ctx: StaffCtx, eid: string, input: { confirm?:
   const [posts, officials] = await Promise.all([postsOf(ctx.env, e.id), officialsOf(ctx.env, e.id)]);
   if (!posts.length) throw new HttpError(400, EL.needPosts, "need_posts");
   if (!officials.some((o) => o.role === "returning_officer")) throw new HttpError(400, EL.needOfficer, "need_officer");
+  if ((await officerOf(ctx.env, e.id)) && (await staffEmailsOf(ctx.env, ctx.society.id, "organizer")).includes((await officerOf(ctx.env, e.id))!)) throw new HttpError(409, EL.officerIsOrganizer, "officer_is_organizer");
   if (e.weighting === "by_list" && e.mode !== "online") throw new HttpError(400, EL.weightedOnline, "weighted_online");
   const want = input.rollPublicationId === undefined || input.rollPublicationId === null || input.rollPublicationId === "" ? null : String(input.rollPublicationId).slice(0, 80);
   const pub = await (want
@@ -374,6 +383,7 @@ export async function submitNomination(m: MemberCtx, eid: string, input: Nominat
   const email = m.email.toLowerCase();
   if ((await officialsOf(m.env, e.id)).some((o) => o.email.toLowerCase() === email)) throw new HttpError(409, EL.isOfficial, "is_official");
   if ((await pseudonym(m.env, email)) === e.created_by) throw new HttpError(409, EL.isCreator, "is_creator");
+  if ((await staffEmailsOf(m.env, m.society.id)).includes(email)) throw new HttpError(409, EL.isStaff, "is_staff"); // the Organizer and every co-organizer, also one added after the election was made
   if (await m.env.DB.prepare("SELECT 1 AS x FROM el_nominations WHERE election_id = ? AND post_id = ? AND roll_row_id = ?").bind(e.id, post.id, cand.id).first()) throw new HttpError(409, EL.stands, "stands");
   const id = uid("nom");
   const seq = await commit(m.env, m.society.id, [
@@ -458,6 +468,7 @@ export async function decideAppeal(ctx: StaffCtx, eid: string, nid: string, inpu
   if (!n) throw new HttpError(404, EL.badNomination, "not_found");
   if (n.appeal_status !== "open") throw new HttpError(409, EL.noAppeal, "no_appeal");
   if (n.decided_by && n.decided_by === (await pseudonym(ctx.env, ctx.email))) throw new HttpError(409, EL.sameDecider, "same_decider");
+  if ((await officerOf(ctx.env, e.id)) === ctx.email.toLowerCase()) throw new HttpError(409, EL.officerAppeal, "officer_appeal"); // whoever the returning officer is, under any role
   const decision = String(input.decision); if (decision !== "upheld" && decision !== "dismissed") throw new HttpError(400, EL.notStatus, "bad_decision");
   const reason = clean(input.reason, 400); if (reason.length < 5) throw new HttpError(400, EL.needReason, "need_reason");
   noContactDetails(reason, "the reason");
@@ -523,6 +534,11 @@ export async function openVoting(ctx: StaffCtx, eid: string, input: { confirm?: 
   if (ctx.now >= e.voting_close_at) throw new HttpError(409, EL.tooLate, "too_late");
   // the person who opens the election cannot be a candidate
   if (await ctx.env.DB.prepare("SELECT 1 AS x FROM el_nominations WHERE election_id = ? AND email = ? AND status IN ('submitted','accepted')").bind(e.id, ctx.email.toLowerCase()).first()) throw new HttpError(409, EL.creatorOpens, "opener_is_candidate");
+  // nobody who can run the election may stand, checked again now (a co-organizer may have been added after the nomination), and the returning officer does not open the voting
+  const staff = await staffEmailsOf(ctx.env, ctx.society.id);
+  const standing = (await ctx.env.DB.prepare("SELECT email FROM el_nominations WHERE election_id = ? AND status IN ('submitted','accepted')").bind(e.id).all<{ email: string }>()).results;
+  if (standing.some((n) => staff.includes(n.email.toLowerCase()))) throw new HttpError(409, EL.staffStands, "staff_stands");
+  if ((await officerOf(ctx.env, e.id)) === ctx.email.toLowerCase()) throw new HttpError(409, EL.openerIsOfficer, "opener_is_officer");
   const roll = await rollLines(ctx.env, e);
   if (e.weighting === "by_list" && !weightGroupsOk(roll)) throw new HttpError(409, EL.weightGroup, "weight_group");
   const seq = await commit(ctx.env, ctx.society.id, [

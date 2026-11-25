@@ -148,7 +148,7 @@ describe("one vote is one step", () => {
     w.h.raw.query("CREATE TRIGGER boom BEFORE INSERT ON el_receipts BEGIN SELECT RAISE(ABORT, 'boom'); END").run();
     const bad = await w.h.call("POST", voterUrl(w, "/vote"), { ticket, choices: pick(w, { 1: [1] }) }, jar); expect(bad.status).toBe(500); expect(JSON.stringify(bad.json)).not.toContain("boom");
     for (const t of ["el_voted", "el_ballots", "el_receipts"]) expect([t, q(w, `SELECT COUNT(*) AS n FROM ${t}`)[0].n]).toEqual([t, 0]);
-    expect(q(w, "SELECT COUNT(*) AS n FROM audit_entries")[0].n).toBe(before); expect(q(w, "SELECT COUNT(*) AS n FROM el_tickets WHERE used_at IS NULL")[0]).toEqual({ n: 1 });
+    expect(q(w, "SELECT COUNT(*) AS n FROM audit_entries")[0].n).toBe(before); expect(q(w, "SELECT COUNT(*) AS n FROM el_tickets")[0]).toEqual({ n: 1 });
     w.h.raw.query("DROP TRIGGER boom").run();
     expect((await w.h.call("POST", voterUrl(w, "/vote"), { ticket, choices: pick(w, { 1: [1] }) }, jar)).status).toBe(201); // the same ticket, now it works
     expect(q(w, "SELECT COUNT(*) AS n FROM el_ballots")[0]).toEqual({ n: 2 });

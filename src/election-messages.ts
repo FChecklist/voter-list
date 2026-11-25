@@ -105,6 +105,11 @@ export const EL = {
   badUntil: "Please pick a new closing time that is later than the current one, and at most 48 hours later.",
   tooEarlyClose: "Closing before the stated time needs a written reason.",
   creatorOpens: "The person who opens the election cannot be a candidate.",
+  isStaff: "The Organizer and the co-organizers of this list cannot stand in this election.",
+  staffStands: "The Organizer or a co-organizer of this list is a candidate. They cannot stand, so voting cannot be opened until that nomination is withdrawn or rejected.",
+  officerIsOrganizer: "The returning officer must be a different person from the Organizer.",
+  openerIsOfficer: "The returning officer cannot open the voting. Another Organizer or co-organizer must do it.",
+  officerAppeal: "The returning officer cannot decide an appeal.",
   rate: "Too many tries. Please wait a little and try again.",
   badReceipt: "Please type the receipt code as it was shown.",
 } as const;
