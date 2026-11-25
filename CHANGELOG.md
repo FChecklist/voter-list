@@ -17,9 +17,16 @@ Elections, first chunks. Dark: every address answers "not found" until `ELECTION
 - New migration `0018_elections.sql` (append-only register, ballots, receipts, counts and trail; rules frozen after the notice). Erasing a list removes every person's details and votes of its elections.
 - Plain-English guide: `docs/ELECTIONS.md`. Tests: `test/elections.test.ts`, `test/elections-vote.test.ts`, `test/elections-count.test.ts`, `test/elections-secrecy.test.ts`, `test/elections-oracle.test.ts` (random votes, counted by the product and by the test, then compared) and `test/elections-permissions.test.ts` (shared set-up in `test/elections-world.ts`).
 
+### Fixes after the third audit round
+
+- A candidate who joins the team (co-organizer) while voting is open now stops the closing and the extending of the voting, as it already stopped the opening: answer `staff_stands`, nothing changes, and both work again once the nomination is withdrawn or rejected or the person leaves the team. Tested, and the test fails without the check.
+- The documentation says what the count check does and does not do (`docs/ELECTIONS.md`, "What the count check proves").
+- A co-organizer may be the returning officer; this is the documented design (the returning officer cannot be the Organizer, cannot open the voting and cannot decide an appeal) and is tested. The audit asked whether it should be stricter; that is an open question for the owner, not changed here.
+- A test asserts the audit lock exists before it is dropped on purpose.
+
 ### Fixes after the audit (was 0.4.1)
 
-Elections fixes after the audit of 0.4.0. Still dark behind `ELECTIONS_ENABLED`. No payment code.
+Elections fixes after the audit of the first version. Still dark behind `ELECTIONS_ENABLED`. No payment code.
 
 - Secret ballot in a small society: no exact time of voting sits next to a person. The register keeps only the day (YYYY-MM-DD, in the society's time zone); a used ballot code and a used ticket are deleted in the same step as the vote, so no used code or ticket keeps a roll row id or a time; the exact times of asking for a code are cleared; the signed entry of a vote carries the date (its time is the start of that day) and no ballot id.
 - The Organizer and every co-organizer of the list cannot stand, checked at nomination and again when voting is opened, also for a co-organizer added after the nomination.

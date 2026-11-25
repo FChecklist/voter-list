@@ -44,6 +44,10 @@ The person who sets up the election, the officials, the Organizer and every co-o
 
 All of this is proved by the tests listed below, which read the real database after real votes.
 
+## What the count check proves
+
+Before a count is stored, the register, the ballots, the receipts and the signed trail are compared by number: the votes in the register must equal the ballots, the receipts and the "vote cast" entries of the trail, and the same for paper ballots. A ballot taken out, a register line added, or a trail entry turned into another kind makes the count fail to reconcile and the result cannot be declared. The check counts entries; it does not check their signatures, because that work is done page by page on the public trail so that no single request does all of it. A person who could change the database and also write a matching forged trail entry would not be caught by the count, but the forged entry carries no valid signature and breaks the chain, which anyone can see when the trail is verified (the trail page and the audit export). Verify the trail before declaring a result.
+
 ## For an AI helper
 
 Copy this link and paste in your AI to work.

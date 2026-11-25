@@ -125,8 +125,9 @@ describe("reconcile reads the signed trail by its fields, not by its spelling", 
     // the real entries, as commit() wrote them
     const real = q(w, "SELECT entry_json FROM audit_entries WHERE type = 'election.vote_cast' LIMIT 1")[0].entry_json as string; expect(real).toContain(`"election":"${w.eid}"`);
     // the same entries in another valid spelling (extra spaces): the count must not change
+    expect(q(w, "SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = 'trg_audit_no_update'")).toEqual([{ name: "trg_audit_no_update" }]); // the lock really exists: dropping it below is a deliberate step, not a no-op
+    w.h.raw.query("DROP TRIGGER trg_audit_no_update").run();
     for (const r of q(w, "SELECT seq, entry_json FROM audit_entries WHERE type = 'election.vote_cast'")) {
-      w.h.raw.query("DROP TRIGGER IF EXISTS trg_audit_no_update").run();
       w.h.raw.query("UPDATE audit_entries SET entry_json = ? WHERE seq = ?").run(JSON.stringify(JSON.parse(r.entry_json), null, 1), r.seq);
     }
     const { count } = await closeAndCount(w); expect(count.status).toBe(201); expect(count.json.problems).toEqual([]); expect(count.json.reconciled).toBe(true);

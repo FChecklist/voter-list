@@ -526,6 +526,13 @@ export async function publishCandidates(ctx: StaffCtx, eid: string, input: { con
 }
 
 // ------------------------------------------------------------------------------------------------------------------ open, extend and close voting
+/** Nobody who can run the election may stand: the Organizer and every active co-organizer against everyone whose nomination still stands. Checked when voting opens and again when it is made longer or closed, because a co-organizer can be added in between. */
+async function assertNoStaffStands(env: Env, societyId: string, eid: string): Promise<void> {
+  const staff = await staffEmailsOf(env, societyId);
+  const standing = (await env.DB.prepare("SELECT email FROM el_nominations WHERE election_id = ? AND status IN ('submitted','accepted')").bind(eid).all<{ email: string }>()).results;
+  if (standing.some((n) => staff.includes(n.email.toLowerCase()))) throw new HttpError(409, EL.staffStands, "staff_stands");
+}
+
 export async function openVoting(ctx: StaffCtx, eid: string, input: { confirm?: unknown }) {
   gate(ctx.env); need(ctx, "elections");
   const e = await getElection(ctx.env, ctx.society.id, eid);
@@ -535,9 +542,7 @@ export async function openVoting(ctx: StaffCtx, eid: string, input: { confirm?: 
   // the person who opens the election cannot be a candidate
   if (await ctx.env.DB.prepare("SELECT 1 AS x FROM el_nominations WHERE election_id = ? AND email = ? AND status IN ('submitted','accepted')").bind(e.id, ctx.email.toLowerCase()).first()) throw new HttpError(409, EL.creatorOpens, "opener_is_candidate");
   // nobody who can run the election may stand, checked again now (a co-organizer may have been added after the nomination), and the returning officer does not open the voting
-  const staff = await staffEmailsOf(ctx.env, ctx.society.id);
-  const standing = (await ctx.env.DB.prepare("SELECT email FROM el_nominations WHERE election_id = ? AND status IN ('submitted','accepted')").bind(e.id).all<{ email: string }>()).results;
-  if (standing.some((n) => staff.includes(n.email.toLowerCase()))) throw new HttpError(409, EL.staffStands, "staff_stands");
+  await assertNoStaffStands(ctx.env, ctx.society.id, e.id);
   if ((await officerOf(ctx.env, e.id)) === ctx.email.toLowerCase()) throw new HttpError(409, EL.openerIsOfficer, "opener_is_officer");
   const roll = await rollLines(ctx.env, e);
   if (e.weighting === "by_list" && !weightGroupsOk(roll)) throw new HttpError(409, EL.weightGroup, "weight_group");
@@ -553,6 +558,7 @@ export async function closeVoting(ctx: StaffCtx, eid: string, input: { confirm?:
   const e = await getElection(ctx.env, ctx.society.id, eid);
   if (e.status !== "voting") throw new HttpError(409, EL.notStatus, "bad_status");
   if (!confirmIs(input.confirm, "CLOSE")) throw new HttpError(400, EL.confirmClose, "confirm");
+  await assertNoStaffStands(ctx.env, ctx.society.id, e.id);
   const early = ctx.now < e.voting_close_at;
   const reason = clean(input.reason, 300);
   if (early && reason.length < 10) throw new HttpError(400, EL.tooEarlyClose, "need_reason");
@@ -569,6 +575,7 @@ export async function extendVoting(ctx: StaffCtx, eid: string, input: { until?: 
   gate(ctx.env); need(ctx, "elections");
   const e = await getElection(ctx.env, ctx.society.id, eid);
   if (e.status !== "voting" || ctx.now >= e.voting_close_at) throw new HttpError(409, EL.notStatus, "bad_status");
+  await assertNoStaffStands(ctx.env, ctx.society.id, e.id);
   const until = localToMs(String(input.until ?? ""), ctx.society.tz_offset_min);
   if (until === null || until <= e.voting_close_at || until > e.voting_close_at + 48 * HOUR) throw new HttpError(400, EL.badUntil, "bad_until");
   const reason = clean(input.reason, 300); if (reason.length < 10) throw new HttpError(400, EL.tooShort, "need_reason");
