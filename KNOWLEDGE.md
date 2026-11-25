@@ -4,7 +4,7 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 ## Version
 
-- Current version: **0.3.2** (not deployed yet; first release date to be set when it is deployed).
+- Current version: **0.4.0** (not deployed yet; first release date to be set when it is deployed).
 - `public/version.json` holds the version, release time, commit and a list of past changes. The site serves it at `/version.json` (the file is in `public/`, which is what `bun run build:pages` copies to `dist/`).
 - `package.json` carries the same version number. Keep the two equal.
 - `CHANGELOG.md` has the notes in plain words, newest first, dated in IST.
@@ -29,6 +29,13 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 - Attendance sheet CSV: the Organizer gets full names and e-mail IDs, as in the Voter List full export; a co-organizer gets masked values. The download leaves a signed-log row (session, line count, full or masked) and no personal data. Marks cannot be removed (append-only), so a wrong mark is handled by the Organizer outside the sheet. This is accepted for now.
 - Attendance pages: Hindi lines for the server error messages of chunk 1 (session closed, not on the list, wrong code, too many tries, list closed and the rest) are in `lang/hi.js`, and a test checks that every server error message has one. The Hindi was written to be simple and polite, but **a native Hindi reader must check it** before release. The notice line with the Terms link has no Hindi line, by the owner's rule.
 - The voter page for a list made from an uploaded sheet is `/attend/<link>` (the organizer page shows it). The `/v/<link>` page of such a list still shows the Voter List steps.
+
+## Meetings (first chunks, dark)
+
+- Help, the address list and the honest checkpoint table are in `docs/MEETINGS.md`. The product is dark: nothing answers until `MEETINGS_ENABLED` is `1`, and it is for a Voter List only.
+- "Days of notice" are 24-hour days; a notice sent exactly on the line is allowed. The days of notice and the quorum percent are never defaulted: the Organizer sets them for each kind of meeting, and a quorum percent of 0 means "no quorum needed" on purpose. This is accepted.
+- The quorum counts people, not weighted votes, and is read only through Attendance's public counts. The notice is recorded with a count of recipients but is not e-mailed by Meetings: a bulk send needs a mail cap so it cannot starve sign-in codes (owner decision).
+- The migration number can be changed at merge time; a test finds the file by its ending (`_meetings.sql`). Tables, indexes and triggers all start with `mtg_`.
 
 ## Attendance roster time zone
 

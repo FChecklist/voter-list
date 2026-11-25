@@ -1,10 +1,15 @@
 {
   "product": "voter-list",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "86394a1",
+  "commit": "baf8688",
   "changes": [
+    {
+      "version": "0.4.0",
+      "releasedAt": null,
+      "notes": "Townhall Meetings, first chunks (API only, no screens, dark until MEETINGS_ENABLED is 1): the rules for each kind of meeting (notice days, quorum percent, bye-law clauses, set by the Organizer, never defaulted); a meeting with its agenda; a notice that is refused when it is shorter than the rule and that carries a fingerprint anyone can recompute; the agenda and the date, place and kind fixed once the notice is out (database triggers); chair and secretary; quorum read from Attendance's public counts; motions with mover, seconder, amendments, declared interests and a stated majority; counted results that need a quorum and named counters and can never be changed; adjourn, resume, close and points of order; minutes drafted by a person or an AI helper, approved at a later meeting and then frozen, with corrections as new versions; follow-up actions; a public page that shows only what the Organizer chose and nothing personal; a calendar file; a JSON report with a fingerprint; erase support. New migration 0012_meetings.sql (its number may be changed at merge time). Not built: screens, e-mailing of notices, reminders, papers, speaker list, PDF report, price. Money flag untouched. Not deployed yet."
+    },
     {
       "version": "0.3.2",
       "releasedAt": null,

@@ -2,6 +2,22 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.4.0 - not deployed yet (IST)
+
+Townhall Meetings, first chunks. API only, no screens, and dark: every Meetings address answers "Not found." unless `MEETINGS_ENABLED` is `1`. Help and the checkpoint table are in `docs/MEETINGS.md`.
+
+- Rules for each kind of meeting (annual, special, committee, emergency): days of notice, quorum percent and the bye-law clauses. The Organizer sets them; nothing is defaulted, so a missing rule fails closed.
+- A meeting, its agenda (for information or for decision) and its notice. A notice shorter than the rule is refused. The notice has a fingerprint that anyone can recompute. After the notice, the agenda and the date, place and kind of meeting are fixed by the database; a change needs a new notice.
+- Chair and secretary (and a timekeeper). The quorum is read from Attendance's public counts; no Attendance table is read. Opening needs the noticed time, a chair and a secretary.
+- Motions: mover and seconder, amendments one level deep, declared interests, withdrawal (never deletion). A counted result needs a quorum, named counters and a stated majority, and it can never be changed.
+- Adjourn, resume, close and points of order, each logged with the time.
+- Minutes: drafts by a person or an AI helper (an AI draft needs a person to accept it), approval at a later meeting, then frozen. A correction is a new version with a reason. Follow-up actions with owner, due date and status.
+- A public page (API) that shows only what the Organizer chose and never a name or e-mail ID, a calendar file, and a JSON report with its own fingerprint.
+- Every step is in the signed log (ids, counts, fingerprints and private codes only). Erasing a list removes every meeting record.
+- New migration `0012_meetings.sql`; its tables, indexes and triggers start with `mtg_`. Results, Elections and Attendance round 7 also add a 0012 file, so whoever merges second renames it.
+- 45 new tests in `test/meetings.test.ts`.
+- Not built: screens, e-mailing of notices and reminders, papers, speaker list, PDF report, price. The money flag is untouched.
+
 ## 0.3.2 - not deployed yet (IST)
 
 Fixes after round 6 of Attendance chunks 1-2.
