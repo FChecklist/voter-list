@@ -195,7 +195,7 @@ route("GET", "/api/lists/:sid/results/:rid", async (r) => json(await results.ope
 route("GET", "/api/lists/:sid/results/:rid/verify", async (r) => json(await results.verifyForTeam(await resultsStaff(r), r.params.rid!, r.url.searchParams.get("code") ?? undefined)));
 route("GET", "/api/lists/:sid/results/:rid/export.csv", async (r) => { const x = await results.exportCsv(await resultsStaff(r), r.params.rid!); return file(x.body, x.type, x.filename); });
 route("POST", "/api/lists/:sid/results/:rid/final", async (r) => { const c = await resultsStaff(r); return json(await results.finalize(c, r.params.rid!, await r.body())); });
-route("POST", "/api/lists/:sid/results/:rid/correct", async (r) => { const c = await resultsStaff(r); return json(await results.correct(c, r.params.rid!, await r.body())); });
+route("POST", "/api/lists/:sid/results/:rid/correct", async (r) => { const c = await resultsStaff(r); return json(await results.correct(c, r.params.rid!, await r.body()), 201); });
 route("POST", "/api/lists/:sid/results/:rid/visibility", async (r) => { const c = await resultsStaff(r); return json(await results.setVisibility(c, r.params.rid!, await r.body())); });
 route("GET", "/api/v/:slug/results", async (r) => json(await results.publicList(r.env, await resultsSlug(r), r.now), 200, NOINDEX));
 route("GET", "/api/v/:slug/results/:rid", async (r) => json(await results.publicResult(r.env, await resultsSlug(r), r.params.rid!, r.now), 200, NOINDEX));

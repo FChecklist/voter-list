@@ -230,6 +230,10 @@ describe("the checks that guard a result", () => {
     expect(tie.codes).toContain("tie_unsettled:fail"); expect(tie.failed).toBe(1);
     const settled = await checks(e({ posts: [{ name: "President", seats: 1, candidates: [{ name: "Asha Rao", votes: 4 }, { name: "Bharat Nair", votes: 4 }], tieWinners: ["Bharat Nair"] }] }), b);
     expect(settled.failed).toBe(0);
+    // a post with two seats may carry two votes on each ballot: 6 votes on 3 ballots is fine, 7 is not
+    const two = (votes: number) => e({ ballots: 3, posts: [{ name: "Committee", seats: 2, candidates: [{ name: "Asha Rao", votes }, { name: "Bharat Nair", votes: 3 }, { name: "Chitra Iyer", votes: 0 }] }] });
+    expect((await checks(two(3), b)).codes).not.toContain("votes_over_ballots:fail");
+    expect((await checks(two(4), b)).codes).toContain("votes_over_ballots:fail");
   });
   test("turnout is a whole number of basis points of the voters on the list", async () => {
     const r = await buildContent(election(), base({ list: { ...LIST, voters: 10, eventType: "election" } }));

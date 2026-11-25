@@ -318,7 +318,7 @@ export function makeChecks(c: Closing, b: Basis, qs: QuorumStatus, motions: Moti
   if (election) {
     if (election.ballots > b.list.limit) { broken++; add("fail", "ballots_over_list", `${election.ballots} ballots were cast, more than the ${b.list.limit} votes the final list allows.`); }
     for (const p of election.posts) {
-      if (p.total > election.ballots) { broken++; add("fail", "votes_over_ballots", `The post "${p.name}" has ${p.total} votes, more than the ${election.ballots} ballots cast.`); }
+      if (p.total > election.ballots * p.seats) { broken++; add("fail", "votes_over_ballots", `The post "${p.name}" has ${p.total} votes, more than ${election.ballots} ballots can give for ${p.seats} ${p.seats === 1 ? "seat" : "seats"}.`); }
       if (p.tie && p.tie.decidedBy === null) { broken++; add("fail", "tie_unsettled", `The tie for ${p.tie.open === 1 ? "the last seat" : p.tie.open + " seats"} in "${p.name}" is not settled by the stated rule.`); }
     }
     if (!broken) add("ok", "votes", "The ballots and the votes of every post agree with the final list.");
