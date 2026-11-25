@@ -1,7 +1,7 @@
 // The list team's side: the review queue (check -> approve, or not approved -> back to the voter with a reason -> resubmitted -> check again),
 // corrections, adding and removing records, upload of an existing list, who votes for a flat, vote weights, and Undo.
 import { HttpError, rateLimit } from "./auth";
-import { looksPrivate, commit, guardChanged, pubUnit, staffActor } from "./audit";
+import { looksPrivate, commit, guardChanged, guardMissing, pubUnit, staffActor } from "./audit";
 import { uid, type D1Stmt } from "./db";
 import { autoMarked, parseUpload } from "./importer";
 import { noContactDetails } from "./lists";
@@ -133,16 +133,19 @@ export interface StaffPatch { unit?: string; name?: string; capacity?: string; m
 const blocked = (isVoter: number | null, canVote: number) => isVoter === 0 || canVote === 0;
 const NO_REASON = { no_vote_reason: null, no_vote_note: null, no_vote_by: null } as const;
 
+const MOVE_MARKED = "Only the Organizer can move a person who has been marked present.";
 export async function staffEdit(ctx: StaffCtx, id: string, input: StaffPatch, rawReason: string) {
   need(ctx, "editRecords"); frozenCheck(ctx);
   const reason = squeeze(rawReason); if (reason.length < 3) throw new HttpError(400, "Please write why the correction is made, in a few words.", "reason");
   noContactDetails(reason, "the reason");
   const v = await staffVoter(ctx, id); if (v.status === "removed") throw new HttpError(404, "Not found.", "not_found");
   if (v.email === ctx.email) throw new HttpError(403, "A reviewer cannot change their own record. Please ask another co-organizer or the Organizer.", "own_record");
-  const patch: Patch = {}; const fields: string[] = [];
+  const patch: Patch = {}; const fields: string[] = []; let moveGuard = false;
   const ownedTouched = ["unit", "name", "capacity", "mobile", "proxyFor"].some((k) => (input as Record<string, unknown>)[k] !== undefined);
   if (ownedTouched) {
     const { unit, unitKey: uk, owned } = checkOwned(ctx.society, input, v);
+    if (uk !== v.unit_key && ctx.role !== "organizer" && v.is_voter === null && await ctx.env.DB.prepare("SELECT 1 AS x FROM att_marks WHERE society_id = ? AND voter_id = ? LIMIT 1").bind(ctx.society.id, v.id).first()) throw new HttpError(403, MOVE_MARKED, "forbidden");
+    if (uk !== v.unit_key) moveGuard = ctx.role !== "organizer" && v.is_voter === null;
     if (uk !== v.unit_key && v.is_voter !== null && ctx.role !== "organizer") throw new HttpError(403, "The Organizer has chosen whether this person may vote in this flat, so only the Organizer can move them to another flat.", "forbidden");
     if (unit !== v.unit) { patch.unit = unit; patch.unit_key = uk; if (uk !== v.unit_key && v.is_voter !== null) { patch.is_voter = null; Object.assign(patch, v.can_vote !== 0 ? NO_REASON : {}); fields.push("authorization"); } fields.push("unit"); }
     if (owned.name !== v.name) { patch.name = owned.name; fields.push("name"); }
@@ -190,14 +193,14 @@ export async function staffEdit(ctx: StaffCtx, id: string, input: StaffPatch, ra
   if (input.duesPaidOn !== undefined) { const d = input.duesPaidOn ? parseDate(String(input.duesPaidOn)) : null; if (input.duesPaidOn && !d) throw new HttpError(400, "Please give the date as 15/11/2026."); if (d !== v.dues_paid_on) { patch.dues_paid_on = d; fields.push("dues"); } }
   if (!fields.length) return { id, changed: [] as string[] };
   const m = mutation(ctx.env, ctx.now, v, patch, { kind: "corrected", actorEmail: ctx.email, actorRole: actorRole(ctx), reason });
+  if (moveGuard && patch.unit_key !== undefined) m.stmts.unshift(guardMissing(ctx.env, MOVE_MARKED, "SELECT 1 FROM att_marks WHERE society_id = ? AND voter_id = ?", ctx.society.id, v.id)); // a mark that lands after the first read still stops the move
   try { await commit(ctx.env, ctx.society.id, m.stmts, "record.corrected", await staffActor(ctx.env, ctx.email, ctx.role), { unit: pubUnit(patch.unit ?? v.unit), fields, ...(noVoteAudit ? { notAllowed: noVoteAudit } : {}) }, ctx.now); }
   catch (e) { if (/UNIQUE/i.test(String((e as Error)?.message))) throw new HttpError(409, "That voter already has a record for that home.", "exists"); throw e; }
   return { id, changed: fields };
 }
 
-export async function addRecord(ctx: StaffCtx, input: StaffPatch & { email?: string; agreed?: boolean }) {
+export async function addRecord(ctx: StaffCtx, input: StaffPatch & { email?: string }) {
   need(ctx, "editRecords"); frozenCheck(ctx); closedCheck(ctx);
-  if (input.agreed !== true) throw new HttpError(400, "Please tick the box to say this person has agreed to be on the voter list. They will also see their record when they sign in.", "need_agreed");
   if (String(input.email ?? "").trim().toLowerCase() === ctx.email) throw new HttpError(403, "A reviewer cannot add or approve their own record. Please ask another co-organizer or the Organizer.", "own_record");
   const em = cleanEmail(String(input.email ?? "")); if (!em.ok) throw new HttpError(400, "Please type the voter's e-mail ID. It is how they will see their record.");
   const { unit, unitKey: uk, owned } = checkOwned(ctx.society, input);
@@ -214,7 +217,7 @@ export async function addRecord(ctx: StaffCtx, input: StaffPatch & { email?: str
       ctx.env.DB.prepare("INSERT INTO voter_events (society_id, voter_id, ts, actor_email, actor_role, kind, to_status, after_json, after_rev) VALUES (?, ?, ?, ?, ?, 'added', 'approved', ?, 1)").bind(ctx.society.id, id, ctx.now, ctx.email, actorRole(ctx), snapshot(row)),
     ];
   }
-  try { await commit(ctx.env, ctx.society.id, stmts, "record.added", await staffActor(ctx.env, ctx.email, ctx.role), { unit: pubUnit(unit), capacity: owned.capacity ?? "", agreedByStaffWord: 1 }, ctx.now); }
+  try { await commit(ctx.env, ctx.society.id, stmts, "record.added", await staffActor(ctx.env, ctx.email, ctx.role), { unit: pubUnit(unit), capacity: owned.capacity ?? "" }, ctx.now); }
   catch (e) { if (/UNIQUE/i.test(String((e as Error)?.message))) throw new HttpError(409, "That voter already has a record for this home.", "exists"); throw e; }
   return { id };
 }
@@ -354,6 +357,17 @@ async function markedNow(ctx: StaffCtx, es: Array<{ voter_id: string; before_jso
   }
   return out;
 }
+/** The people, among those an action created, who already have an attendance mark (an undo would have to take them off the list, which is refused). */
+async function attendedNow(ctx: StaffCtx, es: Array<{ voter_id: string; before_json: string | null }>): Promise<Set<string>> {
+  const ids = [...new Set(es.filter((e) => e.before_json === null).map((e) => e.voter_id))];
+  const out = new Set<string>();
+  for (let i = 0; i < ids.length; i += 90) {
+    const part = ids.slice(i, i + 90);
+    const rs = await ctx.env.DB.prepare(`SELECT DISTINCT voter_id FROM att_marks WHERE society_id = ? AND voter_id IN (${ph(part.length)})`).bind(ctx.society.id, ...part).all<{ voter_id: string }>();
+    for (const r of rs.results) out.add(r.voter_id);
+  }
+  return out;
+}
 /** For the signed trail: which reasons an undo cleared and which it brought back (codes and counts, never words). */
 function reasonChanges(es: Array<{ before_json: string | null; after_json: string | null }>): Record<string, Record<string, number>> {
   const restored: Record<string, number> = {}, cleared: Record<string, number> = {};
@@ -374,15 +388,16 @@ export async function recentActions(ctx: StaffCtx) {
   const rs = (await eventsFor(ctx, "1 = 1", [], 400)).results;
   const groups = new Map<string, EvRow[]>();
   for (const e of rs) { const k = e.batch ?? "e" + e.id; const a = groups.get(k) ?? []; a.push(e); groups.set(k, a); }
-  const marked = await markedNow(ctx, rs);
+  const marked = await markedNow(ctx, rs); const attended = await attendedNow(ctx, rs);
   const out = [];
   for (const [key, es] of groups) {
-    out.push({ key, kind: es[0]!.kind, count: es.length, at: es[0]!.ts, by: es[0]!.actor_role === "organizer" ? "Organizer" : "Co-organizer", undoable: es.every((e) => e.cur_rev === e.after_rev) && (ctx.role === "organizer" || !es.some((e) => e.kind === "voter_chosen" || touchesMark(e) || (e.before_json === null && marked.has(e.voter_id)))) });
+    out.push({ key, kind: es[0]!.kind, count: es.length, at: es[0]!.ts, by: es[0]!.actor_role === "organizer" ? "Organizer" : "Co-organizer", undoable: es.every((e) => e.cur_rev === e.after_rev) && !es.some((e) => e.before_json === null && attended.has(e.voter_id)) && (ctx.role === "organizer" || !es.some((e) => e.kind === "voter_chosen" || touchesMark(e) || (e.before_json === null && marked.has(e.voter_id)))) });
     if (out.length >= 15) break;
   }
   return { actions: out };
 }
 
+const HAS_ATTENDANCE = "Someone here has already been marked present at a meeting, so this cannot be undone. Nothing was changed.";
 export async function undo(ctx: StaffCtx, input: { key?: string }) {
   need(ctx, "undo"); frozenCheck(ctx);
   const key = String(input.key ?? ""); if (!key) throw new HttpError(400, "Please choose what to undo.");
@@ -391,9 +406,15 @@ export async function undo(ctx: StaffCtx, input: { key?: string }) {
   const marked = await markedNow(ctx, es);
   if (ctx.role !== "organizer" && es.some((e) => e.kind === "voter_chosen" || touchesMark(e) || (e.before_json === null && marked.has(e.voter_id)))) throw new HttpError(403, "Who may vote is the Organizer's choice, so only the Organizer can take it back.", "forbidden");
   if (es.some((e) => e.cur_rev !== e.after_rev)) throw new HttpError(409, "Something has changed since then (a voter or another co-organizer touched these records), so it cannot be undone safely. Nothing was changed.", "changed");
+  const created = [...new Set(es.filter((e) => e.before_json === null).map((e) => e.voter_id))];
+  for (let i = 0; i < created.length; i += 90) { // a person who already has an attendance mark cannot be taken off the list by an undo: the mark would lose its person
+    const part = created.slice(i, i + 90);
+    if (await ctx.env.DB.prepare(`SELECT 1 AS x FROM att_marks WHERE society_id = ? AND voter_id IN (${ph(part.length)}) LIMIT 1`).bind(ctx.society.id, ...part).first()) throw new HttpError(409, HAS_ATTENDANCE, "has_attendance");
+  }
   const db = ctx.env.DB; const stmts: D1Stmt[] = []; const batch = es.length > 1 ? uid("bat") : null;
   for (const e of es) {
     if (e.before_json === null) { // the action created the record (an import, a record added by a host): undoing it takes the record away again
+      stmts.push(guardMissing(ctx.env, HAS_ATTENDANCE, "SELECT 1 FROM att_marks WHERE society_id = ? AND voter_id = ?", ctx.society.id, e.voter_id)); // checked inside the batch: a mark that landed after the first read still stops the delete
       stmts.push(db.prepare("DELETE FROM voters WHERE society_id = ? AND id = ? AND revision = ?").bind(ctx.society.id, e.voter_id, e.after_rev), guardChanged(ctx.env, "Something changed at the same moment. Nothing was undone."));
       stmts.push(db.prepare("INSERT INTO voter_events (society_id, voter_id, ts, actor_email, actor_role, kind, from_status, to_status, before_json, after_json, batch) VALUES (?, ?, ?, ?, ?, 'undone', 'approved', 'removed', ?, NULL, ?)").bind(ctx.society.id, e.voter_id, ctx.now, ctx.email, actorRole(ctx), e.after_json, batch));
     } else {

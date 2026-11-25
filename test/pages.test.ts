@@ -39,6 +39,23 @@ describe("the pages", () => {
     expect(missing).toEqual([]);
   });
 
+  // attendance.js builds its addresses with base() = `/api/lists/${S.sid}/attendance/sessions`; the check above cannot see those, so this one resolves the helper.
+  const BASE_RE = /api\(\s*"(GET|POST|PUT|PATCH|DELETE)"\s*,\s*base\(\)((?:\s*\+\s*(?:"[^"]*"|`[^`]*`|[A-Za-z_][\w.]*))*)/g;
+  const resolveBase = (suffix: string): string => {
+    const base = read("public/assets/attendance.js").match(/const base = \(\) => `([^`]*)`/)![1]!.replace(/\$\{[^}]*\}/g, "x1");
+    const parts = [...suffix.matchAll(/\+\s*(?:"([^"]*)"|`([^`]*)`|([A-Za-z_][\w.]*))/g)].map((m) => (m[3] ? "x1" : (m[1] ?? m[2]!).replace(/\$\{[^}]*\}/g, "x1")));
+    return (base + parts.join("")).replace(/\?.*$/, "");
+  };
+  test("every address attendance.js builds with base() is a real route (a mistyped one fails)", () => {
+    const table = routeTable(); const t = read("public/assets/attendance.js");
+    const found = [...t.matchAll(BASE_RE)].map((m) => ({ method: m[1]!, path: resolveBase(m[2] ?? "") }));
+    expect(found.length).toBeGreaterThanOrEqual(3);
+    expect(found.filter((c) => !table.some((r) => r.method === c.method && r.re.test(c.path)))).toEqual([]);
+    // the check is real: a mistyped address does not match any route
+    const typo = resolveBase(' + "/" + id + "/clos"');
+    expect(table.some((r) => r.method === "POST" && r.re.test(typo))).toBe(false);
+  });
+
   test("links to files the API serves (templates, exports) are real routes", () => {
     const table = routeTable(); const bad: string[] = [];
     for (const f of scripts) for (const m of read(f).matchAll(/(?:href:\s*|a\(")\s*[`"](\/api\/[^`"?]*)/g)) {

@@ -52,6 +52,8 @@ export interface Env {
   PAY_SERVICE_URL?: string;
   /** Dollars for "Save as Version 1" (shown to societies outside India). Unset = not confirmed by the owner. */
   PRICE_USD?: string;
+  /** Results (declared results of closed meetings and elections) stay dark until this is "1": every Results address answers "not found" without it. */
+  RESULTS_ENABLED?: string;
 }
 
 export const uid = (prefix: string) => `${prefix}_${[...globalThis.crypto.getRandomValues(new Uint8Array(9))].map((b) => b.toString(16).padStart(2, "0")).join("")}`;

@@ -1,6 +1,6 @@
 # Townhall Meetings (first chunks, API only)
 
-Version 0.4.0, work package `th-meetings`. **Dark and not deployed.** There are no screens yet. Every Meetings address answers "Not found." until the owner sets `MEETINGS_ENABLED` to `1`. This page is the help for people and for AI helpers (checkpoints CP-233 and CP-245, as a document; a page for it comes with the screens).
+Version 0.5.0, work package `th-meetings`. **Dark and not deployed.** There are no screens yet. Every Meetings address answers "Not found." until the owner sets `MEETINGS_ENABLED` to `1`. This page is the help for people and for AI helpers (checkpoints CP-233 and CP-245, as a document; a page for it comes with the screens).
 
 ## What Meetings does, in plain words
 
@@ -125,4 +125,4 @@ Public, under `/api/v/:slug/meetings` (`GET` only, `noindex`): the list, `/:mid`
 - Audit entry types: `meeting.*`, `motion.*`, `minutes.*`, `action.*`. Payloads hold ids, counts, fingerprints and private codes only.
 - Notice fingerprint: SHA-256 of the canonical snapshot kept in the notice row, so anyone can recompute it.
 - Tests: `test/meetings.test.ts`. They run on the same migrations as production, so the triggers are real.
-- The migration number may collide with Results, Elections and Attendance round 7 (all use 0012). Whoever merges second renames the file to the next free number. Nothing depends on the number; a test finds the file by its ending.
+- The migration is `migrations/0017_meetings.sql` (it was 0012 before the merge with Attendance and Results, which use 0012 to 0016). Elections still carries a 0012 file and is renamed to the next free number when it is merged. Nothing depends on the number.

@@ -116,7 +116,7 @@ export async function quorumOf(env: Env, society: SocietyRow, m: MeetingRow, rul
   if (!rule) return { ruleSet: false, percent: null, linked: !!m.attendance_session_id, eligible: 0, present: 0, required: 0, met: false, words: MSG.noQuorumRule };
   const p = rule.quorum_percent;
   if (!m.attendance_session_id) return { ruleSet: true, percent: p, linked: false, eligible: 0, present: 0, required: 0, met: p === 0, words: p === 0 ? MSG.quorumNone : MSG.needAttendance };
-  const c = (await attendance.publicSession(env, society, m.attendance_session_id)).session.counts;
+  const c = (await attendance.publicSession(env, society, m.attendance_session_id)).body.session.counts; // the answer is { body: { list, session }, personal } since attendance 0.3.3
   const required = p === 0 ? 0 : Math.max(1, Math.ceil((c.eligible * p) / 100));
   const met = c.present >= required;
   const words = p === 0 ? MSG.quorumNone : `Quorum: ${p} percent of the ${c.eligible} people who may attend, which is ${required}. Present now: ${c.present}. ${met ? "The quorum is met." : "The quorum is not met."}`;
