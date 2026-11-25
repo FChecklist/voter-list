@@ -9,8 +9,9 @@ export const SCHED = { nominationsOpen: "2026-11-12T10:00", nominationsClose: "2
 const FIRST = ["Asha", "Bharat", "Chitra", "Dev", "Esha", "Farid", "Gita", "Hari", "Indu", "Jai", "Kiran", "Lata"];
 export const emailOf = (i: number) => `v${i + 1}@sample.example`;
 export const RO = "ro@sample.example", AGENT = "agent@sample.example", OBSERVER = "observer@sample.example";
+export const ORGANIZER = "organizer@sample.example", CO = "co@sample.example"; // the harness list's Organizer and the co-organizer made in base()
 
-export interface World { h: Harness; jar: Jar; coJar: Jar; sid: string; slug: string; eid: string; posts: Array<{ id: string; n: number; title: string }>; cand: Record<string, string>; voters: number }
+export interface World { h: Harness; jar: Jar; coJar: Jar; organizer: string; sid: string; slug: string; eid: string; posts: Array<{ id: string; n: number; title: string }>; cand: Record<string, string>; voters: number }
 export interface PostPlan { title: string; seats: number; maxVotes?: number; run: number[] }
 
 /** A list with `voters` enrolled and approved people, a co-organizer, and a frozen voter list. No election yet. */
@@ -19,15 +20,15 @@ export async function base(o: { voters?: number; flag?: boolean; extra?: Record<
   const { jar, sid, slug } = await newList(h, { email: o.organizer, extra: o.extra });
   const n = o.voters ?? 8;
   for (let i = 0; i < n; i++) await enrolVoter(h, slug, emailOf(i), { unit: `A-${101 + i}`, name: `${FIRST[i % FIRST.length]} Sample`, mobile: `90000003${String(10 + i).padStart(2, "0")}` });
-  await h.call("POST", `/api/lists/${sid}/team`, { email: "co@sample.example" }, jar);
-  const coJar = await h.staff("co@sample.example");
+  await h.call("POST", `/api/lists/${sid}/team`, { email: CO }, jar);
+  const coJar = await h.staff(CO);
   const ok = await h.call("POST", `/api/lists/${sid}/records/decide`, { items: await waiting(h, sid, jar), decision: "approve" }, jar); if (ok.status !== 200) throw new Error("approve failed " + ok.text);
   // the Organizer cannot approve their own record: a co-organizer approves what is left
   const left = await waiting(h, sid, coJar);
   if (left.length) { const ok2 = await h.call("POST", `/api/lists/${sid}/records/decide`, { items: left, decision: "approve" }, coJar); if (ok2.status !== 200) throw new Error("approve (co-organizer) failed " + ok2.text); }
   const f = await h.call("POST", `/api/lists/${sid}/publish/frozen`, { eventName: "Committee election", eventType: "election", confirm: "FREEZE", closeNow: true, ackWarnings: true, ackPending: true }, jar);
   if (f.status !== 201) throw new Error("freeze failed " + f.text);
-  return { h, jar, coJar, sid, slug, voters: n, pubId: f.json.id as string, fingerprint: f.json.fingerprint as string };
+  return { h, jar, coJar, organizer: o.organizer ?? ORGANIZER, sid, slug, voters: n, pubId: f.json.id as string, fingerprint: f.json.fingerprint as string };
 }
 export type Base = Awaited<ReturnType<typeof base>>;
 
@@ -47,7 +48,7 @@ export async function draft(b: Base, o: { posts?: PostPlan[]; mode?: string; not
     posts: posts.map((p) => ({ title: p.title, seats: p.seats, maxVotes: p.maxVotes })), officials: o.officials ?? OFFICIALS, ...o.body,
   }, b.jar);
   if (r.status !== 201) throw new Error("draft failed " + r.text);
-  return { h: b.h, jar: b.jar, coJar: b.coJar, sid: b.sid, slug: b.slug, eid: r.json.election.id, posts: r.json.election.posts.map((p: any) => ({ id: p.id, n: p.n, title: p.title })), cand: {}, voters: b.voters };
+  return { h: b.h, jar: b.jar, coJar: b.coJar, organizer: b.organizer, sid: b.sid, slug: b.slug, eid: r.json.election.id, posts: r.json.election.posts.map((p: any) => ({ id: p.id, n: p.n, title: p.title })), cand: {}, voters: b.voters };
 }
 export const staffUrl = (w: World, tail = "") => `/api/lists/${w.sid}/elections/${w.eid}${tail}`;
 export const voterUrl = (w: World, tail = "") => `/api/v/${w.slug}/elections/${w.eid}${tail}`;
@@ -93,6 +94,8 @@ export const cand = (w: World, i: number) => w.cand[nameOf(i)]!;
 export async function toVoting(w: World, plan: PostPlan[] = DEFAULT_POSTS) {
   await toFinal(w, plan);
   w.h.clock.now = at("2026-11-20T09:30");
+  // a staff sign-in lasts 7 days and nine days have passed since the list was made: the Organizer and the co-organizer sign in again, as they would in real life
+  w.jar = await w.h.staff(w.organizer); w.coJar = await w.h.staff(CO);
   const r = await w.h.call("POST", staffUrl(w, "/open"), { confirm: "OPEN" }, w.jar); if (r.status !== 200) throw new Error("open failed " + r.text);
   return r;
 }
