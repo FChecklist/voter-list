@@ -110,7 +110,7 @@ Do not put the address on the marketing site until row 22 passes.
 
 Before running any command below, check the flags with `wrangler pages secret --help` and `wrangler d1 migrations apply --help` (the tool changes often); the commands are the plan, not a tested script.
 
-Environment: `SIGNING_KEY`, `PEPPER` (required); `ORGANIZERS` (comma-separated e-mail IDs that may start lists; without it, nobody new can become an Organizer in production, by design) or `OPEN_SIGNUP=1` (anyone may; only after the Cloudflare Turnstile check is in place); `CF_EMAIL_TOKEN` with `CF_ACCOUNT_ID` (Cloudflare Email Service) or `RESEND_API_KEY` (older route), `MAIL_FROM`, `MAIL_DAILY_CAP`, `MAIL_STAFF_RESERVE`, `MAIL_LIST_CAP` (optional); `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` (optional, the free Cloudflare check on sign-in; it is on only when both are set); `PERMANENT_HOST_EMAIL` (default `host@townhall-records.com`), `RETENTION_DAYS` (unset = records are kept always; if set, minimum 30), `PRICE_INR` (optional, see ASSUMPTIONS.md). **Never set `TEST_MODE` in production.** Never commit `.dev.vars` or any key. Payments, if ever added, go only through IT SERVICES BY RAJAT AGARWAL via Razorpay; that is not wired here.
+Environment: `SIGNING_KEY`, `PEPPER` (required); `ORGANIZERS` (comma-separated e-mail IDs that may start lists; without it, nobody new can become an Organizer in production, by design) or `OPEN_SIGNUP=1` (anyone may; only after the Cloudflare Turnstile check is in place); `CF_EMAIL_TOKEN` with `CF_ACCOUNT_ID` (Cloudflare Email Service) or `RESEND_API_KEY` (older route), `MAIL_FROM`, `MAIL_DAILY_CAP`, `MAIL_STAFF_RESERVE`, `MAIL_LIST_CAP` (optional); `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` (optional, the free Cloudflare check on sign-in; it is on only when both are set); `PERMANENT_HOST_EMAIL` (default `host@townhall-records.com`), `RETENTION_DAYS` (unset = records are kept always; if set, minimum 30), `PRICE_INR` (optional, see ASSUMPTIONS.md), `RESULTS_ENABLED` (Results stays dark unless this is exactly `1`; it is left unset until the owner's go-ahead, see `docs/RESULTS.md`). **Never set `TEST_MODE` in production.** Never commit `.dev.vars` or any key. Payments, if ever added, go only through IT SERVICES BY RAJAT AGARWAL via Razorpay; that is not wired here.
 
 ## Data protection note for Organizers (DPDP Act 2023)
 
@@ -121,13 +121,17 @@ The society (through its Organizer) decides why and how the voter list is used, 
 ```
 migrations/   0001..0004 (core, lists, workflow, hardening; the old tables stay unused), 0005_enrolment (voters, documents, events, publications, roles), 0006_indexes (for the clean-up)
 src/          handler.ts (router and API), lists / records / review / publish / overview / erase / orders (services), store.ts (access rules),
-              auth.ts, audit.ts, checks.ts, importer.ts, csv.ts, xlsx.ts, text.ts, model.ts, vendor/
+              auth.ts, audit.ts, checks.ts, importer.ts, csv.ts, xlsx.ts, text.ts, model.ts, vendor/,
+              results.ts and results-core.ts (Results: the service, and the counting and checks with no database)
 functions/    the Pages Function that calls the handler
 public/       index.html (Organizer and Hosts), v/index.html (voters), assets/ (steps.js, voter.js, organizer*.js, ui.js, app.css)
 scripts/      gen-dev-vars, gen-prod-keys, migrate, seed, build-pages
 test/         the suites above
-docs/         AUDIT-ROUND-*.md, GAPS-AND-PLAN.md, RESEARCH-NOTES.md, PROGRESS.md, SMOKE-TEST.md
+docs/         AUDIT-ROUND-*.md, GAPS-AND-PLAN.md, RESEARCH-NOTES.md, PROGRESS.md, SMOKE-TEST.md, RESULTS.md
 ```
+
+### Results (API only, dark)
+A closed meeting or election becomes one declared result that anyone can check: the server makes it from the closing the Organizer entered, runs the checks, fingerprints it and opens a challenge window; the Organizer types FINAL after the window, and a mistake is put right by a correction that keeps the old result. Every Results address answers "not found" unless `RESULTS_ENABLED` is `1`. Plain-words guide, the steps for an AI helper and the honest list of what is not built: `docs/RESULTS.md`. Tables: `migrations/0012_results.sql`. Tests: `test/results-core.test.ts` and `test/results.test.ts`.
 
 ### Payments (price slot, off by default)
 Owner's rule for every site: payments go only through the central payment service of IT SERVICES BY RAJAT AGARWAL (Razorpay, one ledger), as the Games do. Voter List has no Razorpay key and never calls Razorpay. With `PRICE_INR`, `PAY_SERVICE_KEY` (secret, piped in, never in a command line) and `PAY_SITE` set, `POST /api/lists/:sid/orders` asks the central service to open the order and returns what the payment frame needs; `POST /api/lists/:sid/orders/:oid/verify` asks the central service to confirm the payment (paid, same amount, same currency, our order id as the reference) before the order counts. Not wired live: the site must first be registered in the central ledger and its address added to the payment frame's allow-list (both on the owner's side), and a pay screen is still to be built. Migration `0008_central_pay.sql` rebuilds the `orders` table (real orders, Razorpay order id).

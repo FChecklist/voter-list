@@ -4,7 +4,7 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 ## Version
 
-- Current version: **0.3.2** (not deployed yet; first release date to be set when it is deployed).
+- Current version: **0.4.0** (not deployed yet; first release date to be set when it is deployed).
 - `public/version.json` holds the version, release time, commit and a list of past changes. The site serves it at `/version.json` (the file is in `public/`, which is what `bun run build:pages` copies to `dist/`).
 - `package.json` carries the same version number. Keep the two equal.
 - `CHANGELOG.md` has the notes in plain words, newest first, dated in IST.
@@ -33,3 +33,15 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 ## Attendance roster time zone
 
 The time zone of a roster upload list is a fixed offset from UTC, with no daylight saving. The organizer picks a country whose offset they use (see `COUNTRY_TZ` in `src/attendance.ts`). The `can_attend` column of a voter defaults to 1 (see `migrations/0002_lists.sql`), so a new voter is eligible unless staff change it.
+
+## Results (first chunk, dark)
+
+Plain-words guide: `docs/RESULTS.md`. Code: `src/results-core.ts` (counting, checks, fingerprint, no database), `src/results.ts` (service), routes in `src/handler.ts`, tables in `migrations/0012_results.sql`.
+
+- Every Results address answers 404 unless `RESULTS_ENABLED` is exactly `1`. The check comes before sign-in, so a dark product shows nothing at all.
+- Meetings and Elections are separate products and are not here. Only the Organizer enters a closing, and each such result carries the warning `entered_by_hand`. When those products can deliver, they use the same closing format.
+- A declared result is fixed by the database (triggers). Only visibility, draft to final, and draft or final to replaced can change. A final result with a failed check is refused by a table rule as well as by the code.
+- Accepted: a correction keeps the visibility of the old result, so a result shown to the public stays shown (as a draft, with its notice) while the correction waits for its own challenge window.
+- Accepted: the names of the people who counted, validated, observed and supervised are recorded as the Organizer typed them. They are not confirmed by e-mail yet.
+- Accepted: the public fingerprint check can show that a result is unchanged since it was declared. It cannot show that the Organizer entered true counts. The warning `entered_by_hand` says so on the result.
+- The Hindi lines for the Results messages come with the Results screens; a native Hindi reader must check them.

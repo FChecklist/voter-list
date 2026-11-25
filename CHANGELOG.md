@@ -2,6 +2,20 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.4.0 - not deployed yet (IST)
+
+Results, first chunk (API only, dark). Full notes: `docs/RESULTS.md`.
+
+- A closed meeting or election is entered by the Organizer (`POST /api/lists/:sid/results/closings`). It is kept as entered and never changed.
+- The server makes a draft result from it: the outcomes, the rule in words, the checks, a fingerprint and a challenge window (48 hours unless the Organizer chose 0 to 720). Nothing about the outcome is typed in.
+- After the window, and only with no failed check, the Organizer types FINAL. The database refuses a final result with a failed check, and refuses any change to a declared result.
+- A mistake is put right by a correction with a reason: a new result that points at the old one. The old one stays, marked as replaced.
+- The Organizer chooses who may see a result: hidden (the default), masked names or full names. Public pages ask search engines not to list them.
+- A sheet download, a check anyone can run, signed audit lines with ids, counts and the fingerprint only, and erase together with the list.
+- New tables and guards in migration `0012_results.sql`. Every Results address answers "not found" unless `RESULTS_ENABLED` is `1`; it stays unset until the owner's go-ahead.
+- 54 new tests (28 for the counting rules, 26 through the real handler and migrations).
+- Not built yet: screens, e-mails, PDF with QR code, WhatsApp share, other languages, challenge forms, sign-off by e-mail, delivery from the Meetings and Elections products.
+
 ## 0.3.2 - not deployed yet (IST)
 
 Fixes after round 6 of Attendance chunks 1-2.
