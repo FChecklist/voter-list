@@ -450,3 +450,22 @@ describe("6. a failed first load shows a kind error with a retry, not a stuck Lo
     expect(one.text()).not.toContain(MANY_FLATS_LINE); expect(one.text()).toContain("Mark present");
   });
 });
+
+// ------------------------------------------------------------------------------------------------------------------ found while checking the pages in a browser (not one of the six findings)
+describe("the voter page header", () => {
+  test("a signed-in voter sees the e-mail ID and a Sign out button, not the names of page parts (replaceChildren takes children, not an array)", async () => {
+    const calls: unknown[][] = [];
+    const errs: string[] = [];
+    const el = (tag: string, attrs: any = {}, ...kids: any[]) => ({ tag, attrs: attrs || {}, kids: kids.flat(9), addEventListener() {}, append(...k: any[]) { (this as any).kids.push(...k.flat(9)); } });
+    const root: any = { kids: [] as any[], replaceChildren(...k: any[]) { this.kids = k.flat(9); } };
+    const who: any = { replaceChildren(...k: unknown[]) { calls.push(k); } }; // as in a real page: the arguments are kept as given, an array is NOT unpacked
+    const api = async (_m: string, p: string) => (p.endsWith("/attend/me") ? { email: "a@b.com", rows: [{ voterId: "v1", unit: "A-1" }] } : { list: "Hall list", sessions: [] });
+    const VL: any = { el, api, toast() {}, fail: (e: any) => errs.push(String(e)), busy: async (_b: any, f: () => Promise<void>) => f(), captcha: () => ({ node: null, token: () => "t", reset() {} }), err: () => ({ clear() {}, show() {} }), localTime: String, stepbar: () => null, plural: (n: number, a: string) => n + " " + a, stepcards: (steps: any[]) => steps.map((st) => [st.title, st.state === "locked" ? st.lockedNote : st.body()]) };
+    new Function("window", "document", "location", "fetch", read("public/assets/attend.js"))({ VL }, { getElementById: (id: string) => (id === "app" ? root : who) }, { pathname: "/attend/abc", hash: "" }, () => { throw new Error("no fetch"); });
+    await tick();
+    const last = calls[calls.length - 1]!;
+    expect(last.some((x) => Array.isArray(x))).toBe(false);
+    expect(last.map((x: any) => (typeof x === "string" ? x : x.tag))).toEqual(["span", " ", "button"]);
+    expect((last[2] as any).kids.join("")).toBe("Sign out"); expect(errs).toEqual([]);
+  });
+});

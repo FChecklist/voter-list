@@ -31,7 +31,7 @@
 
   function draw() {
     const signedIn = !!S.me;
-    document.getElementById("who").replaceChildren(signedIn ? [el("span", { class: "tiny" }, S.me.email), " ", el("button", { class: "btn ghost small", type: "button", on: { click: signOut } }, "Sign out")] : []);
+    document.getElementById("who").replaceChildren(...(signedIn ? [el("span", { class: "tiny" }, S.me.email), " ", el("button", { class: "btn ghost small", type: "button", on: { click: signOut } }, "Sign out")] : []));
     const go = () => draw();
     const steps = [
       { key: "signin", short: "Sign in", title: "Step 1. Sign in", state: signedIn ? "done" : "now", summary: signedIn ? S.me.email : "", open: false, body: signinBody },

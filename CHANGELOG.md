@@ -12,6 +12,7 @@ Fixes after round 7 of Attendance chunks 1-2.
 - Hindi lines for texts the server builds that had none: the sheet reader messages, the two code limits, the same-moment and already-closed messages, the failure message, the messages for a phone number in a title, place or name, the country names, and the count ("3 of 10") in the sessions table. The mode texts (In person, Online, Offline) already had Hindi lines; a test now ties every server-built text to a Hindi line. Every Hindi line added is listed in `lang/hi.js` as needing a native Hindi reader. No Hindi on any consent line.
 - The wording scan for my / mine / your / yours now covers every source file, the dev scripts and all pages, reads template strings fully, and a second scan checks the real answers, e-mails and sheets. One dev seed message was fixed.
 - A first load that fails (not a missing sign-in, which opens the sign-in page, and not a closed list) shows a plain message and a Try again button on both pages, instead of a Loading line that never ends.
+- The voter page header showed the names of page parts instead of the e-mail ID and had no Sign out button; fixed.
 - Question for the owner: should the title and place of a list made from an uploaded sheet also be hidden from people who are not signed in? Today they are shown (the order named Voter List links only).
 
 ## 0.3.2 - not deployed yet (IST)
