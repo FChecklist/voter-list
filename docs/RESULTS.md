@@ -42,7 +42,7 @@ A failed check stops FINAL, in the code and in the database. A warning is shown 
 
 ## Switching it on
 
-`RESULTS_ENABLED` must be exactly `1`. Any other value, or none, keeps every Results address dark. `wrangler.toml` leaves it unset. The migration is `migrations/0012_results.sql`. Applying it to a real database, and the switch itself, wait for the owner's go-ahead.
+`RESULTS_ENABLED` must be exactly `1`. Any other value, or none, keeps every Results address dark. `wrangler.toml` leaves it unset. The migration is `migrations/0012_results.sql`. Applying it to a real database, and the switch itself, wait for the owner's go-ahead. When it is applied, apply the migration before the new code is published, because erasing a list now also clears the two Results tables.
 
 ## For an AI helper
 
@@ -91,6 +91,6 @@ Limits: 30 writes an hour for a list (closings, results and corrections together
 
 ## Tests
 
-`test/results-core.test.ts` (28 tests) covers the counting rules, the cleaning of a closing and the fingerprint with no database. `test/results.test.ts` (26 tests) goes through the real handler and the real migrations: dark by default, a full meeting, a failed check that blocks FINAL (also with a direct write to the database), an election with an open tie and its correction, the chain of corrections, the database guards, checking and tampering, what the public sees, permissions between lists, the sheet, the timeline, and erase.
+`test/results-core.test.ts` (30 tests) covers the counting rules, the cleaning of a closing and the fingerprint with no database, and checks the counting on thousands of seeded random posts and on every pair of votes up to 60. `test/results.test.ts` (27 tests) goes through the real handler and the real migrations: dark by default, a full meeting, a failed check that blocks FINAL (also with a direct write to the database), an election with an open tie and its correction, the chain of corrections, the database guards, checking and tampering, what the public sees, permissions between lists, the sheet, the timeline, erase, and two requests at the same moment (one wins, the other gets a plain 409).
 
-Each rule was also broken on purpose to prove its test fails: the challenge window, the hidden answer, the two-thirds line, and the one live result.
+Each rule was also broken on purpose to prove its test fails: the challenge window, the hidden answer, the two-thirds line, the one live result, the plain 409 for a clash, and the guard on FINAL.

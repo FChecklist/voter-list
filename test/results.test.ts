@@ -415,3 +415,28 @@ describe("the sheet, the timeline and the erase", () => {
     for (const p of ["", `/${id}`]) expect((await pubGet(s, p)).status).toBe(410);
   });
 });
+
+describe("two requests at the same moment", () => {
+  test("one wins and the other gets a plain 409: one closing, one live result, one FINAL, one correction", async () => {
+    const s = await setup();
+    const codes = (rs: R[]) => rs.map((r) => r.status).sort();
+    const loser = (rs: R[], status: number) => rs.find((r) => r.status === status)!;
+    const two = await Promise.all([enter(s, meeting(s)), enter(s, meeting(s))]);
+    expect(codes(two)).toEqual([201, 409]); expect(loser(two, 409).json.code).toBe("closing_exists");
+    const cid = loser(two, 201).json.closing.id;
+    const made = await Promise.all([make(s, cid), make(s, cid)]);
+    expect(codes(made)).toEqual([201, 409]); expect(loser(made, 409).json.code).toBe("result_exists");
+    const id = loser(made, 201).json.result.id;
+    expect(s.h.raw.query("SELECT (SELECT COUNT(*) FROM res_closings) AS c, (SELECT COUNT(*) FROM res_results) AS r").get()).toEqual({ c: 1, r: 1 });
+    s.h.clock.now += 3 * H;
+    const fin = await Promise.all([final(s, id), final(s, id)]);
+    expect(codes(fin)).toEqual([200, 409]);
+    expect(s.h.raw.query("SELECT COUNT(*) AS n FROM audit_entries WHERE type = 'results.finalized'").get()).toEqual({ n: 1 });
+    const body = { reason: "A count was copied wrongly", closing: meeting(s, { motions: [MOTIONS[0], { text: "Appoint the auditor", for: 1, against: 2 }, MOTIONS[2]] }) };
+    const cor = await Promise.all([s.h.call("POST", url(s, id, "/correct"), body, s.jar), s.h.call("POST", url(s, id, "/correct"), body, s.jar)]);
+    expect(codes(cor)).toEqual([201, 409]); expect(loser(cor, 409).json.code).toBe("already_corrected");
+    expect(s.h.raw.query("SELECT COUNT(*) AS n FROM res_results WHERE status <> 'superseded'").get()).toEqual({ n: 1 });
+    expect(s.h.raw.query("SELECT COUNT(*) AS n FROM res_closings").get()).toEqual({ n: 2 });
+    const trail = await s.h.call("GET", `/api/lists/${s.sid}/audit/export.json`, undefined, s.jar); expect(trail.json.verified).toBe(true);
+  });
+});

@@ -241,3 +241,48 @@ describe("the checks that guard a result", () => {
     expect((await buildContent(election({ ballots: 1 }), base({ list: { ...LIST, voters: 3, eventType: "election" } }))).content.election?.turnoutBp).toBe(3333);
   });
 });
+
+describe("the counting keeps its promises for any votes (seeded, so every run is the same)", () => {
+  test("a motion passes exactly when for is at least 2 or 3 times against, and more votes for never turn a pass into a fail", () => {
+    for (let f = 0; f <= 60; f++) for (let a = 0; a <= 60; a++) {
+      expect(motionOutcome({ for: f, against: a, threshold: "simple" })).toBe(f + a === 0 ? "no_votes" : f > a ? "passed" : "not_passed");
+      expect(motionOutcome({ for: f, against: a, threshold: "two_thirds" })).toBe(f + a === 0 ? "no_votes" : f >= 2 * a ? "passed" : "not_passed");
+      expect(motionOutcome({ for: f, against: a, threshold: "three_quarters" })).toBe(f + a === 0 ? "no_votes" : f >= 3 * a ? "passed" : "not_passed");
+      if (motionOutcome({ for: f, against: a, threshold: "two_thirds" }) === "passed") expect(motionOutcome({ for: f + 1, against: a, threshold: "two_thirds" })).toBe("passed");
+    }
+  });
+  test("for any post: winners never exceed the seats, a clear line leaves no open tie, a tie is open for exactly the seats left, and naming the tied winners settles it", () => {
+    let seed = 20261125;
+    const next = (n: number) => { seed = (Math.imul(seed, 1103515245) + 12345) >>> 0; return (seed >>> 8) % n; };
+    let ties = 0, clear = 0, open = 0;
+    for (let round = 0; round < 3000; round++) {
+      const n = 1 + next(8), seats = 1 + next(5);
+      const candidates = Array.from({ length: n }, (_, k) => ({ name: `Candidate ${k + 1}`, votes: next(5) }));
+      const p: Post = { name: "Post", seats, none: next(3), candidates, tieWinners: [] };
+      const r = postResult(p, "lot");
+      const votesOf = new Map(candidates.map((c) => [c.name, c.votes]));
+      const won = new Set(r.winners);
+      expect(r.winners.length).toBeLessThanOrEqual(seats);
+      expect(r.total).toBe(candidates.reduce((sum, c) => sum + c.votes, 0) + p.none);
+      for (let k = 1; k < r.ranking.length; k++) expect(r.ranking[k - 1]!.votes).toBeGreaterThanOrEqual(r.ranking[k]!.votes);
+      if (!r.tie) {
+        clear++;
+        expect(r.winners.length).toBe(Math.min(seats, n)); expect(r.vacant).toBe(Math.max(0, seats - n));
+        const fewest = Math.min(...r.winners.map((w) => votesOf.get(w)!));
+        for (const c of candidates) if (!won.has(c.name)) expect(c.votes).toBeLessThan(fewest);
+      } else {
+        ties++; open += r.tie.open;
+        expect(r.uncontested).toBe(false); expect(r.tie.decidedBy).toBeNull();
+        expect(r.tie.open).toBe(seats - r.winners.length); expect(r.tie.among.length).toBeGreaterThan(r.tie.open);
+        const edge = votesOf.get(r.tie.among[0]!)!;
+        for (const a of r.tie.among) expect(votesOf.get(a)).toBe(edge);
+        for (const w of r.winners) expect(votesOf.get(w)!).toBeGreaterThan(edge);
+        const settled = postResult({ ...p, tieWinners: r.tie.among.slice(0, r.tie.open) }, "chair");
+        expect(settled.winners.length).toBe(seats); expect(settled.tie?.decidedBy).toBe("chair");
+        for (const w of r.winners) expect(settled.winners).toContain(w);
+        expect(codeOf(() => postResult({ ...p, tieWinners: r.tie!.among.slice(0, r.tie!.open + 1) }, "chair"))).toBe("bad_tie_winners");
+      }
+    }
+    expect(ties).toBeGreaterThan(100); expect(clear).toBeGreaterThan(100); expect(open).toBeGreaterThan(ties - 1); // both kinds of post were really tried
+  });
+});
