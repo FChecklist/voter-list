@@ -6,6 +6,10 @@ import type { Env } from "./db";
 import * as attendance from "./attendance";
 import { eraseList, eraseStatus } from "./erase";
 import * as lists from "./lists";
+import * as minutes from "./meeting-minutes";
+import * as motions from "./meeting-motions";
+import * as meetingReport from "./meeting-report";
+import * as meetings from "./meetings";
 import * as orders from "./orders";
 import { RULES } from "./model";
 import { overview } from "./overview";
@@ -172,6 +176,48 @@ route("GET", "/api/lists/:sid/team", async (r) => json(await lists.listTeam(awai
 route("POST", "/api/lists/:sid/team", async (r) => json(await lists.inviteHost(await staff(r), (await r.body()) as never), 201));
 route("POST", "/api/lists/:sid/team/organizer", async (r) => { const b = await r.body(); return json(await lists.transferOrganizer(await staff(r), str(b.email, 200))); });
 route("DELETE", "/api/lists/:sid/team/:email", async (r) => json(await lists.removeHost(await staff(r), (() => { try { return decodeURIComponent(r.params.email!); } catch { throw new HttpError(400, "That e-mail ID could not be read.", "bad_email"); } })())));
+
+// Meetings (a Voter List or an uploaded list): the rules of each kind, the meeting, its agenda and notice, the run of the meeting, motions, minutes, action items and the report
+route("GET", "/api/lists/:sid/meetings/rules", async (r) => json(await meetings.listRules(await staffAny(r))));
+route("PUT", "/api/lists/:sid/meetings/rules/:type", async (r) => { const c = await staffAny(r); return json(await meetings.setRule(c, r.params.type!, await r.body())); });
+route("POST", "/api/lists/:sid/meetings", async (r) => { const c = await staffAny(r); return json(await meetings.createMeeting(c, await r.body()), 201); });
+route("GET", "/api/lists/:sid/meetings", async (r) => json(await meetings.listMeetings(await staffAny(r))));
+route("GET", "/api/lists/:sid/meetings/:mid", async (r) => json(await meetings.showMeeting(await staffAny(r), r.params.mid!)));
+route("PATCH", "/api/lists/:sid/meetings/:mid", async (r) => { const c = await staffAny(r); return json(await meetings.patchMeeting(c, r.params.mid!, await r.body())); });
+route("PUT", "/api/lists/:sid/meetings/:mid/roles", async (r) => { const c = await staffAny(r); return json(await meetings.setRoles(c, r.params.mid!, await r.body())); });
+route("POST", "/api/lists/:sid/meetings/:mid/people", async (r) => { const c = await staffAny(r); return json(await meetings.addPerson(c, r.params.mid!, await r.body()), 201); });
+route("POST", "/api/lists/:sid/meetings/:mid/agenda", async (r) => { const c = await staffAny(r); return json(await meetings.addItem(c, r.params.mid!, await r.body()), 201); });
+route("PATCH", "/api/lists/:sid/meetings/:mid/agenda/:iid", async (r) => { const c = await staffAny(r); return json(await meetings.editItem(c, r.params.mid!, r.params.iid!, await r.body())); });
+route("DELETE", "/api/lists/:sid/meetings/:mid/agenda/:iid", async (r) => json(await meetings.removeItem(await staffAny(r), r.params.mid!, r.params.iid!)));
+route("POST", "/api/lists/:sid/meetings/:mid/notice", async (r) => { const c = await staffAny(r); await r.body(); return json(await meetings.issueNotice(c, r.params.mid!), 201); });
+route("POST", "/api/lists/:sid/meetings/:mid/revise", async (r) => { const c = await staffAny(r); return json(await meetings.withdrawNotice(c, r.params.mid!, await r.body())); });
+route("POST", "/api/lists/:sid/meetings/:mid/postpone", async (r) => { const c = await staffAny(r); return json(await meetings.postponeMeeting(c, r.params.mid!, await r.body()), 201); });
+route("POST", "/api/lists/:sid/meetings/:mid/cancel", async (r) => { const c = await staffAny(r); return json(await meetings.cancelMeeting(c, r.params.mid!, await r.body())); });
+route("POST", "/api/lists/:sid/meetings/:mid/open", async (r) => { const c = await staffAny(r); await r.body(); return json(await meetings.startMeeting(c, r.params.mid!)); });
+route("POST", "/api/lists/:sid/meetings/:mid/adjourn", async (r) => { const c = await staffAny(r); return json(await meetings.adjournMeeting(c, r.params.mid!, await r.body())); });
+route("POST", "/api/lists/:sid/meetings/:mid/resume", async (r) => { const c = await staffAny(r); await r.body(); return json(await meetings.resumeMeeting(c, r.params.mid!)); });
+route("POST", "/api/lists/:sid/meetings/:mid/close", async (r) => { const c = await staffAny(r); await r.body(); return json(await meetings.closeMeeting(c, r.params.mid!)); });
+route("POST", "/api/lists/:sid/meetings/:mid/points", async (r) => { const c = await staffAny(r); return json(await meetings.pointOfOrder(c, r.params.mid!, await r.body()), 201); });
+route("GET", "/api/lists/:sid/meetings/:mid/quorum", async (r) => json(await motions.quorumView(await staffAny(r), r.params.mid!)));
+route("GET", "/api/lists/:sid/meetings/:mid/decisions", async (r) => json(await motions.decisions(await staffAny(r), r.params.mid!)));
+route("POST", "/api/lists/:sid/meetings/:mid/motions", async (r) => { const c = await staffAny(r); return json(await motions.moveMotion(c, r.params.mid!, await r.body()), 201); });
+route("POST", "/api/lists/:sid/meetings/:mid/motions/:xid/withdraw", async (r) => { const c = await staffAny(r); return json(await motions.withdrawMotion(c, r.params.mid!, r.params.xid!, await r.body())); });
+route("POST", "/api/lists/:sid/meetings/:mid/motions/:xid/interests", async (r) => { const c = await staffAny(r); return json(await motions.declareInterest(c, r.params.mid!, r.params.xid!, await r.body()), 201); });
+route("POST", "/api/lists/:sid/meetings/:mid/motions/:xid/result", async (r) => { const c = await staffAny(r); return json(await motions.recordResult(c, r.params.mid!, r.params.xid!, await r.body()), 201); });
+route("GET", "/api/lists/:sid/meetings/:mid/minutes", async (r) => json(await minutes.listMinutes(await staffAny(r), r.params.mid!)));
+route("POST", "/api/lists/:sid/meetings/:mid/minutes", async (r) => { const c = await staffAny(r); return json(await minutes.draftMinutes(c, r.params.mid!, await r.body()), 201); });
+route("POST", "/api/lists/:sid/meetings/:mid/minutes/:vid/accept", async (r) => { const c = await staffAny(r); await r.body(); return json(await minutes.acceptMinutes(c, r.params.mid!, r.params.vid!)); });
+route("POST", "/api/lists/:sid/meetings/:mid/minutes/:vid/approve", async (r) => { const c = await staffAny(r); return json(await minutes.approveMinutes(c, r.params.mid!, r.params.vid!, await r.body())); });
+route("GET", "/api/lists/:sid/meetings/:mid/actions", async (r) => json(await minutes.listActions(await staffAny(r), r.params.mid!)));
+route("POST", "/api/lists/:sid/meetings/:mid/actions", async (r) => { const c = await staffAny(r); return json(await minutes.addAction(c, r.params.mid!, await r.body()), 201); });
+route("PATCH", "/api/lists/:sid/meetings/:mid/actions/:aid", async (r) => { const c = await staffAny(r); return json(await minutes.updateAction(c, r.params.mid!, r.params.aid!, await r.body())); });
+route("GET", "/api/lists/:sid/meetings/:mid/report.json", async (r) => json(await meetingReport.reportOf(await staffAny(r), r.params.mid!)));
+route("GET", "/api/lists/:sid/meetings/:mid/calendar.ics", async (r) => { const x = await meetingReport.staffCalendar(await staffAny(r), r.params.mid!); return file(x.body, x.type, x.filename); });
+// Meetings, public: only what the Organizer chose to show (nothing personal), kept out of search engines
+const PUBLIC_MEETING = { ...PUBLIC_CACHE, "x-robots-tag": "noindex" };
+route("GET", "/api/v/:slug/meetings", async (r) => json(await meetingReport.publicMeetings(r.env, await liveSlug(r)), 200, PUBLIC_MEETING));
+route("GET", "/api/v/:slug/meetings/:mid", async (r) => json(await meetingReport.publicMeeting(r.env, await liveSlug(r), r.params.mid!), 200, PUBLIC_MEETING));
+route("GET", "/api/v/:slug/meetings/:mid/calendar.ics", async (r) => { const x = await meetingReport.publicCalendar(r.env, await liveSlug(r), r.params.mid!, r.now); return file(x.body, x.type, x.filename); });
 
 // attendance sessions (Voter List or uploaded list): create, list, open, mark present, close
 route("POST", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.createSession(await staffAny(r), await r.body()), 201));
