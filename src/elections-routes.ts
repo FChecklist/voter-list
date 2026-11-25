@@ -22,7 +22,7 @@ export function mountElections(M: Mount): void {
   const { route, json, staff, voter, slug, publicCache } = M;
   const eid = (r: RouteReq) => r.params.eid!;
   /** The role a signed-in person has in this election, if it is one of `allowed`. */
-  const official = async (m: el.MemberCtx, id: string, allowed: el.ActorRole[]) => el.actorFor(m.env, m.society, await el.getElection(m.env, m.society.id, id), { staffEmail: null, memberEmail: m.email }, allowed);
+  const official = async (m: el.MemberCtx, id: string, allowed: el.ActorRole[]) => { el.gate(m.env); return el.actorFor(m.env, m.society, await el.getElection(m.env, m.society.id, id), { staffEmail: null, memberEmail: m.email }, allowed); };
   const TEAM: el.ActorRole[] = ["returning_officer", "counting_agent"], ALL: el.ActorRole[] = ["returning_officer", "counting_agent", "observer"], RO: el.ActorRole[] = ["returning_officer"];
 
   // ---------------------------------------------------------------------------------------------------------------- Organizer and co-organizers
