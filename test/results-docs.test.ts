@@ -24,6 +24,6 @@ describe("the guide to Results matches the code", () => {
   });
 
   test("the guide names the switch, the migration and the exact sentence for an AI helper", () => {
-    for (const needle of ["RESULTS_ENABLED", "migrations/0012_results.sql", "Copy this link and paste in your AI to work."]) expect([needle, doc.includes(needle)]).toEqual([needle, true]);
+    for (const needle of ["RESULTS_ENABLED", "migrations/0016_results.sql", "Copy this link and paste in your AI to work."]) expect([needle, doc.includes(needle)]).toEqual([needle, true]);
   });
 });

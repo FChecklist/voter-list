@@ -276,7 +276,7 @@ describe("reasons for 'not allowed to vote'", () => {
     // a Host's own approval of that record can be undone by the Host (it did not touch the reason)
     await h.call("POST", `/api/lists/${sid}/team`, { email: "hostw@sample.example" }, jar);
     const hostJar = await h.staff("hostw@sample.example");
-    await h.call("POST", `/api/v/${slug}/records/${rec.id}/confirm`, { consent: true }, z);
+    await h.call("POST", `/api/v/${slug}/records/${rec.id}/confirm`, {}, z);
     await h.call("POST", `/api/lists/${sid}/records/decide`, { items: await waiting(h, sid, hostJar), decision: "approve" }, hostJar);
     const acts = (await h.call("GET", `/api/lists/${sid}/actions`, undefined, hostJar)).json.actions as Array<{ kind: string; undoable: boolean }>;
     expect(acts.find((a) => a.kind === "approved")!.undoable).toBe(true);

@@ -42,7 +42,7 @@ A failed check stops FINAL, in the code and in the database. A warning is shown 
 
 ## Switching it on
 
-`RESULTS_ENABLED` must be exactly `1`. Any other value, or none, keeps every Results address dark. `wrangler.toml` leaves it unset. The migration is `migrations/0012_results.sql`. Applying it to a real database, and the switch itself, wait for the owner's go-ahead. When it is applied, apply the migration before the new code is published, because erasing a list now also clears the two Results tables.
+`RESULTS_ENABLED` must be exactly `1`. Any other value, or none, keeps every Results address dark. `wrangler.toml` leaves it unset. The migration is `migrations/0016_results.sql`. Applying it to a real database, and the switch itself, wait for the owner's go-ahead. When it is applied, apply the migration before the new code is published, because erasing a list now also clears the two Results tables.
 
 ## For an AI helper
 

@@ -88,7 +88,9 @@ export async function updateList(ctx: StaffCtx, input: Partial<ListInput> & { cl
   // the form always sends the closing time it shows; one that has not been changed is not "a new time" (so a passed time does not block other edits)
   if (typeof input.cutoff === "string" && s.cutoff_at !== null && input.cutoff === msToLocal(s.cutoff_at, input.tzOffsetMin ?? s.tz_offset_min)) input = { ...input, cutoff: undefined };
   const v = validate(input, false, ctx.now, s.tz_offset_min);
-  if (!String(v.reg_no ?? s.reg_no ?? "").trim()) throw new HttpError(400, REG_MSG, "reg_no");
+  // a list made before the registration number was mandatory can still be closed; any other change needs the number
+  const onlyClosing = !!input.closeNow && Object.entries(input).every(([k, val]) => k === "closeNow" || k === "tzOffsetMin" || val === undefined);
+  if (!onlyClosing && !String(v.reg_no ?? s.reg_no ?? "").trim()) throw new HttpError(400, REG_MSG, "reg_no");
   if (input.closeNow) v.cutoff_at = ctx.now;
   const keys = Object.keys(v);
   if (!keys.length) return s;

@@ -13,7 +13,7 @@ import * as publish from "./publish";
 import * as records from "./records";
 import * as results from "./results";
 import * as review from "./review";
-import { societyBySlug, staffCtx, type StaffCtx } from "./store";
+import { societyBySlug, staffCtx, type SocietyRow, type StaffCtx } from "./store";
 import { buildTemplateXlsx, TEMPLATE_CSV } from "./xlsx";
 import { publicKeyFromPrivate } from "./vendor/crypto";
 
@@ -65,6 +65,8 @@ async function voter(r: Req): Promise<records.VoterCtx> {
   if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");
   return { env: r.env, now: r.now, email: s.email, society };
 }
+// The e-mail ID of a voter signed in (with the e-mailed code) for this list's link, or null. It says only who signed in; the list itself decides whether they are on it.
+const memberEmail = async (r: Req, society: SocietyRow): Promise<string | null> => { const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now); return s && s.kind === "member" && s.societyId === society.id ? s.email : null; };
 const str = (v: unknown, max = 500): string => (typeof v === "string" ? v.slice(0, max) : "");
 const bool = (v: unknown) => v === true;
 const intq = (v: string | null, d: number) => { if (v === null || v.trim() === "") return d; const n = Number(v); return Number.isFinite(n) ? n : d; };
@@ -119,8 +121,13 @@ route("DELETE", "/api/v/:slug/records/:rid/docs/:did", async (r) => json(await r
 route("GET", "/api/v/:slug/records/:rid/docs/:did", async (r) => { const d = await records.getMyDoc(await voter(r), r.params.rid!, r.params.did!); return file(d.body, d.type, d.filename, true); });
 
 // attendance: public counts (no personal data), and a voter who signed in marks themselves present in an online session
-route("GET", "/api/v/:slug/attendance", async (r) => json(await attendance.publicSessions(r.env, await liveSlug(r)), 200, PUBLIC_CACHE));
-route("GET", "/api/v/:slug/attendance/:aid", async (r) => json(await attendance.publicSession(r.env, await liveSlug(r), r.params.aid!), 200, PUBLIC_CACHE));
+// The public answer is the same for everyone except that a voter on the list, signed in for this link, also gets the title and place (for every kind of list). So a cache must tell the askers apart (Vary),
+// an answer with that text is for that voter only and is never cached, and a request that carries any cookie is answered "private, no-store"; only a request with no cookie at all may be cached for 30 seconds.
+const BY_COOKIE = { vary: "Cookie" };
+const carriesCookie = (r: Req) => (r.req.headers.get("cookie") ?? "").trim() !== "";
+const attendanceCache = (r: Req, personal: boolean) => (personal || carriesCookie(r) ? { "cache-control": "private, no-store", ...BY_COOKIE } : { ...PUBLIC_CACHE, ...BY_COOKIE });
+route("GET", "/api/v/:slug/attendance", async (r) => { const soc = await liveSlug(r); const x = await attendance.publicSessions(r.env, soc, await memberEmail(r, soc)); return json(x.body, 200, attendanceCache(r, x.personal)); });
+route("GET", "/api/v/:slug/attendance/:aid", async (r) => { const soc = await liveSlug(r); const x = await attendance.publicSession(r.env, soc, r.params.aid!, await memberEmail(r, soc)); return json(x.body, 200, attendanceCache(r, x.personal)); });
 route("GET", "/api/v/:slug/attend/me", async (r) => {
   const society = await liveSlug(r); const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
   if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");

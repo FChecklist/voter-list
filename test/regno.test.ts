@@ -41,6 +41,16 @@ describe("registration number / ID is mandatory", () => {
     expect(ok.status).toBe(200); expect(ok.json.list.regNo).toBe("KA/RWA/2019/0007");
   });
 
+  test("a list saved earlier with an empty number can still be closed for enrolment, and nothing else changes with it", async () => {
+    const h = await makeHarness(); const { jar, sid } = await newList(h);
+    h.raw.query("UPDATE societies SET reg_no = '' WHERE id = ?").run(sid);
+    const closed = await h.call("PATCH", `/api/lists/${sid}`, { closeNow: true }, jar);
+    expect(closed.status).toBe(200);
+    expect((h.raw.query("SELECT cutoff_at FROM societies WHERE id = ?").get(sid) as { cutoff_at: number | null }).cutoff_at).not.toBeNull();
+    const mixed = await h.call("PATCH", `/api/lists/${sid}`, { closeNow: true, state: "Kerala" }, jar);
+    expect(mixed.status).toBe(400); expect(mixed.text).toContain(MSG);
+  });
+
   test("a number of 40 characters is kept; 41 is refused, not cut, on create and update", async () => {
     const h = await makeHarness(); const jar = await h.staff("organizer@sample.example");
     const r40 = "A".repeat(40), r41 = "A".repeat(41);

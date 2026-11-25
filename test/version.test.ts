@@ -10,9 +10,11 @@ describe("public/version.json", () => {
     expect(v.commit).toBe(v.changes[0]!.commit as string);
     expect(JSON.parse(readFileSync("package.json", "utf8")).version).toBe(v.version);
   });
-  test("every note names a commit, and no two notes name the same one", () => {
-    for (const c of v.changes) expect([c.version, /^[0-9a-f]{7,40}$/.test(c.commit ?? "")]).toEqual([c.version, true]);
-    const all = v.changes.map((c) => c.commit);
+  // The nine oldest notes name no commit because that history predates the rule (KNOWLEDGE.md; the attendance tests pin the same list).
+  const PREDATES_THE_RULE = ["0.3.2", "0.3.1", "0.3.0", "0.2.4", "0.2.3", "0.2.2", "0.2.1", "0.2.0", "0.1.0"];
+  test("every note names a commit (except the nine that predate the rule), and no two notes name the same one", () => {
+    for (const c of v.changes) if (!PREDATES_THE_RULE.includes(c.version)) expect([c.version, /^[0-9a-f]{7,40}$/.test(c.commit ?? "")]).toEqual([c.version, true]);
+    const all = v.changes.map((c) => c.commit).filter(Boolean);
     expect(new Set(all).size).toBe(all.length);
   });
 });
