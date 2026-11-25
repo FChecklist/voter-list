@@ -11,6 +11,7 @@ import { RULES } from "./model";
 import { overview } from "./overview";
 import * as publish from "./publish";
 import * as records from "./records";
+import * as results from "./results";
 import * as review from "./review";
 import { societyBySlug, staffCtx, type StaffCtx } from "./store";
 import { buildTemplateXlsx, TEMPLATE_CSV } from "./xlsx";
@@ -54,6 +55,10 @@ const staff = async (r: Req): Promise<StaffCtx> => { const c = await staffAny(r)
 const anySlug = async (r: Req) => { const s = await societyBySlug(r.env, r.params.slug!); if (!s) throw new HttpError(404, "This link is not valid.", "not_found"); return s; };
 const liveSlug = async (r: Req) => { const s = await anySlug(r); if (s.erased_at) throw new HttpError(410, "This list has been closed and its details erased.", "erased"); return s; }; // the same answer as /start
 const slugList = async (r: Req) => { const s = await anySlug(r); if (s.purpose !== "voter_list") throw new HttpError(404, "This link is not valid.", "not_found"); return s; };
+// Results stay dark: until RESULTS_ENABLED is "1" every Results address answers "not found" before anything else is looked at (not even a missing sign-in is shown)
+const resultsStaff = async (r: Req): Promise<StaffCtx> => { results.requireOn(r.env); return staff(r); };
+const resultsSlug = async (r: Req) => { results.requireOn(r.env); const s = await slugList(r); results.notErased(s); return s; };
+const NOINDEX = { "x-robots-tag": "noindex" };
 async function voter(r: Req): Promise<records.VoterCtx> {
   const society = await slugList(r);
   const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
@@ -180,6 +185,21 @@ route("GET", "/api/lists/:sid/attendance/sessions/:aid", async (r) => json(await
 route("GET", "/api/lists/:sid/attendance/sessions/:aid/sheet.csv", async (r) => { const x = await attendance.sheetCsv(await staffAny(r), r.params.aid!); return file(x.body, x.type, x.filename); });
 route("POST", "/api/lists/:sid/attendance/sessions/:aid/mark", async (r) => { const c = await staffAny(r); const b = await r.body(); return json(await attendance.markByTeam(c, r.params.aid!, b.voterId)); });
 route("POST", "/api/lists/:sid/attendance/sessions/:aid/close", async (r) => { const c = await staffAny(r); await r.body(); return json(await attendance.closeSession(c, r.params.aid!)); });
+
+// results (dark until RESULTS_ENABLED is "1"): a closed meeting or election, the declared result made from it, and what the public may see of it
+route("POST", "/api/lists/:sid/results/closings", async (r) => json(await results.enterClosing(await resultsStaff(r), await r.body()), 201));
+route("GET", "/api/lists/:sid/results/closings", async (r) => json(await results.listClosings(await resultsStaff(r))));
+route("POST", "/api/lists/:sid/results", async (r) => { const c = await resultsStaff(r); return json(await results.makeResult(c, await r.body()), 201); });
+route("GET", "/api/lists/:sid/results", async (r) => json(await results.listResults(await resultsStaff(r))));
+route("GET", "/api/lists/:sid/results/:rid", async (r) => json(await results.openResult(await resultsStaff(r), r.params.rid!)));
+route("GET", "/api/lists/:sid/results/:rid/verify", async (r) => json(await results.verifyForTeam(await resultsStaff(r), r.params.rid!, r.url.searchParams.get("code") ?? undefined)));
+route("GET", "/api/lists/:sid/results/:rid/export.csv", async (r) => { const x = await results.exportCsv(await resultsStaff(r), r.params.rid!); return file(x.body, x.type, x.filename); });
+route("POST", "/api/lists/:sid/results/:rid/final", async (r) => { const c = await resultsStaff(r); return json(await results.finalize(c, r.params.rid!, await r.body())); });
+route("POST", "/api/lists/:sid/results/:rid/correct", async (r) => { const c = await resultsStaff(r); return json(await results.correct(c, r.params.rid!, await r.body())); });
+route("POST", "/api/lists/:sid/results/:rid/visibility", async (r) => { const c = await resultsStaff(r); return json(await results.setVisibility(c, r.params.rid!, await r.body())); });
+route("GET", "/api/v/:slug/results", async (r) => json(await results.publicList(r.env, await resultsSlug(r), r.now), 200, NOINDEX));
+route("GET", "/api/v/:slug/results/:rid", async (r) => json(await results.publicResult(r.env, await resultsSlug(r), r.params.rid!, r.now), 200, NOINDEX));
+route("GET", "/api/v/:slug/results/:rid/verify", async (r) => json(await results.publicVerify(r.env, await resultsSlug(r), r.params.rid!, r.url.searchParams.get("code") ?? undefined), 200, NOINDEX));
 
 // retention
 route("GET", "/api/lists/:sid/erase", async (r) => json(await eraseStatus(await staff(r))));
