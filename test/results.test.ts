@@ -440,3 +440,16 @@ describe("two requests at the same moment", () => {
     const trail = await s.h.call("GET", `/api/lists/${s.sid}/audit/export.json`, undefined, s.jar); expect(trail.json.verified).toBe(true);
   });
 });
+
+describe("a list made from an uploaded attendance sheet has no Results", () => {
+  test("it has no final voter list, so every Results address answers not found for it, for staff and for the public", async () => {
+    const h = await makeHarness({ RESULTS_ENABLED: "1" }); const jar = await h.staff("solo@sample.example");
+    const sheet = "Flat / House / Member ID,Name,Mobile,E-mail\nA-1,Asha Sample,9000000201,asha@sample.example\nA-2,Bharat Sample,9000000202,bharat@sample.example";
+    const up = must(await h.call("POST", "/api/attendance/rosters", { title: "Spring meeting list", format: "paste", text: sheet }, jar), 201);
+    const sid = up.json.list.id as string, slug = (up.json.list.link as string).split("/").pop()!;
+    for (const [m, p] of [["GET", `/api/lists/${sid}/results`], ["POST", `/api/lists/${sid}/results/closings`], ["POST", `/api/lists/${sid}/results`], ["GET", `/api/v/${slug}/results`]] as const) {
+      const r = await h.call(m, p, m === "GET" ? undefined : {}, jar); expect([m, p, r.status]).toEqual([m, p, 404]);
+    }
+    expect(h.raw.query("SELECT (SELECT COUNT(*) FROM res_closings) + (SELECT COUNT(*) FROM res_results) AS n").get()).toEqual({ n: 0 });
+  });
+});
