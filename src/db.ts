@@ -16,6 +16,8 @@ export interface Env {
   PEPPER: string;
   /** "1" only on a developer machine: relaxes Secure cookies, exposes the test payment confirm, never sends real mail. */
   TEST_MODE?: string;
+  /** Meetings (notice, agenda, motions, minutes) stay dark until this is "1": every Meetings address answers "not found" without it. */
+  MEETINGS_ENABLED?: string;
   /** The older mail route (Resend). Used only when the Cloudflare Email Service secrets below are not set. */
   RESEND_API_KEY?: string;
   /** Cloudflare Email Service (sending from townhall-records.com): an API token allowed to send, and the account id. Both set = this route is used. */

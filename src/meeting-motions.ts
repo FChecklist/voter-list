@@ -5,7 +5,7 @@ import { commit, guardChanged, guardExists, pseudonym, staffActor } from "./audi
 import { uid } from "./db";
 import { MSG } from "./meeting-messages";
 import {
-  MAJORITY, MAJORITY_WORDS, METHODS, METHOD_WORDS, fingerprintOf, meetingOf, noQuorumNext, notErased, oneOf, person, quorumOf, ruleOf, whole, words,
+  MAJORITY, MAJORITY_WORDS, METHODS, METHOD_WORDS, fingerprintOf, meetingOf, needMeet, noQuorumNext, notErased, oneOf, person, quorumOf, ruleOf, whole, words,
   type ItemRow, type Majority, type MeetingRow, type Method, type Person,
 } from "./meeting-core";
 import { buildRoll, need, seesFull, type RollLine, type StaffCtx } from "./store";
@@ -37,9 +37,9 @@ const voterCode = (ctx: Pick<StaffCtx, "env">, l: RollLine) => pseudonym(ctx.env
 /** The motions of a meeting with their results and declared interests. A co-organizer sees names and e-mail IDs masked. */
 export async function motionsOf(ctx: Pick<StaffCtx, "env" | "society" | "role">, m: MeetingRow) {
   const db = ctx.env.DB;
-  const xs = (await db.prepare("SELECT x.*, i.title AS item_title FROM motions x JOIN meeting_items i ON i.id = x.item_id WHERE x.meeting_id = ? ORDER BY x.number").bind(m.id).all<MotionRow>()).results;
-  const rs = new Map((await db.prepare("SELECT * FROM motion_results WHERE meeting_id = ?").bind(m.id).all<ResultRow>()).results.map((r) => [r.motion_id, r]));
-  const ins = (await db.prepare("SELECT motion_id, voter_id, note, declared_at FROM motion_interests WHERE motion_id IN (SELECT id FROM motions WHERE meeting_id = ?) ORDER BY declared_at, voter_id").bind(m.id).all<InterestRow>()).results;
+  const xs = (await db.prepare("SELECT x.*, i.title AS item_title FROM mtg_motions x JOIN mtg_items i ON i.id = x.item_id WHERE x.meeting_id = ? ORDER BY x.number").bind(m.id).all<MotionRow>()).results;
+  const rs = new Map((await db.prepare("SELECT * FROM mtg_results WHERE meeting_id = ?").bind(m.id).all<ResultRow>()).results.map((r) => [r.motion_id, r]));
+  const ins = (await db.prepare("SELECT motion_id, voter_id, note, declared_at FROM mtg_interests WHERE motion_id IN (SELECT id FROM mtg_motions WHERE meeting_id = ?) ORDER BY declared_at, voter_id").bind(m.id).all<InterestRow>()).results;
   const roll = await rollOf(ctx); const full = seesFull(ctx);
   const numberOf = new Map(xs.map((x) => [x.id, x.number]));
   return xs.map((x) => {
@@ -74,18 +74,18 @@ export async function quorumView(ctx: StaffCtx, meetingId: string) {
 }
 
 const oneMotion = async (ctx: StaffCtx, m: MeetingRow, id: string) => {
-  const x = await ctx.env.DB.prepare("SELECT * FROM motions WHERE id = ? AND meeting_id = ?").bind(String(id).slice(0, 60), m.id).first<MotionRow>();
+  const x = await ctx.env.DB.prepare("SELECT * FROM mtg_motions WHERE id = ? AND meeting_id = ?").bind(String(id).slice(0, 60), m.id).first<MotionRow>();
   if (!x) throw new HttpError(404, MSG.motionNotFound, "not_found");
   return x;
 };
 const viewOne = async (ctx: StaffCtx, m: MeetingRow, id: string) => (await motionsOf(ctx, m)).find((x) => x.id === id) ?? null;
 
 export async function moveMotion(ctx: StaffCtx, meetingId: string, raw: unknown) {
-  need(ctx, "meetRun"); notErased(ctx.society);
+  needMeet(ctx, "meetRun"); notErased(ctx.society);
   const input = asInput(raw);
   const m = await meetingOf(ctx.env, ctx.society.id, meetingId);
   if (m.status !== "open") throw new HttpError(409, MSG.needMotionOpen, "not_open");
-  const item = await ctx.env.DB.prepare("SELECT * FROM meeting_items WHERE id = ? AND meeting_id = ?").bind(String(input.itemId ?? "").slice(0, 60), m.id).first<ItemRow>();
+  const item = await ctx.env.DB.prepare("SELECT * FROM mtg_items WHERE id = ? AND meeting_id = ?").bind(String(input.itemId ?? "").slice(0, 60), m.id).first<ItemRow>();
   if (!item) throw new HttpError(404, MSG.notFound, "not_found");
   if (item.kind !== "decision") throw new HttpError(409, MSG.notDecision, "not_decision");
   const text = words(input.text, "the motion", 2, 1000);
@@ -109,15 +109,15 @@ export async function moveMotion(ctx: StaffCtx, meetingId: string, raw: unknown)
     const id = uid("mot");
     try {
       await commit(ctx.env, ctx.society.id, [
-        guardExists(ctx.env, MSG.needMotionOpen, "SELECT 1 FROM meetings WHERE id = ? AND status = 'open'", m.id),
-        ...(amends ? [guardExists(ctx.env, MSG.amendDone, "SELECT 1 FROM motions WHERE id = ? AND status = 'moved'", amends.id)] : []),
-        ctx.env.DB.prepare("INSERT INTO motions (id, society_id, meeting_id, item_id, number, text, mover_voter_id, seconder_voter_id, majority, amends_motion_id, status, withdrawn_reason, created_by, created_at) SELECT ?, ?, ?, ?, COALESCE(MAX(number), 0) + 1, ?, ?, ?, ?, ?, 'moved', '', ?, ? FROM motions WHERE meeting_id = ?")
+        guardExists(ctx.env, MSG.needMotionOpen, "SELECT 1 FROM mtg_meetings WHERE id = ? AND status = 'open'", m.id),
+        ...(amends ? [guardExists(ctx.env, MSG.amendDone, "SELECT 1 FROM mtg_motions WHERE id = ? AND status = 'moved'", amends.id)] : []),
+        ctx.env.DB.prepare("INSERT INTO mtg_motions (id, society_id, meeting_id, item_id, number, text, mover_voter_id, seconder_voter_id, majority, amends_motion_id, status, withdrawn_reason, created_by, created_at) SELECT ?, ?, ?, ?, COALESCE(MAX(number), 0) + 1, ?, ?, ?, ?, ?, 'moved', '', ?, ? FROM mtg_motions WHERE meeting_id = ?")
           .bind(id, ctx.society.id, m.id, item.id, text, moverId, seconderId, majority, amends?.id ?? null, pid, ctx.now, m.id),
       ], "motion.moved", await actorOf(ctx), { meeting: m.id, motion: id, item: item.id, majority, amends: amends?.id ?? null, mover: await voterCode(ctx, mover), seconder: await voterCode(ctx, seconder), fingerprint: fp }, ctx.now);
       return { motion: await viewOne(ctx, m, id) };
     } catch (e) {
       // two motions moved at the same moment can pick the same number: the loser takes the next one
-      if (attempt < 3 && /UNIQUE/i.test(String((e as Error)?.message ?? e)) && /motions\.(meeting_id|number)/i.test(String((e as Error)?.message ?? e))) continue;
+      if (attempt < 3 && /UNIQUE/i.test(String((e as Error)?.message ?? e)) && /mtg_motions\.(meeting_id|number)/i.test(String((e as Error)?.message ?? e))) continue;
       throw e;
     }
   }
@@ -125,22 +125,22 @@ export async function moveMotion(ctx: StaffCtx, meetingId: string, raw: unknown)
 
 /** A motion is withdrawn in the open: the reason is kept and shown, the motion stays. Its pending amendments go with it. */
 export async function withdrawMotion(ctx: StaffCtx, meetingId: string, motionId: string, raw: unknown) {
-  need(ctx, "meetRun"); notErased(ctx.society);
+  needMeet(ctx, "meetRun"); notErased(ctx.society);
   const reason = words(asInput(raw).reason, "the reason", 3, 200);
   const m = await meetingOf(ctx.env, ctx.society.id, meetingId);
   if (m.status !== "open" && m.status !== "adjourned") throw new HttpError(409, MSG.notRunning, "not_running");
   const x = await oneMotion(ctx, m, motionId);
   if (x.status !== "moved") throw new HttpError(409, MSG.motionDone, "motion_done");
   const seq = await commit(ctx.env, ctx.society.id, [
-    ctx.env.DB.prepare("UPDATE motions SET status = 'withdrawn', withdrawn_reason = ?, closed_at = ? WHERE id = ? AND status = 'moved'").bind(reason, ctx.now, x.id), guardChanged(ctx.env, MSG.motionDone),
-    ctx.env.DB.prepare("UPDATE motions SET status = 'withdrawn', withdrawn_reason = ?, closed_at = ? WHERE amends_motion_id = ? AND status = 'moved'").bind("The motion it amends was withdrawn.", ctx.now, x.id),
+    ctx.env.DB.prepare("UPDATE mtg_motions SET status = 'withdrawn', withdrawn_reason = ?, closed_at = ? WHERE id = ? AND status = 'moved'").bind(reason, ctx.now, x.id), guardChanged(ctx.env, MSG.motionDone),
+    ctx.env.DB.prepare("UPDATE mtg_motions SET status = 'withdrawn', withdrawn_reason = ?, closed_at = ? WHERE amends_motion_id = ? AND status = 'moved'").bind("The motion it amends was withdrawn.", ctx.now, x.id),
   ], "motion.withdrawn", await actorOf(ctx), { meeting: m.id, motion: x.id, n: x.number, reason }, ctx.now);
   return { motion: await viewOne(ctx, m, x.id), audit: seq };
 }
 
 /** A person who has an interest in a motion is named on it and kept out of that vote: the votes recorded cannot exceed the people present less those named. */
 export async function declareInterest(ctx: StaffCtx, meetingId: string, motionId: string, raw: unknown) {
-  need(ctx, "meetRun"); notErased(ctx.society);
+  needMeet(ctx, "meetRun"); notErased(ctx.society);
   const input = asInput(raw);
   const note = words(input.note, "the note", 2, 200, true);
   const m = await meetingOf(ctx.env, ctx.society.id, meetingId);
@@ -151,8 +151,8 @@ export async function declareInterest(ctx: StaffCtx, meetingId: string, motionId
   const line = (await rollOf(ctx)).get(voterId);
   if (!line) throw new HttpError(404, MSG.notOnList, "not_on_list");
   const seq = await commit(ctx.env, ctx.society.id, [
-    guardExists(ctx.env, MSG.motionDone, "SELECT 1 FROM motions WHERE id = ? AND status = 'moved'", x.id),
-    ctx.env.DB.prepare("INSERT OR IGNORE INTO motion_interests (motion_id, society_id, voter_id, note, declared_by, declared_at) VALUES (?, ?, ?, ?, ?, ?)").bind(x.id, ctx.society.id, voterId, note, await pseudonym(ctx.env, ctx.email), ctx.now),
+    guardExists(ctx.env, MSG.motionDone, "SELECT 1 FROM mtg_motions WHERE id = ? AND status = 'moved'", x.id),
+    ctx.env.DB.prepare("INSERT OR IGNORE INTO mtg_interests (motion_id, society_id, voter_id, note, declared_by, declared_at) VALUES (?, ?, ?, ?, ?, ?)").bind(x.id, ctx.society.id, voterId, note, await pseudonym(ctx.env, ctx.email), ctx.now),
     guardChanged(ctx.env, MSG.interestDone),
   ], "motion.interest_declared", await actorOf(ctx), { meeting: m.id, motion: x.id, voter: await voterCode(ctx, line) }, ctx.now);
   return { motion: await viewOne(ctx, m, x.id), audit: seq };
@@ -165,33 +165,33 @@ const counted = (v: unknown): number => whole(v, 0, 1_000_000, MSG.badCount);
  * and with the motion's amendments already decided. The quorum as it stood is kept with the result. A result is final.
  */
 export async function recordResult(ctx: StaffCtx, meetingId: string, motionId: string, raw: unknown) {
-  need(ctx, "meetRun"); notErased(ctx.society);
+  needMeet(ctx, "meetRun"); notErased(ctx.society);
   const input = asInput(raw);
   const m = await meetingOf(ctx.env, ctx.society.id, meetingId);
   if (m.status !== "open") throw new HttpError(409, MSG.needMotionOpen, "not_open");
   const x = await oneMotion(ctx, m, motionId);
   if (x.status !== "moved") throw new HttpError(409, MSG.motionDone, "motion_done");
-  const pending = (await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM motions WHERE amends_motion_id = ? AND status = 'moved'").bind(x.id).first<{ n: number }>())?.n ?? 0;
+  const pending = (await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM mtg_motions WHERE amends_motion_id = ? AND status = 'moved'").bind(x.id).first<{ n: number }>())?.n ?? 0;
   if (pending) throw new HttpError(409, MSG.amendmentsFirst, "amendments_first");
   const method = oneOf(input.method, METHODS, MSG.badMethod);
   const forCount = counted(input.for), againstCount = counted(input.against), abstainCount = counted(input.abstain === undefined ? 0 : input.abstain);
   const note = words(input.note, "the note", 2, 200, true);
   const list = Array.isArray(input.countedBy) ? input.countedBy.slice(0, 5) : [];
   const counters = list.map((c) => person(c, "counter"));
-  const chair = await ctx.env.DB.prepare("SELECT email FROM meeting_people WHERE meeting_id = ? AND role = 'chair'").bind(m.id).first<{ email: string }>();
+  const chair = await ctx.env.DB.prepare("SELECT email FROM mtg_people WHERE meeting_id = ? AND role = 'chair'").bind(m.id).first<{ email: string }>();
   if (!counters.length || !counters.some((c) => c.email.toLowerCase() !== (chair?.email ?? "").toLowerCase())) throw new HttpError(400, MSG.needCounter, "need_counter");
   const rule = await ruleOf(ctx.env, ctx.society.id, m.meeting_type);
   const q = await quorumOf(ctx.env, ctx.society, m, rule);
   if (!q.met) throw new HttpError(409, !q.ruleSet ? MSG.noQuorumRule : !q.linked ? MSG.needAttendance : MSG.noQuorum, "no_quorum");
-  const interests = (await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM motion_interests WHERE motion_id = ?").bind(x.id).first<{ n: number }>())?.n ?? 0;
+  const interests = (await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM mtg_interests WHERE motion_id = ?").bind(x.id).first<{ n: number }>())?.n ?? 0;
   if (q.linked && forCount + againstCount + abstainCount > Math.max(0, q.present - interests)) throw new HttpError(400, MSG.tooManyVotes, "too_many_votes");
   const outcome = passes(x.majority, forCount, againstCount) ? "passed" : "not_passed";
   const pid = await pseudonym(ctx.env, ctx.email);
   const seq = await commit(ctx.env, ctx.society.id, [
-    guardExists(ctx.env, MSG.needMotionOpen, "SELECT 1 FROM meetings WHERE id = ? AND status = 'open'", m.id),
-    guardExists(ctx.env, MSG.amendmentsFirst, "SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM motions WHERE amends_motion_id = ? AND status = 'moved')", x.id),
-    ctx.env.DB.prepare("UPDATE motions SET status = 'decided', closed_at = ? WHERE id = ? AND status = 'moved'").bind(ctx.now, x.id), guardChanged(ctx.env, MSG.motionDone),
-    ctx.env.DB.prepare("INSERT INTO motion_results (motion_id, society_id, meeting_id, method, for_count, against_count, abstain_count, counted_by_json, quorum_eligible, quorum_required, quorum_present, outcome, note, decided_at, decided_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    guardExists(ctx.env, MSG.needMotionOpen, "SELECT 1 FROM mtg_meetings WHERE id = ? AND status = 'open'", m.id),
+    guardExists(ctx.env, MSG.amendmentsFirst, "SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM mtg_motions WHERE amends_motion_id = ? AND status = 'moved')", x.id),
+    ctx.env.DB.prepare("UPDATE mtg_motions SET status = 'decided', closed_at = ? WHERE id = ? AND status = 'moved'").bind(ctx.now, x.id), guardChanged(ctx.env, MSG.motionDone),
+    ctx.env.DB.prepare("INSERT INTO mtg_results (motion_id, society_id, meeting_id, method, for_count, against_count, abstain_count, counted_by_json, quorum_eligible, quorum_required, quorum_present, outcome, note, decided_at, decided_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
       .bind(x.id, ctx.society.id, m.id, method, forCount, againstCount, abstainCount, JSON.stringify(counters.map((c) => ({ name: c.name, email: c.email }))), q.eligible, q.required, q.present, outcome, note, ctx.now, pid),
   ], "motion.decided", await actorOf(ctx), {
     meeting: m.id, motion: x.id, n: x.number, method, for: forCount, against: againstCount, abstain: abstainCount, majority: x.majority, outcome,

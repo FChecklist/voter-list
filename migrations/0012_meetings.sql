@@ -10,7 +10,7 @@
 PRAGMA foreign_keys = ON;
 
 -- the rules a list sets once per kind of meeting, from its bye-laws (nothing is assumed by the system)
-CREATE TABLE meeting_rules (
+CREATE TABLE mtg_rules (
   society_id     TEXT NOT NULL REFERENCES societies(id),
   meeting_type   TEXT NOT NULL CHECK (meeting_type IN ('annual','special','committee','emergency')),
   notice_days    INTEGER NOT NULL CHECK (notice_days BETWEEN 0 AND 365),
@@ -22,7 +22,7 @@ CREATE TABLE meeting_rules (
   PRIMARY KEY (society_id, meeting_type)
 );
 
-CREATE TABLE meetings (
+CREATE TABLE mtg_meetings (
   id                    TEXT PRIMARY KEY,
   society_id            TEXT NOT NULL REFERENCES societies(id),
   number                INTEGER NOT NULL CHECK (number >= 1),
@@ -42,17 +42,17 @@ CREATE TABLE meetings (
   UNIQUE (society_id, id),
   UNIQUE (society_id, number)
 );
-CREATE INDEX idx_meetings_society ON meetings(society_id, starts_at);
+CREATE INDEX idx_mtg_meetings_society ON mtg_meetings(society_id, starts_at);
 -- the title, kind, date, place and mode are fixed by the notice: while a notice is out they change only together with a new notice version; once the meeting has started they never change
-CREATE TRIGGER trg_meetings_fixed BEFORE UPDATE ON meetings
+CREATE TRIGGER trg_mtg_meetings_fixed BEFORE UPDATE ON mtg_meetings
 WHEN (NEW.title <> OLD.title OR NEW.meeting_type <> OLD.meeting_type OR NEW.starts_at <> OLD.starts_at OR NEW.place <> OLD.place OR NEW.mode <> OLD.mode)
  AND (OLD.status NOT IN ('draft','noticed') OR (OLD.status = 'noticed' AND NEW.notice_version = OLD.notice_version))
 BEGIN SELECT RAISE(ABORT, 'the date, place and kind of a meeting are immutable once the notice is out; a change needs a new notice'); END;
-CREATE TRIGGER trg_meetings_no_delete BEFORE DELETE ON meetings
+CREATE TRIGGER trg_mtg_meetings_no_delete BEFORE DELETE ON mtg_meetings
 WHEN (SELECT erased_at FROM societies WHERE id = OLD.society_id) IS NULL
 BEGIN SELECT RAISE(ABORT, 'a meeting is append-only: it is closed or cancelled, never deleted'); END;
 
-CREATE TABLE meeting_items (
+CREATE TABLE mtg_items (
   id         TEXT PRIMARY KEY,
   society_id TEXT NOT NULL,
   meeting_id TEXT NOT NULL,
@@ -63,21 +63,21 @@ CREATE TABLE meeting_items (
   minutes    INTEGER CHECK (minutes IS NULL OR minutes BETWEEN 1 AND 600),
   created_by TEXT NOT NULL,
   created_at INTEGER NOT NULL,
-  FOREIGN KEY (society_id, meeting_id) REFERENCES meetings(society_id, id)
+  FOREIGN KEY (society_id, meeting_id) REFERENCES mtg_meetings(society_id, id)
 );
-CREATE INDEX idx_meeting_items ON meeting_items(meeting_id, position);
-CREATE TRIGGER trg_meeting_items_fixed_ins BEFORE INSERT ON meeting_items
-WHEN (SELECT status FROM meetings WHERE id = NEW.meeting_id) <> 'draft'
+CREATE INDEX idx_mtg_items ON mtg_items(meeting_id, position);
+CREATE TRIGGER trg_mtg_items_fixed_ins BEFORE INSERT ON mtg_items
+WHEN (SELECT status FROM mtg_meetings WHERE id = NEW.meeting_id) <> 'draft'
 BEGIN SELECT RAISE(ABORT, 'the agenda is immutable once the notice is out'); END;
-CREATE TRIGGER trg_meeting_items_fixed_upd BEFORE UPDATE ON meeting_items
-WHEN (SELECT status FROM meetings WHERE id = OLD.meeting_id) <> 'draft'
+CREATE TRIGGER trg_mtg_items_fixed_upd BEFORE UPDATE ON mtg_items
+WHEN (SELECT status FROM mtg_meetings WHERE id = OLD.meeting_id) <> 'draft'
 BEGIN SELECT RAISE(ABORT, 'the agenda is immutable once the notice is out'); END;
-CREATE TRIGGER trg_meeting_items_fixed_del BEFORE DELETE ON meeting_items
-WHEN (SELECT status FROM meetings WHERE id = OLD.meeting_id) <> 'draft' AND (SELECT erased_at FROM societies WHERE id = OLD.society_id) IS NULL
+CREATE TRIGGER trg_mtg_items_fixed_del BEFORE DELETE ON mtg_items
+WHEN (SELECT status FROM mtg_meetings WHERE id = OLD.meeting_id) <> 'draft' AND (SELECT erased_at FROM societies WHERE id = OLD.society_id) IS NULL
 BEGIN SELECT RAISE(ABORT, 'the agenda is immutable once the notice is out'); END;
 
 -- every notice that went out, with the agenda exactly as it was and its fingerprint
-CREATE TABLE meeting_notices (
+CREATE TABLE mtg_notices (
   id            TEXT PRIMARY KEY,
   society_id    TEXT NOT NULL,
   meeting_id    TEXT NOT NULL,
@@ -93,15 +93,15 @@ CREATE TABLE meeting_notices (
   fingerprint   TEXT NOT NULL,
   recipients    INTEGER NOT NULL CHECK (recipients >= 0),
   UNIQUE (meeting_id, version),
-  FOREIGN KEY (society_id, meeting_id) REFERENCES meetings(society_id, id)
+  FOREIGN KEY (society_id, meeting_id) REFERENCES mtg_meetings(society_id, id)
 );
-CREATE TRIGGER trg_meeting_notices_no_update BEFORE UPDATE ON meeting_notices BEGIN SELECT RAISE(ABORT, 'a notice is append-only'); END;
-CREATE TRIGGER trg_meeting_notices_no_delete BEFORE DELETE ON meeting_notices
+CREATE TRIGGER trg_mtg_notices_no_update BEFORE UPDATE ON mtg_notices BEGIN SELECT RAISE(ABORT, 'a notice is append-only'); END;
+CREATE TRIGGER trg_mtg_notices_no_delete BEFORE DELETE ON mtg_notices
 WHEN (SELECT erased_at FROM societies WHERE id = OLD.society_id) IS NULL
 BEGIN SELECT RAISE(ABORT, 'a notice is append-only'); END;
 
 -- chair, secretary and timekeeper of one meeting; observers; and the sign-off names at the end
-CREATE TABLE meeting_people (
+CREATE TABLE mtg_people (
   society_id TEXT NOT NULL,
   meeting_id TEXT NOT NULL,
   role       TEXT NOT NULL CHECK (role IN ('chair','secretary','timekeeper','observer','validated_by','supervised_by')),
@@ -110,11 +110,11 @@ CREATE TABLE meeting_people (
   added_by   TEXT NOT NULL,
   added_at   INTEGER NOT NULL,
   PRIMARY KEY (meeting_id, role, email),
-  FOREIGN KEY (society_id, meeting_id) REFERENCES meetings(society_id, id)
+  FOREIGN KEY (society_id, meeting_id) REFERENCES mtg_meetings(society_id, id)
 );
 
 -- the order of what happened in the meeting room: opened, adjourned, resumed, closed, points of order, a notice withdrawn
-CREATE TABLE meeting_events (
+CREATE TABLE mtg_events (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   society_id TEXT NOT NULL,
   meeting_id TEXT NOT NULL,
@@ -122,26 +122,26 @@ CREATE TABLE meeting_events (
   text       TEXT NOT NULL DEFAULT '' CHECK (length(text) <= 300),
   ts         INTEGER NOT NULL,
   by_pid     TEXT NOT NULL,
-  FOREIGN KEY (society_id, meeting_id) REFERENCES meetings(society_id, id)
+  FOREIGN KEY (society_id, meeting_id) REFERENCES mtg_meetings(society_id, id)
 );
-CREATE INDEX idx_meeting_events ON meeting_events(meeting_id, id);
-CREATE TRIGGER trg_meeting_events_no_update BEFORE UPDATE ON meeting_events BEGIN SELECT RAISE(ABORT, 'meeting events are append-only'); END;
-CREATE TRIGGER trg_meeting_events_no_delete BEFORE DELETE ON meeting_events
+CREATE INDEX idx_mtg_events ON mtg_events(meeting_id, id);
+CREATE TRIGGER trg_mtg_events_no_update BEFORE UPDATE ON mtg_events BEGIN SELECT RAISE(ABORT, 'meeting events are append-only'); END;
+CREATE TRIGGER trg_mtg_events_no_delete BEFORE DELETE ON mtg_events
 WHEN (SELECT erased_at FROM societies WHERE id = OLD.society_id) IS NULL
 BEGIN SELECT RAISE(ABORT, 'meeting events are append-only'); END;
 
 -- a motion is never deleted: it is decided or withdrawn, and both stay visible
-CREATE TABLE motions (
+CREATE TABLE mtg_motions (
   id               TEXT PRIMARY KEY,
   society_id       TEXT NOT NULL,
   meeting_id       TEXT NOT NULL,
-  item_id          TEXT NOT NULL REFERENCES meeting_items(id),
+  item_id          TEXT NOT NULL REFERENCES mtg_items(id),
   number           INTEGER NOT NULL CHECK (number >= 1),
   text             TEXT NOT NULL CHECK (length(text) BETWEEN 2 AND 1000),
   mover_voter_id   TEXT NOT NULL,
   seconder_voter_id TEXT NOT NULL,
   majority         TEXT NOT NULL CHECK (majority IN ('simple','two_thirds','three_quarters')),
-  amends_motion_id TEXT REFERENCES motions(id),
+  amends_motion_id TEXT REFERENCES mtg_motions(id),
   status           TEXT NOT NULL DEFAULT 'moved' CHECK (status IN ('moved','withdrawn','decided')),
   withdrawn_reason TEXT NOT NULL DEFAULT '' CHECK (length(withdrawn_reason) <= 200),
   created_by       TEXT NOT NULL,
@@ -149,17 +149,17 @@ CREATE TABLE motions (
   closed_at        INTEGER,
   CHECK (mover_voter_id <> seconder_voter_id),
   UNIQUE (meeting_id, number),
-  FOREIGN KEY (society_id, meeting_id) REFERENCES meetings(society_id, id)
+  FOREIGN KEY (society_id, meeting_id) REFERENCES mtg_meetings(society_id, id)
 );
-CREATE TRIGGER trg_motions_no_delete BEFORE DELETE ON motions
+CREATE TRIGGER trg_mtg_motions_no_delete BEFORE DELETE ON mtg_motions
 WHEN (SELECT erased_at FROM societies WHERE id = OLD.society_id) IS NULL
 BEGIN SELECT RAISE(ABORT, 'a motion is append-only: it is decided or withdrawn, never deleted'); END;
-CREATE TRIGGER trg_motions_text_fixed BEFORE UPDATE ON motions
+CREATE TRIGGER trg_mtg_motions_text_fixed BEFORE UPDATE ON mtg_motions
 WHEN NEW.text <> OLD.text OR NEW.number <> OLD.number OR NEW.mover_voter_id <> OLD.mover_voter_id OR NEW.seconder_voter_id <> OLD.seconder_voter_id OR NEW.majority <> OLD.majority OR OLD.status <> 'moved'
 BEGIN SELECT RAISE(ABORT, 'a motion is immutable once moved; only its first decision or withdrawal is recorded'); END;
 
-CREATE TABLE motion_interests (
-  motion_id   TEXT NOT NULL REFERENCES motions(id),
+CREATE TABLE mtg_interests (
+  motion_id   TEXT NOT NULL REFERENCES mtg_motions(id),
   society_id  TEXT NOT NULL,
   voter_id    TEXT NOT NULL,
   note        TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 200),
@@ -167,14 +167,14 @@ CREATE TABLE motion_interests (
   declared_at INTEGER NOT NULL,
   PRIMARY KEY (motion_id, voter_id)
 );
-CREATE TRIGGER trg_motion_interests_no_update BEFORE UPDATE ON motion_interests BEGIN SELECT RAISE(ABORT, 'a declared interest is append-only'); END;
-CREATE TRIGGER trg_motion_interests_no_delete BEFORE DELETE ON motion_interests
+CREATE TRIGGER trg_mtg_interests_no_update BEFORE UPDATE ON mtg_interests BEGIN SELECT RAISE(ABORT, 'a declared interest is append-only'); END;
+CREATE TRIGGER trg_mtg_interests_no_delete BEFORE DELETE ON mtg_interests
 WHEN (SELECT erased_at FROM societies WHERE id = OLD.society_id) IS NULL
 BEGIN SELECT RAISE(ABORT, 'a declared interest is append-only'); END;
 
 -- one result per motion: the counts, who counted, and the quorum as it stood when the result was recorded
-CREATE TABLE motion_results (
-  motion_id       TEXT PRIMARY KEY REFERENCES motions(id),
+CREATE TABLE mtg_results (
+  motion_id       TEXT PRIMARY KEY REFERENCES mtg_motions(id),
   society_id      TEXT NOT NULL,
   meeting_id      TEXT NOT NULL,
   method          TEXT NOT NULL CHECK (method IN ('show_of_hands','online','secret_ballot','by_list_rule')),
@@ -190,13 +190,13 @@ CREATE TABLE motion_results (
   decided_at      INTEGER NOT NULL,
   decided_by      TEXT NOT NULL
 );
-CREATE TRIGGER trg_motion_results_no_update BEFORE UPDATE ON motion_results BEGIN SELECT RAISE(ABORT, 'a vote result is append-only'); END;
-CREATE TRIGGER trg_motion_results_no_delete BEFORE DELETE ON motion_results
+CREATE TRIGGER trg_mtg_results_no_update BEFORE UPDATE ON mtg_results BEGIN SELECT RAISE(ABORT, 'a vote result is append-only'); END;
+CREATE TRIGGER trg_mtg_results_no_delete BEFORE DELETE ON mtg_results
 WHEN (SELECT erased_at FROM societies WHERE id = OLD.society_id) IS NULL
 BEGIN SELECT RAISE(ABORT, 'a vote result is append-only'); END;
 
 -- minutes: every version is kept; a version never changes; once approved it is frozen with its fingerprint
-CREATE TABLE meeting_minutes (
+CREATE TABLE mtg_minutes (
   id                     TEXT PRIMARY KEY,
   society_id             TEXT NOT NULL,
   meeting_id             TEXT NOT NULL,
@@ -215,16 +215,16 @@ CREATE TABLE meeting_minutes (
   approved_at            INTEGER,
   approved_in_meeting_id TEXT,
   UNIQUE (meeting_id, version),
-  FOREIGN KEY (society_id, meeting_id) REFERENCES meetings(society_id, id)
+  FOREIGN KEY (society_id, meeting_id) REFERENCES mtg_meetings(society_id, id)
 );
-CREATE TRIGGER trg_meeting_minutes_frozen BEFORE UPDATE ON meeting_minutes
+CREATE TRIGGER trg_mtg_minutes_frozen BEFORE UPDATE ON mtg_minutes
 WHEN OLD.status = 'approved' OR NEW.body <> OLD.body OR NEW.fingerprint <> OLD.fingerprint OR NEW.version <> OLD.version OR NEW.source <> OLD.source
 BEGIN SELECT RAISE(ABORT, 'minutes are immutable: approved minutes are frozen and a correction is a new version'); END;
-CREATE TRIGGER trg_meeting_minutes_no_delete BEFORE DELETE ON meeting_minutes
+CREATE TRIGGER trg_mtg_minutes_no_delete BEFORE DELETE ON mtg_minutes
 WHEN (SELECT erased_at FROM societies WHERE id = OLD.society_id) IS NULL
 BEGIN SELECT RAISE(ABORT, 'minutes are immutable'); END;
 
-CREATE TABLE meeting_actions (
+CREATE TABLE mtg_actions (
   id          TEXT PRIMARY KEY,
   society_id  TEXT NOT NULL,
   meeting_id  TEXT NOT NULL,
@@ -237,6 +237,6 @@ CREATE TABLE meeting_actions (
   created_by  TEXT NOT NULL,
   created_at  INTEGER NOT NULL,
   updated_at  INTEGER NOT NULL,
-  FOREIGN KEY (society_id, meeting_id) REFERENCES meetings(society_id, id)
+  FOREIGN KEY (society_id, meeting_id) REFERENCES mtg_meetings(society_id, id)
 );
-CREATE INDEX idx_meeting_actions ON meeting_actions(meeting_id, due_date);
+CREATE INDEX idx_mtg_actions ON mtg_actions(meeting_id, due_date);

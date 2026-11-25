@@ -5,7 +5,7 @@ import { HttpError } from "./auth";
 import type { Env } from "./db";
 import { msToLocal, noContactDetails } from "./lists";
 import { MSG } from "./meeting-messages";
-import type { SocietyRow } from "./store";
+import type { SocietyRow, StaffCtx } from "./store";
 import { cleanEmail, squeeze } from "./text";
 import { maskEmail, maskName } from "./vendor/masking";
 import { canonical } from "./vendor/canonical";
@@ -74,22 +74,32 @@ export function person(v: unknown, what: string): Person {
   return { name, email: em.value };
 }
 export const notErased = (s: SocietyRow) => { if (s.erased_at) throw new HttpError(410, MSG.erased, "erased"); };
+
+/** Meetings stay dark until the owner switches them on: every Meetings address answers "not found" unless MEETINGS_ENABLED is "1", exactly as an address that does not exist would. */
+export const meetingsOn = (env: Env): boolean => env.MEETINGS_ENABLED === "1";
+export function gate(env: Env): void { if (!meetingsOn(env)) throw new HttpError(404, MSG.notFound, "not_found"); }
+
+/** What each role may do in Meetings. It is kept in this product's own file, so the shared permission table of the list stays as it is. The Organizer sets the rules, sends notices and approves; a co-organizer also runs the meeting. */
+const MEET_CAN = { meetSetup: ["organizer"], meetRun: ["organizer", "host"] } as const;
+export function needMeet(ctx: Pick<StaffCtx, "role">, action: keyof typeof MEET_CAN): void {
+  if (!(MEET_CAN[action] as readonly string[]).includes(ctx.role)) throw new HttpError(403, "This role cannot do this. Please ask the Organizer.", "forbidden");
+}
 export const tzText = (min: number) => { const a = Math.abs(min); return `UTC${min < 0 ? "-" : "+"}${String(Math.floor(a / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`; };
 export const fingerprintOf = (v: unknown): Promise<string> => sha256Hex(canonical(v));
 
 export async function meetingOf(env: Env, societyId: string, id: string): Promise<MeetingRow> {
-  const m = await env.DB.prepare("SELECT * FROM meetings WHERE society_id = ? AND id = ?").bind(societyId, String(id).slice(0, 60)).first<MeetingRow>();
+  const m = await env.DB.prepare("SELECT * FROM mtg_meetings WHERE society_id = ? AND id = ?").bind(societyId, String(id).slice(0, 60)).first<MeetingRow>();
   if (!m) throw new HttpError(404, MSG.notFound, "not_found");
   return m;
 }
 export async function ruleOf(env: Env, societyId: string, type: string): Promise<RuleRow | null> {
-  return env.DB.prepare("SELECT * FROM meeting_rules WHERE society_id = ? AND meeting_type = ?").bind(societyId, type).first<RuleRow>();
+  return env.DB.prepare("SELECT * FROM mtg_rules WHERE society_id = ? AND meeting_type = ?").bind(societyId, type).first<RuleRow>();
 }
 export async function itemsOf(env: Env, meetingId: string): Promise<ItemRow[]> {
-  return (await env.DB.prepare("SELECT * FROM meeting_items WHERE meeting_id = ? ORDER BY position, id").bind(meetingId).all<ItemRow>()).results;
+  return (await env.DB.prepare("SELECT * FROM mtg_items WHERE meeting_id = ? ORDER BY position, id").bind(meetingId).all<ItemRow>()).results;
 }
 export async function peopleOf(env: Env, meetingId: string): Promise<PersonRow[]> {
-  return (await env.DB.prepare("SELECT * FROM meeting_people WHERE meeting_id = ? ORDER BY role, added_at, email").bind(meetingId).all<PersonRow>()).results;
+  return (await env.DB.prepare("SELECT * FROM mtg_people WHERE meeting_id = ? ORDER BY role, added_at, email").bind(meetingId).all<PersonRow>()).results;
 }
 
 /** An attendance session of this same list, checked through Attendance's public function. A session of another list answers "not found". */

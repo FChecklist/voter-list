@@ -1,7 +1,8 @@
 // Meetings, first chunks: rules, meeting, agenda, notice (with the notice-period check), officers, quorum, motions and results, interests,
 // minutes with approval at a later meeting, action items, the public page, the calendar file, the report, erasure, and the database's own refusals.
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { routeTable } from "../src/handler";
 import { passes } from "../src/meeting-motions";
 import { MEETING_MESSAGES } from "../src/meeting-messages";
 import { canonical } from "../src/vendor/canonical";
@@ -14,7 +15,7 @@ const LATER = Date.UTC(2026, 11, 20, 12, 30); // 2026-12-20T18:00 in India
 const FIRST = ["asha", "bharat", "chitra", "dev", "esha", "farid"];
 
 async function world(n = 4, opts: Partial<Env> = {}) {
-  const h = await makeHarness(opts); const { jar, sid, slug } = await newList(h);
+  const h = await makeHarness({ MEETINGS_ENABLED: "1", ...opts }); const { jar, sid, slug } = await newList(h);
   for (let i = 0; i < n; i++) await enrolVoter(h, slug, `${FIRST[i]}@sample.example`, { unit: `${"ABCDEF"[i]}-${i + 1}`, name: `${FIRST[i]![0]!.toUpperCase()}${FIRST[i]!.slice(1)} Sample`, mobile: `9000000${400 + i}` });
   if (n) await h.call("POST", `/api/lists/${sid}/records/decide`, { items: await waiting(h, sid, jar), decision: "approve" }, jar);
   await h.call("POST", `/api/lists/${sid}/team`, { email: "co@sample.example" }, jar);
@@ -130,7 +131,7 @@ describe("a meeting and its agenda", () => {
 
   test("an agenda holds up to 100 items", async () => {
     const w = await world(1); const mid = need(await meeting(w), 201).meeting.id;
-    for (let i = 0; i < 99; i++) w.h.raw.query("INSERT INTO meeting_items (id, society_id, meeting_id, position, title, note, kind, minutes, created_by, created_at) VALUES (?, ?, ?, ?, ?, '', 'information', NULL, 'p', 1)").run(`itm_x${i}`, w.sid, mid, i + 1, `Item ${i + 1}`);
+    for (let i = 0; i < 99; i++) w.h.raw.query("INSERT INTO mtg_items (id, society_id, meeting_id, position, title, note, kind, minutes, created_by, created_at) VALUES (?, ?, ?, ?, ?, '', 'information', NULL, 'p', 1)").run(`itm_x${i}`, w.sid, mid, i + 1, `Item ${i + 1}`);
     expect((await item(w, mid, { title: "The hundredth", kind: "information" })).status).toBe(201);
     const r = await item(w, mid, { title: "One too many", kind: "information" }); expect(r.status).toBe(409); expect(r.json.code).toBe("too_many");
   });
@@ -146,7 +147,7 @@ describe("the notice", () => {
     const e = await world(0); await rule(e);
     const m2 = need(await meeting(e), 201).meeting.id; need(await item(e, m2, { title: "Welcome", kind: "information" }), 201);
     r = await e.h.call("POST", `${e.base}/${m2}/notice`, {}, e.jar); expect(r.status).toBe(409); expect(r.json.code).toBe("no_recipients");
-    expect(count(w.h, "SELECT COUNT(*) AS n FROM meeting_notices")).toBe(0);
+    expect(count(w.h, "SELECT COUNT(*) AS n FROM mtg_notices")).toBe(0);
   });
 
   test("a notice shorter than the bye-laws allow is refused and nothing is written (CP-247)", async () => {
@@ -156,8 +157,8 @@ describe("the notice", () => {
     const r = await w.h.call("POST", `${w.base}/${mid}/notice`, {}, w.jar);
     expect(r.status).toBe(409); expect(r.json.code).toBe("short_notice");
     expect(r.json.error).toContain("30 days"); expect(r.json.error).toContain("2026-12-11 11:30"); expect(r.json.error).toContain("UTC+05:30");
-    expect(count(w.h, "SELECT COUNT(*) AS n FROM meeting_notices")).toBe(0);
-    expect(w.h.raw.query("SELECT status, notice_version FROM meetings WHERE id = ?").get(mid)).toEqual({ status: "draft", notice_version: 0 });
+    expect(count(w.h, "SELECT COUNT(*) AS n FROM mtg_notices")).toBe(0);
+    expect(w.h.raw.query("SELECT status, notice_version FROM mtg_meetings WHERE id = ?").get(mid)).toEqual({ status: "draft", notice_version: 0 });
     expect(audits(w.h)).toBe(trail);
   });
 
@@ -187,7 +188,7 @@ describe("the notice", () => {
     const n = m.notice;
     expect(n).toMatchObject({ version: 1, kind: "notice", requiredDays: 21, clause: "Bye-law 12", recipients: 3 });
     expect(n.agenda.map((x: any) => [x.n, x.title, x.kind, x.minutes])).toEqual([[1, "Welcome and apologies", "information", 5], [2, "Approve the budget", "decision", 20], [3, "Elect the committee", "decision", 30]]);
-    const row = w.h.raw.query("SELECT snapshot_json, fingerprint FROM meeting_notices WHERE meeting_id = ?").get(m.mid) as { snapshot_json: string; fingerprint: string };
+    const row = w.h.raw.query("SELECT snapshot_json, fingerprint FROM mtg_notices WHERE meeting_id = ?").get(m.mid) as { snapshot_json: string; fingerprint: string };
     expect(row.fingerprint).toBe(await sha256Hex(canonical(JSON.parse(row.snapshot_json))));
     expect(row.fingerprint).toBe(n.fingerprint);
     const entry = JSON.parse((w.h.raw.query("SELECT entry_json FROM audit_entries WHERE type = 'meeting.notice_issued'").get() as { entry_json: string }).entry_json);
@@ -198,14 +199,14 @@ describe("the notice", () => {
     expect((await w.h.call("DELETE", `${w.base}/${m.mid}/agenda/${m.items[0]}`, undefined, w.jar)).status).toBe(409);
     expect((await w.h.call("PATCH", `${w.base}/${m.mid}`, { title: "A new title" }, w.jar)).json.code).toBe("fixed");
     expect((await w.h.call("PATCH", `${w.base}/${m.mid}`, { startsAt: "2026-12-06T18:00" }, w.jar)).json.code).toBe("fixed");
-    expect(() => w.h.raw.query("INSERT INTO meeting_items (id, society_id, meeting_id, position, title, kind, created_by, created_at) VALUES ('x', ?, ?, 9, 'Sneaked in', 'decision', 'p', 1)").run(w.sid, m.mid)).toThrow(/immutable/);
-    expect(() => w.h.raw.query("UPDATE meeting_items SET title = 'Changed' WHERE meeting_id = ?").run(m.mid)).toThrow(/immutable/);
-    expect(() => w.h.raw.query("DELETE FROM meeting_items WHERE meeting_id = ?").run(m.mid)).toThrow(/immutable/);
-    expect(() => w.h.raw.query("UPDATE meeting_notices SET fingerprint = 'x'").run()).toThrow(/append-only/);
-    expect(() => w.h.raw.query("DELETE FROM meeting_notices").run()).toThrow(/append-only/);
-    expect(() => w.h.raw.query("UPDATE meetings SET place = 'Somewhere else' WHERE id = ?").run(m.mid)).toThrow(/immutable/); // a changed place needs a new notice version
-    expect(() => w.h.raw.query("DELETE FROM meetings WHERE id = ?").run(m.mid)).toThrow(/append-only/);
-    expect(count(w.h, "SELECT COUNT(*) AS n FROM meeting_items")).toBe(3);
+    expect(() => w.h.raw.query("INSERT INTO mtg_items (id, society_id, meeting_id, position, title, kind, created_by, created_at) VALUES ('x', ?, ?, 9, 'Sneaked in', 'decision', 'p', 1)").run(w.sid, m.mid)).toThrow(/immutable/);
+    expect(() => w.h.raw.query("UPDATE mtg_items SET title = 'Changed' WHERE meeting_id = ?").run(m.mid)).toThrow(/immutable/);
+    expect(() => w.h.raw.query("DELETE FROM mtg_items WHERE meeting_id = ?").run(m.mid)).toThrow(/immutable/);
+    expect(() => w.h.raw.query("UPDATE mtg_notices SET fingerprint = 'x'").run()).toThrow(/append-only/);
+    expect(() => w.h.raw.query("DELETE FROM mtg_notices").run()).toThrow(/append-only/);
+    expect(() => w.h.raw.query("UPDATE mtg_meetings SET place = 'Somewhere else' WHERE id = ?").run(m.mid)).toThrow(/immutable/); // a changed place needs a new notice version
+    expect(() => w.h.raw.query("DELETE FROM mtg_meetings WHERE id = ?").run(m.mid)).toThrow(/append-only/);
+    expect(count(w.h, "SELECT COUNT(*) AS n FROM mtg_items")).toBe(3);
     const again = await w.h.call("POST", `${w.base}/${m.mid}/notice`, {}, w.jar); expect(again.status).toBe(409); expect(again.json.code).toBe("already_noticed");
     expect((await w.h.call("GET", `/api/lists/${w.sid}/audit/verify`, undefined, w.jar)).json.ok).toBe(true);
   });
@@ -215,7 +216,7 @@ describe("the notice", () => {
     const mid = need(await meeting(w), 201).meeting.id; need(await item(w, mid, { title: "Welcome", kind: "information" }), 201);
     const rs = await Promise.all([w.h.call("POST", `${w.base}/${mid}/notice`, {}, w.jar), w.h.call("POST", `${w.base}/${mid}/notice`, {}, w.jar)]);
     expect(rs.map((r) => r.status).sort()).toEqual([201, 409]);
-    expect(count(w.h, "SELECT COUNT(*) AS n FROM meeting_notices")).toBe(1);
+    expect(count(w.h, "SELECT COUNT(*) AS n FROM mtg_notices")).toBe(1);
   });
 
   test("withdrawing a notice opens the agenda again; the next notice is version 2 with another fingerprint, and the first stays on record", async () => {
@@ -298,8 +299,8 @@ describe("officers, opening and the run of the meeting", () => {
     const ev = (await w.h.call("GET", `${w.base}/${m.mid}`, undefined, w.jar)).json.events;
     expect(ev.map((e: any) => e.kind)).toEqual(["opened", "point_of_order", "adjourned", "resumed"]);
     expect(ev[2].at - ev[1].at).toBe(5 * 60_000); expect(ev[2].text).toBe("Tea break");
-    expect(() => w.h.raw.query("UPDATE meeting_events SET text = 'x'").run()).toThrow(/append-only/);
-    expect(() => w.h.raw.query("DELETE FROM meeting_events").run()).toThrow(/append-only/);
+    expect(() => w.h.raw.query("UPDATE mtg_events SET text = 'x'").run()).toThrow(/append-only/);
+    expect(() => w.h.raw.query("DELETE FROM mtg_events").run()).toThrow(/append-only/);
   });
 
   test("closing needs every motion decided or withdrawn; a closed meeting is fixed", async () => {
@@ -316,7 +317,7 @@ describe("officers, opening and the run of the meeting", () => {
     expect((await w.h.call("PUT", `${w.base}/${m.mid}/roles`, { chair: CHAIR }, w.jar)).json.code).toBe("closed");
     expect((await w.h.call("POST", `${w.base}/${m.mid}/cancel`, { reason: "Oops" }, w.jar)).json.code).toBe("cannot_cancel");
     expect((await w.h.call("PATCH", `${w.base}/${m.mid}`, { attendanceSessionId: null }, w.jar)).json.code).toBe("closed");
-    expect(() => w.h.raw.query("UPDATE meetings SET title = 'Another title' WHERE id = ?").run(m.mid)).toThrow(/immutable/);
+    expect(() => w.h.raw.query("UPDATE mtg_meetings SET title = 'Another title' WHERE id = ?").run(m.mid)).toThrow(/immutable/);
   });
 });
 
@@ -343,8 +344,8 @@ describe("quorum (CP-212, CP-213, CP-248)", () => {
     const trail = audits(w.h);
     const r = await result(w, m.mid, x.id, { for: 1, against: 0 });
     expect(r.status).toBe(409); expect(r.json.code).toBe("no_quorum"); expect(r.json.error).toContain("quorum is not met"); expect(r.json.error).toContain("adjourned");
-    expect(count(w.h, "SELECT COUNT(*) AS n FROM motion_results")).toBe(0);
-    expect(w.h.raw.query("SELECT status FROM motions WHERE id = ?").get(x.id)).toEqual({ status: "moved" });
+    expect(count(w.h, "SELECT COUNT(*) AS n FROM mtg_results")).toBe(0);
+    expect(w.h.raw.query("SELECT status FROM mtg_motions WHERE id = ?").get(x.id)).toEqual({ status: "moved" });
     expect(audits(w.h)).toBe(trail);
     await present(w, m.aid!, "bharat"); // now 2 of 4
     const ok = need(await result(w, m.mid, x.id, { for: 2, against: 0 }), 201);
@@ -390,7 +391,7 @@ describe("motions and results (CP-214 to CP-219, CP-235, CP-236)", () => {
     expect(two.map((x: any) => x.n)).toEqual([1, 2]);
     expect(two[0].mover.name).not.toBe("Asha Sample"); // masked for a co-organizer
     expect((await w.h.call("GET", `${w.base}/${m.mid}/decisions`, undefined, w.jar)).json.motions[0].mover.name).toBe("Asha Sample");
-    expect(() => w.h.raw.query("INSERT INTO motions (id, society_id, meeting_id, item_id, number, text, mover_voter_id, seconder_voter_id, majority, created_by, created_at) VALUES ('z', ?, ?, ?, 9, 'Same two', 'a', 'a', 'simple', 'p', 1)").run(w.sid, m.mid, m.items[1]!)).toThrow(/CHECK constraint failed/); // the database refuses mover = seconder as well
+    expect(() => w.h.raw.query("INSERT INTO mtg_motions (id, society_id, meeting_id, item_id, number, text, mover_voter_id, seconder_voter_id, majority, created_by, created_at) VALUES ('z', ?, ?, ?, 9, 'Same two', 'a', 'a', 'simple', 'p', 1)").run(w.sid, m.mid, m.items[1]!)).toThrow(/CHECK constraint failed/); // the database refuses mover = seconder as well
   });
 
   test("motions can be moved only while the meeting is open", async () => {
@@ -423,9 +424,9 @@ describe("motions and results (CP-214 to CP-219, CP-235, CP-236)", () => {
     expect(d.map((x: any) => [x.n, x.status, x.withdrawnReason])).toEqual([[1, "withdrawn", "Needs the audit report first"], [2, "withdrawn", "The motion it amends was withdrawn."]]);
     expect(am.id).toBe(d[1].id);
     expect((await result(w, m.mid, main.id)).json.code).toBe("motion_done");
-    expect(() => w.h.raw.query("DELETE FROM motions").run()).toThrow(/append-only/);
-    expect(() => w.h.raw.query("UPDATE motions SET text = 'Reworded after the fact' WHERE id = ?").run(main.id)).toThrow(/immutable/);
-    expect(() => w.h.raw.query("UPDATE motions SET status = 'moved' WHERE id = ?").run(main.id)).toThrow(/immutable/); // a withdrawn motion cannot be revived
+    expect(() => w.h.raw.query("DELETE FROM mtg_motions").run()).toThrow(/append-only/);
+    expect(() => w.h.raw.query("UPDATE mtg_motions SET text = 'Reworded after the fact' WHERE id = ?").run(main.id)).toThrow(/immutable/);
+    expect(() => w.h.raw.query("UPDATE mtg_motions SET status = 'moved' WHERE id = ?").run(main.id)).toThrow(/immutable/); // a withdrawn motion cannot be revived
     expect(audits(w.h, "motion.withdrawn")).toBe(1);
   });
 
@@ -452,8 +453,8 @@ describe("motions and results (CP-214 to CP-219, CP-235, CP-236)", () => {
     const masked = (await w.h.call("GET", `${w.base}/${m.mid}/decisions`, undefined, w.coJar)).json.motions[0].result.countedBy[0];
     expect(masked.email).not.toContain("counter1@sample.example"); expect(masked.name).not.toBe("Mr Counter One");
     expect((await result(w, m.mid, x.id)).json.code).toBe("motion_done");
-    expect(() => w.h.raw.query("UPDATE motion_results SET outcome = 'not_passed'").run()).toThrow(/append-only/);
-    expect(() => w.h.raw.query("DELETE FROM motion_results").run()).toThrow(/append-only/);
+    expect(() => w.h.raw.query("UPDATE mtg_results SET outcome = 'not_passed'").run()).toThrow(/append-only/);
+    expect(() => w.h.raw.query("DELETE FROM mtg_results").run()).toThrow(/append-only/);
     // two thirds: 2 for and 1 against is exactly two thirds, so it passed; a failing count is recorded as not passed
     const y = need(await motion(w, m.mid, m.items[2]!, { majority: "two_thirds" }), 201).motion;
     expect(need(await result(w, m.mid, y.id, { for: 1, against: 2 }), 201).motion.result.outcome).toBe("not_passed");
@@ -464,7 +465,7 @@ describe("motions and results (CP-214 to CP-219, CP-235, CP-236)", () => {
     const x = need(await motion(w, m.mid, m.items[1]!), 201).motion;
     const rs = await Promise.all([result(w, m.mid, x.id, { for: 2, against: 0 }), result(w, m.mid, x.id, { for: 0, against: 2 })]);
     expect(rs.map((r) => r.status).sort()).toEqual([201, 409]);
-    expect(count(w.h, "SELECT COUNT(*) AS n FROM motion_results")).toBe(1);
+    expect(count(w.h, "SELECT COUNT(*) AS n FROM mtg_results")).toBe(1);
   });
 
   test("a person with an interest is named on the motion and kept out of that vote", async () => {
@@ -477,7 +478,7 @@ describe("motions and results (CP-214 to CP-219, CP-235, CP-236)", () => {
     const dup = await dec({ voterId: w.v.dev }); expect(dup.status).toBe(409); expect(dup.json.error).toContain("already declared");
     expect((await result(w, m.mid, x.id, { for: 3, against: 1 })).json.code).toBe("too_many_votes"); // four people are present, one of them kept out: three may vote
     expect((await result(w, m.mid, x.id, { for: 2, against: 1 })).status).toBe(201);
-    expect(() => w.h.raw.query("DELETE FROM motion_interests").run()).toThrow(/append-only/);
+    expect(() => w.h.raw.query("DELETE FROM mtg_interests").run()).toThrow(/append-only/);
     expect((await dec({ voterId: w.v.asha })).json.code).toBe("motion_done"); // after the result nothing more is declared
   });
 });
@@ -522,9 +523,9 @@ describe("minutes (CP-221 to CP-224)", () => {
     expect(ok).toMatchObject({ status: "approved", statusText: "Approved", approvedInMeetingId: m2 });
     expect((await approve(d.id, { approvedInMeetingId: m2 })).json.code).toBe("done");
     // approved minutes are frozen in the database
-    expect(() => w.h.raw.query("UPDATE meeting_minutes SET body = 'Rewritten' WHERE id = ?").run(d.id)).toThrow(/immutable/);
-    expect(() => w.h.raw.query("UPDATE meeting_minutes SET status = 'draft' WHERE id = ?").run(d.id)).toThrow(/immutable/);
-    expect(() => w.h.raw.query("DELETE FROM meeting_minutes").run()).toThrow(/immutable/);
+    expect(() => w.h.raw.query("UPDATE mtg_minutes SET body = 'Rewritten' WHERE id = ?").run(d.id)).toThrow(/immutable/);
+    expect(() => w.h.raw.query("UPDATE mtg_minutes SET status = 'draft' WHERE id = ?").run(d.id)).toThrow(/immutable/);
+    expect(() => w.h.raw.query("DELETE FROM mtg_minutes").run()).toThrow(/immutable/);
     expect(JSON.parse((w.h.raw.query("SELECT entry_json FROM audit_entries WHERE type = 'minutes.approved'").get() as any).entry_json).payload).toMatchObject({ meeting: m1, version: 1, inMeeting: m2, fingerprint: ok.fingerprint });
   });
 
@@ -727,6 +728,38 @@ describe("access, boundaries and erasure", () => {
       expect((await w.h.call("GET", w.base + path, undefined, w.coJar)).status, `co-organizer GET ${path}`).toBe(200);
   });
 
+  test("Meetings is dark: without MEETINGS_ENABLED set to 1 every Meetings address answers not found, signed in or not, and nothing is written", async () => {
+    const table = routeTable().filter((r) => /meetings/.test(r.re.source));
+    expect(table.length, "the Meetings addresses are in the route table").toBeGreaterThan(30);
+    const concrete = (re: RegExp) => re.source.replace(/\\\//g, "/").replace(/^\^|\$$/g, "").replace(/\(\[\^\\?\/\]\+\)/g, "x").replace(/\\\./g, ".");
+    for (const flag of [undefined, "0", "", "true", "yes", " 1", "11"]) {
+      const h = await makeHarness(flag === undefined ? {} : { MEETINGS_ENABLED: flag }); const { jar, sid, slug } = await newList(h);
+      const unknown = await h.call("GET", `/api/lists/${sid}/nothing-here`, undefined, jar); expect(unknown.status).toBe(404);
+      const auditBefore = audits(h);
+      for (const r of table) {
+        const path = concrete(r.re).replace("/api/lists/x/", `/api/lists/${sid}/`).replace("/api/v/x/", `/api/v/${slug}/`);
+        for (const who of [undefined, jar]) {
+          const got = await h.call(r.method, path, r.method === "GET" || r.method === "DELETE" ? undefined : {}, who);
+          expect(got.status, `${r.method} ${path} flag=${JSON.stringify(flag)} signedIn=${!!who}`).toBe(404);
+          expect(got.json, `${r.method} ${path}`).toEqual(unknown.json); // the same answer as an address that does not exist
+        }
+      }
+      for (const t of ["mtg_meetings", "mtg_rules", "mtg_items", "mtg_notices", "mtg_people", "mtg_events", "mtg_motions", "mtg_interests", "mtg_results", "mtg_minutes", "mtg_actions"]) expect(count(h, `SELECT COUNT(*) AS n FROM ${t}`), t).toBe(0);
+      expect(audits(h), "no audit entry was written").toBe(auditBefore);
+    }
+  });
+
+  test("a list made only for attendance from an uploaded sheet never gets Meetings, even when Meetings is switched on", async () => {
+    const h = await makeHarness({ MEETINGS_ENABLED: "1" }); const jar = await h.staff("organizer@sample.example");
+    const up = await h.call("POST", "/api/attendance/rosters", { title: "Sheet list", format: "paste", text: "Flat / House / Member ID,Name,E-mail\nA-1,Asha,asha@sample.example\n", country: "India" }, jar);
+    expect(up.status).toBe(201);
+    const id = up.json.list.id as string, slug = String(up.json.list.link).replace("/v/", "");
+    for (const [method, path, body] of [["GET", `/api/lists/${id}/meetings`], ["GET", `/api/lists/${id}/meetings/rules`], ["POST", `/api/lists/${id}/meetings`, { title: "x" }], ["GET", `/api/v/${slug}/meetings`]] as const) {
+      const r = await h.call(method, path, body, jar); expect(r.status, `${method} ${path}`).toBe(404);
+    }
+    expect(count(h, "SELECT COUNT(*) AS n FROM mtg_meetings")).toBe(0);
+  });
+
   test("a mutating request without the page header is refused, as for every other address", async () => {
     const w = await world(1);
     const r = await w.h.call("POST", w.base, { title: "x" }, w.jar, { "x-vl": "0" }); expect(r.status).toBe(403);
@@ -740,7 +773,7 @@ describe("access, boundaries and erasure", () => {
     need(await w.h.call("POST", `${w.base}/${m.mid}/actions`, { text: "Pay the contractor", ownerName: "Mr Owner Person", ownerEmail: "owner@sample.example", dueDate: "2026-12-31" }, w.jar), 201);
     need(await w.h.call("POST", `${w.base}/${m.mid}/people`, { role: "validated_by", name: "Mr Validator", email: "validator@sample.example" }, w.jar), 201);
     need(await w.h.call("POST", `/api/lists/${w.sid}/erase`, { confirm: "ERASE" }, w.jar), 200);
-    for (const t of ["meetings", "meeting_rules", "meeting_items", "meeting_notices", "meeting_people", "meeting_events", "motions", "motion_interests", "motion_results", "meeting_minutes", "meeting_actions"]) expect(count(w.h, `SELECT COUNT(*) AS n FROM ${t}`), t).toBe(0);
+    for (const t of ["mtg_meetings", "mtg_rules", "mtg_items", "mtg_notices", "mtg_people", "mtg_events", "mtg_motions", "mtg_interests", "mtg_results", "mtg_minutes", "mtg_actions"]) expect(count(w.h, `SELECT COUNT(*) AS n FROM ${t}`), t).toBe(0);
     expect((await w.h.call("GET", w.base, undefined, w.jar)).status).toBe(410);
     expect((await w.h.call("GET", `/api/v/${w.slug}/meetings`)).status).toBe(410);
     expect((await w.h.call("GET", `/api/lists/${w.sid}/audit/verify`, undefined, w.jar)).json.ok).toBe(true); // the signed log stays and still verifies
@@ -766,7 +799,10 @@ describe("wording and boundaries of the code", () => {
       expect(src, f).not.toMatch(/\batt_(sessions|marks)\b/);
       expect(src, f).not.toMatch(/\b(FROM|JOIN|INTO|UPDATE)\s+voters\b/i);
     }
-    const sql = readFileSync("migrations/0012_meetings.sql", "utf8");
+    const name = readdirSync("migrations").find((f) => f.endsWith("_meetings.sql")); // found by its ending, so renumbering the migration at merge time breaks nothing
+    expect(name, "the Meetings migration file").toBeDefined();
+    const sql = readFileSync(`migrations/${name!}`, "utf8");
     expect(sql.replace(/--.*$/gm, "")).not.toMatch(/REFERENCES\s+(voters|att_sessions|att_marks)\b/i);
+    expect(sql.replace(/--.*$/gm, "")).not.toMatch(/\bCREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX|TRIGGER)(?:\s+IF\s+NOT\s+EXISTS)?\s+(?!mtg_|idx_mtg_|trg_mtg_|uq_mtg_)\w+/i); // every table, index and trigger of this product carries the mtg_ prefix, as Attendance carries att_
   });
 });

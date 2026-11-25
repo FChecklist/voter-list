@@ -19,7 +19,7 @@ const publicFacts = (m: MeetingRow, tz: number) => ({ id: m.id, number: m.number
 
 /** Meetings the Organizer chose to show, newest first. A meeting with no notice out, or kept private, is not here at all. */
 export async function publicMeetings(env: Env, society: SocietyRow) {
-  const rs = (await env.DB.prepare("SELECT * FROM meetings WHERE society_id = ? AND visibility <> 'private' AND notice_version >= 1 AND status <> 'draft' ORDER BY starts_at DESC, number DESC LIMIT 100").bind(society.id).all<MeetingRow>()).results;
+  const rs = (await env.DB.prepare("SELECT * FROM mtg_meetings WHERE society_id = ? AND visibility <> 'private' AND notice_version >= 1 AND status <> 'draft' ORDER BY starts_at DESC, number DESC LIMIT 100").bind(society.id).all<MeetingRow>()).results;
   return { list: society.name, meetings: rs.map((m) => publicFacts(m, society.tz_offset_min)) };
 }
 
@@ -37,7 +37,7 @@ export async function publicMeeting(env: Env, society: SocietyRow, id: string) {
     agenda: (await itemsOf(env, m.id)).map((i, k) => ({ n: k + 1, title: i.title, note: i.note, kindText: i.kind === "decision" ? "For decision" : "For information", minutes: i.minutes })),
   };
   if (m.visibility === "all") {
-    const rs = (await env.DB.prepare("SELECT x.number, x.text, x.majority, x.status, x.withdrawn_reason, i.title AS item_title, r.method, r.for_count, r.against_count, r.abstain_count, r.outcome, r.quorum_eligible, r.quorum_required, r.quorum_present FROM motions x JOIN meeting_items i ON i.id = x.item_id LEFT JOIN motion_results r ON r.motion_id = x.id WHERE x.meeting_id = ? AND x.status <> 'moved' ORDER BY x.number").bind(m.id).all<PublicDecision>()).results;
+    const rs = (await env.DB.prepare("SELECT x.number, x.text, x.majority, x.status, x.withdrawn_reason, i.title AS item_title, r.method, r.for_count, r.against_count, r.abstain_count, r.outcome, r.quorum_eligible, r.quorum_required, r.quorum_present FROM mtg_motions x JOIN mtg_items i ON i.id = x.item_id LEFT JOIN mtg_results r ON r.motion_id = x.id WHERE x.meeting_id = ? AND x.status <> 'moved' ORDER BY x.number").bind(m.id).all<PublicDecision>()).results;
     out.decisions = rs.map((x) => ({
       n: x.number, itemTitle: x.item_title, text: x.text, majorityText: MAJORITY_WORDS[x.majority], status: x.status, withdrawnReason: x.withdrawn_reason,
       result: x.outcome ? { methodText: METHOD_WORDS[x.method!], for: x.for_count, against: x.against_count, abstain: x.abstain_count, outcomeText: x.outcome === "passed" ? "Passed" : "Not passed", quorum: { eligible: x.quorum_eligible, required: x.quorum_required, present: x.quorum_present } } : null,

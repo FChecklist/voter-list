@@ -20,7 +20,6 @@ export interface StaffCtx { env: Env; now: number; email: string; role: Role; pe
 export const CAN: Record<string, Role[]> = {
   view: ["organizer", "host"], review: ["organizer", "host"], import: ["organizer", "host"], editRecords: ["organizer", "host"], undo: ["organizer", "host"], weights: ["organizer", "host"], authorize: ["organizer"],
   settings: ["organizer"], publishDraft: ["organizer"], freeze: ["organizer"], team: ["organizer"], fullExport: ["organizer"], orders: ["organizer"], reopen: ["organizer"], shareLink: ["organizer"], attendSetup: ["organizer"], attendMark: ["organizer", "host"],
-  meetSetup: ["organizer"], meetRun: ["organizer", "host"],
 };
 export function need(ctx: Pick<StaffCtx, "role">, action: keyof typeof CAN): void {
   if (!CAN[action]!.includes(ctx.role)) throw new HttpError(403, "This role cannot do this. Please ask the Organizer.", "forbidden");
