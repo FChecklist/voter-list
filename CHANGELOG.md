@@ -2,6 +2,14 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.10 - not deployed yet (IST)
+
+Fix after round 15 of Attendance chunks 1-2. The commit field names `9a8f91a8`, the head this was built on.
+
+- A person who moves to another flat no longer changes the flat shown for past sessions: the flat is kept on the mark (migration `0015_attendance_unit_at_mark.sql`, `att_marks.unit_at_mark`, filled in for older marks). The sheet, the CSV and the people list show it; marks stay append-only.
+- The documents-required button lost an unused id.
+- Tests: move after a mark; migration fill-in; no update of a mark; remove and add back a person with marks; every release in `version.json` names a different commit.
+
 ## 0.3.9 - not deployed yet (IST)
 
 Fix after round 14 of Attendance chunks 1-2 (two audits of 0.3.8 found three tick boxes still in the product). The commit field names `b69ea3da`, the head this was built on.

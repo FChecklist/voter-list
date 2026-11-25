@@ -100,7 +100,7 @@
       regNo: el("input", { id: "lr", type: "text", maxlength: "40", required: "", "aria-required": "true", value: L ? L.regNo : "" }),
       regOffice: el("input", { id: "lg", type: "text", maxlength: "100", value: L ? L.regOffice : "" }),
       cutoff: el("input", { id: "lc", type: "datetime-local", value: L && L.cutoffLocal ? L.cutoffLocal : "" }),
-      docs: Object.assign(window.VL.toggle("Ask every voter for one supporting document", !!(L && L.docsRequired)), { id: "ld" }),
+      docs: window.VL.toggle("Ask every voter for one supporting document", !!(L && L.docsRequired)),
       weight: el("select", { id: "lw" }, [["equal", "Equal: every flat has the same weight"], ["unequal", "Votes are weighted (for example by share of the building)"]].map(([v, t]) => el("option", { value: v, selected: L ? L.weightMode === v : v === "equal" }, t))),
       reasonPublic: el("select", { id: "lq" }, [["role", "Only reasons that follow from the role (for example Tenant or Co-owner). Dues and private notes stay private."], ["none", "No reasons at all on the public list"], ["all", "Every reason, including unpaid dues and private notes"]].map(([v, t]) => el("option", { value: v, selected: (L && L.reasonPublic ? L.reasonPublic : "role") === v }, t))),
     };

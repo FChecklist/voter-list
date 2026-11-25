@@ -1,10 +1,16 @@
 {
   "product": "voter-list",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "b69ea3da",
+  "commit": "9a8f91a8",
   "changes": [
+    {
+      "version": "0.3.10",
+      "releasedAt": null,
+      "commit": "9a8f91a8",
+      "notes": "Attendance fix after round 15: a person who moves to another flat no longer changes the flat shown for sessions already held. The flat is now kept on each attendance mark when it is made (migration 0015 adds it to the mark and fills it in for marks made before); the sheet, the downloaded file and the list of people show that flat for a person who was marked, and the current flat for a person not yet marked. Marks still cannot be changed. The documents-required button lost an unused id. Tests: a move after a mark leaves the closed session as it was and a new session shows the new flat; the migration fill-in; no update of a mark; removing and adding back a person who has marks keeps the marks and the flat on them and adds no second row; the version history must name a different commit for each release. The commit field names 9a8f91a8, the head this was built on. Not deployed yet."
+    },
     {
       "version": "0.3.9",
       "releasedAt": null,

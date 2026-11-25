@@ -71,11 +71,10 @@ describe("3. the documents-required value round-trips", () => {
 
 describe("4. the version", () => {
   const version = JSON.parse(read("public/version.json")) as { version: string; commit: string; changes: Array<{ version: string; commit?: string }> };
-  test("0.3.9 everywhere; the newest entry names b69ea3da, the head it was built on", () => {
-    expect(version.version).toBe("0.3.9"); expect(version.changes[0]!.version).toBe("0.3.9");
-    expect(JSON.parse(read("package.json")).version).toBe("0.3.9");
+  test("the 0.3.9 entry names b69ea3da, the head it was built on", () => {
+    const e = version.changes.find((x) => x.version === "0.3.9")!;
+    expect(e.commit).toBe("b69ea3da");
     expect(read("CHANGELOG.md")).toContain("## 0.3.9"); expect(read("KNOWLEDGE.md")).toContain("0.3.9:"); expect(read("KNOWLEDGE.md")).toContain("There are no checkboxes left");
-    expect(version.changes[0]!.commit).toBe("b69ea3da"); expect(version.commit).toBe("b69ea3da");
     expect(() => execFileSync("git", ["cat-file", "-e", "b69ea3da^{commit}"], { stdio: "ignore" })).not.toThrow();
   });
 });

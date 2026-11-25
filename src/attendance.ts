@@ -80,11 +80,11 @@ export async function openSession(ctx: StaffCtx, id: string, find = "") {
   need(ctx, "view"); notErased(ctx.society);
   const s = await sessionOf(ctx.env, ctx.society.id, id);
   const full = seesFull(ctx);
-  const marks = new Map((await ctx.env.DB.prepare("SELECT voter_id, method, marked_at FROM att_marks WHERE session_id = ?").bind(id).all<{ voter_id: string; method: string; marked_at: number }>()).results.map((m) => [m.voter_id, m]));
+  const marks = new Map((await ctx.env.DB.prepare("SELECT voter_id, method, marked_at, unit_at_mark FROM att_marks WHERE session_id = ?").bind(id).all<{ voter_id: string; method: string; marked_at: number; unit_at_mark: string | null }>()).results.map((m) => [m.voter_id, m]));
   const q = squeeze(find).toLowerCase();
   const lines = await eligibleLines(ctx.env, ctx.society.id);
   const shown = lines.filter((l) => !q || l.row.unit.toLowerCase().includes(q) || (full && l.row.name.toLowerCase().includes(q))).slice(0, 50)
-    .map((l) => ({ voterId: l.voterId, unit: l.row.unit, name: full ? l.row.name : maskName(l.row.name), email: full ? l.row.email : maskEmail(l.row.email), present: marks.has(l.voterId), method: marks.get(l.voterId)?.method ?? null, markedAt: marks.get(l.voterId)?.marked_at ?? null }));
+    .map((l) => ({ voterId: l.voterId, unit: marks.get(l.voterId)?.unit_at_mark ?? l.row.unit, name: full ? l.row.name : maskName(l.row.name), email: full ? l.row.email : maskEmail(l.row.email), present: marks.has(l.voterId), method: marks.get(l.voterId)?.method ?? null, markedAt: marks.get(l.voterId)?.marked_at ?? null }));
   return { session: viewSession(s, ctx.society.tz_offset_min, lines.length, marks.size), people: shown, view: viewOf(ctx) };
 }
 
@@ -93,12 +93,12 @@ export async function sheetCsv(ctx: StaffCtx, id: string) {
   need(ctx, "view"); notErased(ctx.society);
   const s = await sessionOf(ctx.env, ctx.society.id, id);
   const full = seesFull(ctx);
-  const marks = new Map((await ctx.env.DB.prepare("SELECT voter_id, method, marked_at FROM att_marks WHERE session_id = ?").bind(id).all<{ voter_id: string; method: string; marked_at: number }>()).results.map((m) => [m.voter_id, m]));
+  const marks = new Map((await ctx.env.DB.prepare("SELECT voter_id, method, marked_at, unit_at_mark FROM att_marks WHERE session_id = ?").bind(id).all<{ voter_id: string; method: string; marked_at: number; unit_at_mark: string | null }>()).results.map((m) => [m.voter_id, m]));
   const lines = await eligibleLines(ctx.env, ctx.society.id);
   const rows: unknown[][] = [["Flat / House / Member ID", full ? "Name" : "Name (partly hidden)", full ? "E-mail ID" : "E-mail ID (partly hidden)", "Present", "Marked how", "Marked at"]];
   for (const l of lines) {
     const m = marks.get(l.voterId);
-    rows.push([l.row.unit, full ? l.row.name : maskName(l.row.name), full ? l.row.email : maskEmail(l.row.email), m ? "Yes" : "No", m ? (m.method === "email" ? "E-mail code" : "Organizer or co-organizer") : "", m ? msToLocal(m.marked_at, ctx.society.tz_offset_min) : ""]);
+    rows.push([m?.unit_at_mark ?? l.row.unit, full ? l.row.name : maskName(l.row.name), full ? l.row.email : maskEmail(l.row.email), m ? "Yes" : "No", m ? (m.method === "email" ? "E-mail code" : "Organizer or co-organizer") : "", m ? msToLocal(m.marked_at, ctx.society.tz_offset_min) : ""]);
   }
   await commit(ctx.env, ctx.society.id, [], "attendance.sheet_exported", await staffActor(ctx.env, ctx.email, ctx.role), { session: s.id, lines: lines.length, full }, ctx.now);
   return { body: toCsv(rows), type: "text/csv; charset=utf-8", filename: full ? "attendance-sheet.csv" : "attendance-sheet-limited.csv", view: viewOf(ctx) };
@@ -131,7 +131,7 @@ async function mark(env: Env, society: SocietyRow, s: SessionRow, voterId: strin
   const stmts: D1Stmt[] = [
     guardExists(env, ERR.closedMeanwhile, "SELECT 1 FROM att_sessions WHERE id = ? AND status = 'open'", s.id),
     ...(method === "email" ? [guardMissing(env, ERR.onePerEmail, byThisEmail, s.id, pid, voterId)] : []),
-    env.DB.prepare("INSERT OR IGNORE INTO att_marks (session_id, society_id, voter_id, method, marked_by, marked_at) VALUES (?, ?, ?, ?, ?, ?)").bind(s.id, society.id, voterId, method, pid, now),
+    env.DB.prepare("INSERT OR IGNORE INTO att_marks (session_id, society_id, voter_id, method, marked_by, marked_at, unit_at_mark) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(s.id, society.id, voterId, method, pid, now, line.row.unit),
     guardChanged(env, ERR.alreadyPresent),
   ];
   // the signed log names the voter and the marker only by private codes, and the flat only in a form that carries no phone number or e-mail ID

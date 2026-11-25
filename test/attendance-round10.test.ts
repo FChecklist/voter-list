@@ -154,9 +154,9 @@ describe("3. undo of a record that already has an attendance mark", () => {
 describe("4. the version names a real commit", () => {
   const version = JSON.parse(read("public/version.json")) as { version: string; commit: string; changes: Array<{ version: string; commit?: string }> };
   const git = (...args: string[]) => execFileSync("git", args, { stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
-  test("0.3.9 is the version everywhere, and every commit named in version.json is a commit that exists (a missing history fails, it is not skipped)", () => {
-    expect(version.version).toBe("0.3.9");
-    expect(version.changes[0]!.version).toBe("0.3.9");
+  test("0.3.10 is the version everywhere, and every commit named in version.json is a commit that exists (a missing history fails, it is not skipped)", () => {
+    expect(version.version).toBe("0.3.10");
+    expect(version.changes[0]!.version).toBe("0.3.10");
     for (const c of version.changes.filter((x) => x.commit).slice(0, 3)) expect(() => git("cat-file", "-e", c.commit + "^{commit}"), c.commit).not.toThrow();
   });
   test("migration 0013 is left as released, 0014 narrows the trigger, and KNOWLEDGE.md tells merges to renumber", () => {
@@ -164,5 +164,14 @@ describe("4. the version names a real commit", () => {
     expect(read("migrations/0013_attendance_purge.sql")).toContain("trg_att_marks_no_delete");
     expect(read("migrations/0014_attendance_purge_marker.sql")).toContain("att_purge");
     expect(read("migrations/0014_attendance_purge_marker.sql")).not.toContain("status = 'removed'");
+  });
+
+  // Two releases never name the same commit (KNOWLEDGE.md). Releases before 0.3.3 name none. No duplicate exists today, so the allowlist is empty.
+  const ALLOWED_DUPLICATES: Record<string, string> = {};
+  const duplicates = (entries: Array<{ commit?: string }>) => { const seen = new Map<string, number>(); for (const e of entries) if (e.commit) seen.set(e.commit, (seen.get(e.commit) ?? 0) + 1); return [...seen].filter(([c, n]) => n > 1 && !(c in ALLOWED_DUPLICATES)).map(([c]) => c); };
+  test("every entry in version.json names a distinct commit, and a planted duplicate is caught", () => {
+    expect(duplicates(version.changes)).toEqual([]);
+    expect(duplicates([{ commit: "aaaaaaa" }, { commit: "bbbbbbb" }, { commit: "aaaaaaa" }])).toEqual(["aaaaaaa"]);
+    expect(duplicates([{ commit: "aaaaaaa" }, { commit: "bbbbbbb" }])).toEqual([]);
   });
 });
