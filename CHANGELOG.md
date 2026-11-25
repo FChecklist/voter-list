@@ -4,7 +4,7 @@ Newest first. Dates are in IST. Every deployed change gets a new version here, i
 
 ## 0.6.0 - not deployed yet (IST)
 
-Elections, first chunks and the fixes after two audits. The commit field names `0123e5e8`, the merge of main that this release was built on (the parent of the bump commit). Before the merge with main this was two notes, 0.4.0 and 0.4.1; they are one release now because main had moved on to 0.5.0. The migration is `0018_elections.sql` (it was `0012_elections.sql`; attendance uses 0012 to 0015, Results 0016, Meetings 0017).
+Elections, first chunks and the fixes after three audit rounds. The commit field names `0123e5e8`, the merge of main that this release was built on (the parent of the bump commit). Before the merge with main this was two notes, 0.4.0 and 0.4.1; they are one release now because main had moved on to 0.5.0. The migration is `0018_elections.sql` (it was `0012_elections.sql`; attendance uses 0012 to 0015, Results 0016, Meetings 0017).
 
 ### First chunks (was 0.4.0)
 
