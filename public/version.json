@@ -1,10 +1,22 @@
 {
   "product": "voter-list",
-  "version": "0.3.12",
+  "version": "0.4.1",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "2fd57cf1",
+  "commit": "8494e37",
   "changes": [
+    {
+      "version": "0.4.1",
+      "commit": "8494e37",
+      "releasedAt": null,
+      "notes": "Results fixes after two audits: a masked result (public page and co-organizer view) is built only from structured fields (ids, counts, fingerprints, kinds, codes and masked names) and carries no free text, so a name typed into a title, reference, motion, post name, correction reason, event or attendance title, rule words or check text can never show; the co-organizer sheet is built the same way, and only the Organizer sees the full text. The public check no longer returns internal audit sequence numbers, and public result pages drop them too. Every version note now names its own commit, and a test checks that the top-level commit is the newest note's commit. Tests added for a hidden and a masked result on one list, the erase refusals (a co-organizer, and an Organizer before the retention time) and the check-code scan of the guide. Not deployed yet."
+    },
+    {
+      "version": "0.4.0",
+      "commit": "577eb16",
+      "releasedAt": null,
+      "notes": "Results, first chunk (API only, dark): a closed meeting or election is entered by the Organizer, the server makes a draft result from it (outcomes, rule in words, checks, fingerprint, challenge window), the Organizer types FINAL after the window if no check failed, and a mistake is put right by a correction that keeps the old result. Public pages show a result only when the Organizer chooses hidden, masked or full. Sheet download, a check anyone can run, signed audit lines with no personal data, erase with the list. New tables in migration 0012; every Results address answers not found unless RESULTS_ENABLED is 1. No screens, e-mails, PDF or Hindi lines yet. Not deployed yet."
+    },
     {
       "version": "0.3.12",
       "releasedAt": null,

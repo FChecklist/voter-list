@@ -121,11 +121,13 @@ describe("3. the version history", () => {
   const version = JSON.parse(read("public/version.json")) as { version: string; commit: string; changes: Array<{ version: string; commit?: string }> };
   const OLD_WITHOUT_COMMIT = ["0.3.2", "0.3.1", "0.3.0", "0.2.4", "0.2.3", "0.2.2", "0.2.1", "0.2.0", "0.1.0"];
   const without = (es: Array<{ version: string; commit?: string }>) => es.filter((e) => !e.commit).map((e) => e.version);
-  test("0.3.12 everywhere; the newest entry names 2fd57cf1, a commit that exists", () => {
-    expect(version.version).toBe("0.3.12"); expect(version.changes[0]!.version).toBe("0.3.12");
-    expect(JSON.parse(read("package.json")).version).toBe("0.3.12");
-    expect(read("CHANGELOG.md")).toContain("## 0.3.12"); expect(read("KNOWLEDGE.md")).toContain("**0.3.12**");
-    expect(version.changes[0]!.commit).toBe("2fd57cf1"); expect(version.commit).toBe("2fd57cf1");
+  test("the current version is the same everywhere; the 0.3.12 entry stays in the history and names 2fd57cf1, a commit that exists", () => {
+    expect(version.changes[0]!.version).toBe(version.version);
+    expect(JSON.parse(read("package.json")).version).toBe(version.version);
+    expect(read("KNOWLEDGE.md")).toContain("**" + version.version + "**");
+    expect(version.commit).toBe(version.changes[0]!.commit as string);
+    expect(read("CHANGELOG.md")).toContain("## 0.3.12");
+    expect(version.changes.find((e) => e.version === "0.3.12")!.commit).toBe("2fd57cf1");
     expect(() => execFileSync("git", ["cat-file", "-e", "2fd57cf1^{commit}"], { stdio: "ignore" })).not.toThrow();
   });
   test("the commit named for 0.3.11 is the parent of the commit that bumped the version to 0.3.11 (skipped when the history is shallow)", () => {

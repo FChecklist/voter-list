@@ -154,10 +154,10 @@ describe("3. undo of a record that already has an attendance mark", () => {
 describe("4. the version names a real commit", () => {
   const version = JSON.parse(read("public/version.json")) as { version: string; commit: string; changes: Array<{ version: string; commit?: string }> };
   const git = (...args: string[]) => execFileSync("git", args, { stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
-  test("0.3.12 is the version everywhere, and every commit named in version.json is a commit that exists (a missing history fails, it is not skipped)", () => {
-    expect(version.version).toBe("0.3.12");
-    expect(version.changes[0]!.version).toBe("0.3.12");
-    for (const c of version.changes.filter((x) => x.commit).slice(0, 3)) expect(() => git("cat-file", "-e", c.commit + "^{commit}"), c.commit).not.toThrow();
+  test("the current version is the newest entry, the 0.3.12 entry stays, and every commit named in version.json is a commit that exists (a missing history fails, it is not skipped)", () => {
+    expect(version.changes[0]!.version).toBe(version.version);
+    expect(version.changes.some((x) => x.version === "0.3.12")).toBe(true);
+    for (const c of version.changes.filter((x) => x.commit).slice(0, 5)) expect(() => git("cat-file", "-e", c.commit + "^{commit}"), c.commit).not.toThrow();
   });
   test("migration 0013 is left as released, 0014 narrows the trigger, and KNOWLEDGE.md tells merges to renumber", () => {
     expect(read("KNOWLEDGE.md")).toContain("renumber");

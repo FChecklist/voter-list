@@ -11,6 +11,7 @@ migrations_dir = "migrations"
 
 # Secrets (never in this file): SIGNING_KEY, PEPPER, PAY_SERVICE_KEY (with the plain variables PAY_SITE and PRICE_INR; the central payment service of IT SERVICES BY RAJAT AGARWAL, off until all are set), and CF_EMAIL_TOKEN and CF_ACCOUNT_ID (the Cloudflare Email Service; RESEND_API_KEY is the older route), MAIL_FROM.
 # Do NOT set TEST_MODE in production.
+# Results stay dark: leave RESULTS_ENABLED unset (every Results address then answers "not found"). Set it to "1" only when the owner gives the go-ahead.
 
 # The smoke-test (preview) deployment uses its own empty database, never the live one.
 [[env.preview.d1_databases]]
