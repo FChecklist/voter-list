@@ -44,6 +44,8 @@ export async function eraseList(ctx: StaffCtx, input: { confirm?: string }) {
     db.prepare("DELETE FROM mtg_rules WHERE society_id = ?").bind(sid),
     db.prepare("DELETE FROM att_marks WHERE society_id = ?").bind(sid), // the trigger allows this only because erased_at is set above, in this same batch
     db.prepare("DELETE FROM att_sessions WHERE society_id = ?").bind(sid),
+    // Elections: everything that names a person or holds a vote goes; the election's own rules, posts and public trail stay (they hold no personal data)
+    ...["el_ballots", "el_receipts", "el_voted", "el_tickets", "el_codes", "el_challenges", "el_nominations", "el_officials", "el_counts"].map((t) => db.prepare(`DELETE FROM ${t} WHERE election_id IN (SELECT id FROM el_elections WHERE society_id = ?)`).bind(sid)),
     db.prepare("DELETE FROM res_results WHERE society_id = ?").bind(sid), // declared results and their closings go with the list (the triggers allow it only because erased_at is set above)
     db.prepare("DELETE FROM res_closings WHERE society_id = ?").bind(sid),
     db.prepare("DELETE FROM voters WHERE society_id = ?").bind(sid),

@@ -5,6 +5,7 @@ import { checkTurnstile, endSession, HttpError, sessionFrom, startCode, verifyCo
 import type { Env } from "./db";
 import * as attendance from "./attendance";
 import { eraseList, eraseStatus } from "./erase";
+import { mountElections } from "./elections-routes";
 import * as lists from "./lists";
 import { mountMeetings } from "./meeting-routes";
 import * as orders from "./orders";
@@ -197,6 +198,8 @@ route("GET", "/api/lists/:sid/attendance/sessions/:aid/sheet.csv", async (r) => 
 route("POST", "/api/lists/:sid/attendance/sessions/:aid/mark", async (r) => { const c = await staffAny(r); const b = await r.body(); return json(await attendance.markByTeam(c, r.params.aid!, b.voterId)); });
 route("POST", "/api/lists/:sid/attendance/sessions/:aid/close", async (r) => { const c = await staffAny(r); await r.body(); return json(await attendance.closeSession(c, r.params.aid!)); });
 
+// elections (dark unless ELECTIONS_ENABLED is "1"): the addresses are in elections-routes.ts
+mountElections({ route, json, staff, voter, slug: slugList, publicCache: PUBLIC_CACHE });
 // results (dark until RESULTS_ENABLED is "1"): a closed meeting or election, the declared result made from it, and what the public may see of it
 route("POST", "/api/lists/:sid/results/closings", async (r) => json(await results.enterClosing(await resultsStaff(r), await r.body()), 201));
 route("GET", "/api/lists/:sid/results/closings", async (r) => json(await results.listClosings(await resultsStaff(r))));

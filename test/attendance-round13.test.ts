@@ -73,7 +73,7 @@ describe("3. README, ASSUMPTIONS and KNOWLEDGE do not claim a tick", () => {
     for (const f of ["README.md", "ASSUMPTIONS.md", "KNOWLEDGE.md"]) {
       const t = read(f);
       expect(t, f).not.toMatch(/a tick is required|must tick|with a tick before|Voters give consent with a tick/i);
-      for (const line of t.split("\n").filter((l) => /\btick/i.test(l))) expect(line, f).toMatch(/no tick box|no tick|not a tick|has no tick|tick box(es)? (is|are) gone|0\.3\.[78]|history/i);
+      for (const line of t.split("\n").filter((l) => /\btick(?!ets?\b)/i.test(l)) /* a voting ticket (Elections) is not a tick box */) expect(line, f).toMatch(/no tick box|no tick|not a tick|has no tick|tick box(es)? (is|are) gone|0\.3\.[78]|history/i);
     }
     expect(read("ASSUMPTIONS.md")).toContain("Pressing the plain confirm button");
   });

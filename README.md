@@ -20,6 +20,8 @@ A single-page product for AOA, HOA and RWA societies to build, check, publish an
 
 Also: bulk upload (people are invited, not approved), up to 3 documents per record (PDF/JPG/PNG, 400 KB), a dues cut-off, equal or weighted votes, several people per flat with the Organizer authorizing who votes, plain-words checks, a signed hash-chained audit trail, records kept always (erasing only if the owner sets a retention period; a lawyer should review under the DPDP Act 2023), a language switch on the voter page (English and Hindi; the Organizer page is English for now; more languages by adding a file), and a 10-lists-per-organizer limit.
 
+**Elections (dark until the owner switches it on).** A society election on the frozen final voter list: nominations, a notice, a secret ballot (online, in person or both), the count, challenges, the declaration and one public report. The vote stays secret because the register of who voted and the sealed ballots share no column, and the tests read the real database to prove it. Read `docs/ELECTIONS.md`.
+
 Read `docs/GAPS-AND-PLAN.md` for the design, the single-page mocks, what was borrowed from other products and what was left out. `ASSUMPTIONS.md` lists every default. `docs/PROGRESS.md` holds the owner's open questions.
 
 ## Run it locally
@@ -40,7 +42,7 @@ bun test --isolate
 bun run typecheck
 ```
 
-`test/pure.test.ts` (text cleaning, CSV/Excel, checks, fingerprints), `test/flow.test.ts` (the whole journey: sign-in, enrol, send, approve / send back / resubmit, draft, frozen, proof, reopen), `test/team.test.ts` (1 Organizer, 10 Hosts, the standing host, masking, audited opens, hand-over), `test/hardening.test.ts` (undo, import, documents, closing time, CSRF, code limits, privacy of the signed log, tamper detection, erasure), `test/pages.test.ts` (the pages only call real routes and use no inline script or innerHTML). The API tests call the real request handler against a real SQLite database with a fake clock.
+`test/pure.test.ts` (text cleaning, CSV/Excel, checks, fingerprints), `test/flow.test.ts` (the whole journey: sign-in, enrol, send, approve / send back / resubmit, draft, frozen, proof, reopen), `test/team.test.ts` (1 Organizer, 10 Hosts, the standing host, masking, audited opens, hand-over), `test/hardening.test.ts` (undo, import, documents, closing time, CSRF, code limits, privacy of the signed log, tamper detection, erasure), `test/pages.test.ts` (the pages only call real routes and use no inline script or innerHTML). `test/elections*.test.ts` (Elections: set-up and nominations, voting, the count and declaration, and the secrecy proofs). The API tests call the real request handler against a real SQLite database with a fake clock.
 
 ## Deploy plan (Cloudflare free plan). NOTHING BELOW HAS BEEN RUN. It needs the owner's explicit go.
 
@@ -65,7 +67,7 @@ bun test --isolate && bun run typecheck && bun run build:pages
 wrangler login
 wrangler d1 create voter-list           # copy the printed id into wrangler.toml, database_id
 wrangler d1 create voter-list-preview   # copy the id into wrangler.toml, [env.preview], database_id
-wrangler d1 migrations apply voter-list-preview --remote --env preview    # applies migrations 0001 to 0017 to the PREVIEW database only (the Elections PR adds its own 0012 file; it is renumbered at merge)
+wrangler d1 migrations apply voter-list-preview --remote --env preview    # applies migrations 0001 to 0018 to the PREVIEW database only
 ```
 
 **Step 3. Create secrets outside the repo.** Production secrets must be new, not the dev ones; keep the signing key backed up offline, because it signs the audit trail and the final lists.
@@ -119,10 +121,11 @@ The society (through its Organizer) decides why and how the voter list is used, 
 ## Layout
 
 ```
-migrations/   0001..0004 (core, lists, workflow, hardening; the old tables stay unused), 0005_enrolment (voters, documents, events, publications, roles), 0006_indexes (for the clean-up), then 0007 to 0015 (up to the flat kept on the attendance mark), then 0016_results and 0017_meetings (the Elections PR adds a 0012 file that is renumbered at merge)
+migrations/   0001..0004 (core, lists, workflow, hardening; the old tables stay unused), 0005_enrolment (voters, documents, events, publications, roles), 0006_indexes (for the clean-up), then 0007 to 0015 (up to the flat kept on the attendance mark), then 0016_results, 0017_meetings and 0018_elections (the last three were each a 0012 file before they were merged with the attendance work and were renumbered)
 src/          handler.ts (router and API), lists / records / review / publish / overview / erase / orders (services), store.ts (access rules),
               auth.ts, audit.ts, checks.ts, importer.ts, csv.ts, xlsx.ts, text.ts, model.ts, vendor/,
-              results.ts and results-core.ts (Results: the service, and the counting and checks with no database)
+              results.ts and results-core.ts (Results: the service, and the counting and checks with no database),
+              meetings.ts and meeting-*.ts (Meetings), elections*.ts and election-messages.ts (Elections)
 functions/    the Pages Function that calls the handler
 public/       index.html (Organizer and Hosts), v/index.html (voters), assets/ (steps.js, voter.js, organizer*.js, ui.js, app.css)
 scripts/      gen-dev-vars, gen-prod-keys, migrate, seed, build-pages
