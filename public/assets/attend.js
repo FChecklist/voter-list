@@ -10,7 +10,12 @@
   const maskMail = (e) => e.replace(/^(.).*(@)(.).*(\..+)$/, "$1****$2$3****$4");
 
   async function load() {
-    S.pub = await api("GET", A("/attendance"));
+    try { S.pub = await api("GET", A("/attendance")); } catch (e) {
+      if (e.status !== 410) throw e;
+      document.getElementById("who").replaceChildren();
+      root.replaceChildren(el("div", { class: "page" }, el("div", { class: "hero" }, el("h1", {}, "Attendance"), el("p", { class: "muted" }, "This list has been closed. Nothing can be marked here."))));
+      return;
+    }
     try { S.me = await api("GET", A("/attend/me")); } catch (e) { if (e.status === 401) S.me = null; else throw e; }
     draw();
   }

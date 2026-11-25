@@ -2,6 +2,15 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.1 - not deployed yet (IST)
+
+Fixes after round 5 of Attendance chunks 1-2.
+
+- The Organizer sign-in page shows the e-mail ID masked after the code is sent.
+- The voter page shows a plain closed message when the list is closed or erased.
+- Hindi lines for the server error messages (to be checked by a native Hindi reader).
+- Tests: formula-safe CSV cells, the three Organizer sign-in routes, the wording of the mark screen.
+
 ## 0.3.0 - not deployed yet (IST)
 
 Attendance chunk 2: the screens.

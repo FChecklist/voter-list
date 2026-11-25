@@ -4,7 +4,7 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 ## Version
 
-- Current version: **0.3.0** (not deployed yet; first release date to be set when it is deployed).
+- Current version: **0.3.1** (not deployed yet; first release date to be set when it is deployed).
 - `public/version.json` holds the version, release time, commit and a list of past changes. The site serves it at `/version.json` (the file is in `public/`, which is what `bun run build:pages` copies to `dist/`).
 - `package.json` carries the same version number. Keep the two equal.
 - `CHANGELOG.md` has the notes in plain words, newest first, dated in IST.
@@ -27,7 +27,7 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 - Attendance screens: the voter page lists the open sessions of the list from the public counts (cached for 30 seconds), so a session closed a moment ago can still show a "Mark present" button; the server then answers that the session is closed and the page shows that answer. This is accepted.
 - Attendance sheet CSV: the Organizer gets full names and e-mail IDs, as in the Voter List full export; a co-organizer gets masked values. The download leaves a signed-log row (session, line count, full or masked) and no personal data. Marks cannot be removed (append-only), so a wrong mark is handled by the Organizer outside the sheet. This is accepted for now.
-- Attendance pages: Hindi lines for server error messages of chunk 1 (for example "This session is closed...") are not added yet; they show in English. The notice line with the Terms link has no Hindi line, by the owner's rule.
+- Attendance pages: Hindi lines for the server error messages of chunk 1 (session closed, not on the list, wrong code, too many tries, list closed and the rest) are in `lang/hi.js`, and a test checks that every server error message has one. The Hindi was written to be simple and polite, but **a native Hindi reader must check it** before release. The notice line with the Terms link has no Hindi line, by the owner's rule.
 - The voter page for a list made from an uploaded sheet is `/attend/<link>` (the organizer page shows it). The `/v/<link>` page of such a list still shows the Voter List steps.
 
 ## Attendance roster time zone

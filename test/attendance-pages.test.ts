@@ -88,7 +88,8 @@ describe("attendance pages: the owner's wording rules", () => {
   });
   test("the button says mark present", () => {
     for (const f of SCRIPTS) expect(read(f)).toContain('"Mark present"');
-    expect(shown().filter(({ s }) => /mark you|mark yourself|marks themselves/i.test(s) && /your/i.test(s))).toEqual([]);
+    // the visible text of the mark button and its screen has no your / yours / my / mine (checked on the live script in attendance-round5.test.ts too)
+    for (const f of SCRIPTS) expect(literals(read(f)).filter((s) => /\bMark present\b/.test(s) && /\b(your|yours|my|mine)\b/i.test(s))).toEqual([]);
   });
   test("no money, price, payee or payment text: the money flag stays off and nothing is hard-coded", () => {
     for (const { s } of shown()) expect(/₹|\bRs\b|\bUSD\b|\bINR\b|\bprice\b|\bpay(ment|ee)?\b|credits?|Moneypenny|\bRazorpay\b/i.test(s), s).toBe(false);

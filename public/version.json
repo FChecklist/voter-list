@@ -1,10 +1,15 @@
 {
   "product": "voter-list",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
   "commit": "86394a1",
   "changes": [
+    {
+      "version": "0.3.1",
+      "releasedAt": null,
+      "notes": "Attendance fixes after round 5: the Organizer sign-in page masks the e-mail ID after the code is sent; a closed or erased list shows a plain closed message on the voter page; Hindi lines for the server error messages (a native Hindi reader should check them); tests for the sign-in routes, formula-safe CSV cells and the wording of the mark screen. Not deployed yet."
+    },
     {
       "version": "0.3.0",
       "releasedAt": null,

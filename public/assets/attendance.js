@@ -7,6 +7,7 @@
   const list = () => (S.me ? S.me.lists.find((l) => l.id === S.sid) || null : null);
   const isOrg = () => !!list() && list().role === "organizer";
   const base = () => `/api/lists/${S.sid}/attendance/sessions`;
+  const maskMail = (e) => e.replace(/^(.).*(@)(.).*(\..+)$/, "$1****$2$3****$4");
   const when = (s) => window.VL.localTime(s);
   const terms = () => el("a", { href: "/terms/", target: "_blank", rel: "noopener" }, "Terms and Conditions");
 
@@ -41,7 +42,7 @@
     } else {
       const cd = el("input", { id: "cd", class: "codebox", type: "text", inputmode: "numeric", autocomplete: "one-time-code", maxlength: "14", required: true, placeholder: "000000" });
       const btn = el("button", { class: "btn brass big", type: "submit" }, "Continue");
-      body.push(el("p", {}, "If this e-mail ID is set up, a 6-digit code is on its way to ", el("b", {}, S.email), ". It works for 10 minutes."), el("p", { id: "devhint", class: "note hidden" }),
+      body.push(el("p", {}, "If this e-mail ID is set up, a 6-digit code is on its way to ", el("b", {}, maskMail(S.email)), ". It works for 10 minutes."), el("p", { id: "devhint", class: "note hidden" }),
         el("form", { on: { submit: async (e) => { e.preventDefault(); err.clear(); await window.VL.busy(btn, async () => { try { await api("POST", "/api/auth/verify", { email: S.email, code: cd.value }); S.codeSent = false; await boot(); } catch (x) { err.show(x.message); cd.focus(); } }); } } },
           el("label", { for: "cd" }, "The code"), cd, err,
           el("div", { class: "row" }, btn, el("button", { class: "btn ghost", type: "button", on: { click: () => { S.codeSent = false; drawSignIn(); } } }, "Use a different e-mail ID"))));
