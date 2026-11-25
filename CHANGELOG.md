@@ -2,6 +2,15 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.5 - not deployed yet (IST)
+
+Fix after round 9 of Attendance chunks 1-2 (an independent audit of 0.3.4 found one High defect).
+
+- A voter who withdrew after being marked present could never be erased: after 30 days the clean-up (`purgeStale`) hit the foreign key from `att_marks` to `voters` and failed, and because it runs on about 1 in 20 sign-in requests, sign-in answered 500 for everyone. Now the clean-up deletes that person's attendance marks in the same batch, before the voter row. The choice is to delete, not to keep an anonymous count: a session's present count drops by the erased person's mark. Migration `0013_attendance_purge.sql` changes the delete trigger of `att_marks` so a mark can be deleted when its person's record is no longer on the list (status removed); marks of people still on the list stay append-only.
+- Sign-in: a failing clean-up is logged ("purgeStale failed", no personal data) and never turns a sign-in into an error.
+- Undo of a record that an import or a host added, when that person already has an attendance mark, answers 409 (`has_attendance`) with a plain message and changes nothing. (Removing the marks first was not chosen: marks are append-only.)
+- Tests: `test/attendance-round10.test.ts`; the version test fails when a commit named in `public/version.json` does not exist.
+
 ## 0.3.4 - not deployed yet (IST)
 
 Fixes after round 8 of Attendance chunks 1-2 (two independent audits of 0.3.3 failed it; this round closes the open Medium findings and the cheap Lows).

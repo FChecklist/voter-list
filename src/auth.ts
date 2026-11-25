@@ -43,6 +43,8 @@ export async function purgeStale(env: Env, now: number): Promise<void> {
       env.DB.prepare("UPDATE voter_events SET before_json = NULL, after_json = NULL, actor_email = '(erased)' WHERE (society_id, voter_id) IN " + C + " AND (before_json IS NOT NULL OR after_json IS NOT NULL OR actor_email <> '(erased)')").bind(cutoff),
       // the same people also leave the (replaceable) draft list's stored lines; a signed final list stays as it was, and the voter is told so
       env.DB.prepare("DELETE FROM publication_rows WHERE publication_id IN (SELECT id FROM publications WHERE kind = 'draft') AND (society_id, unit_key, email) IN (SELECT society_id, unit_key, email FROM voters WHERE " + WITHDRAWN + ")").bind(cutoff),
+      // their attendance marks go first (they hold a foreign key to the voter); the present count of a session drops by them
+      env.DB.prepare("DELETE FROM att_marks WHERE (society_id, voter_id) IN " + C).bind(cutoff),
       env.DB.prepare("DELETE FROM voters WHERE " + WITHDRAWN).bind(cutoff),
     );
   }
@@ -153,7 +155,7 @@ export async function startCode(env: Env, rawEmail: string, purpose: "staff" | "
   if (!em.ok) throw new HttpError(400, "Please type a proper e-mail ID.", "bad_email");
   const email = em.value;
   if (env.TEST_MODE !== "1" && !mailConfigured(env)) throw new HttpError(503, "E-mail is not set up on this server yet.", "mail_not_configured"); // the same for everyone, so it tells nothing
-  if (randomInt(20) === 0) await purgeStale(env, now);
+  if (randomInt(20) === 0) { try { await purgeStale(env, now); } catch { console.error("purgeStale failed"); } } // housekeeping must never turn a sign-in into an error; the log carries no personal data
   await rateLimit(env, `otp-ip:${ip}`, 60, 3_600_000, now);
   await rateLimit(env, `otp-email:${email}`, 4, 3_600_000, now, "Several codes were sent to this e-mail ID already. Please check the inbox (and the spam folder), or try again in an hour.");
   await rateLimit(env, `otp-email-day:${email}`, 8, 86_400_000, now, "This e-mail ID has had all its codes for today. Please try again tomorrow.");

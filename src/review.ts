@@ -391,6 +391,11 @@ export async function undo(ctx: StaffCtx, input: { key?: string }) {
   const marked = await markedNow(ctx, es);
   if (ctx.role !== "organizer" && es.some((e) => e.kind === "voter_chosen" || touchesMark(e) || (e.before_json === null && marked.has(e.voter_id)))) throw new HttpError(403, "Who may vote is the Organizer's choice, so only the Organizer can take it back.", "forbidden");
   if (es.some((e) => e.cur_rev !== e.after_rev)) throw new HttpError(409, "Something has changed since then (a voter or another co-organizer touched these records), so it cannot be undone safely. Nothing was changed.", "changed");
+  const created = [...new Set(es.filter((e) => e.before_json === null).map((e) => e.voter_id))];
+  for (let i = 0; i < created.length; i += 90) { // a person who already has an attendance mark cannot be taken off the list by an undo: the mark would lose its person
+    const part = created.slice(i, i + 90);
+    if (await ctx.env.DB.prepare(`SELECT 1 AS x FROM att_marks WHERE society_id = ? AND voter_id IN (${ph(part.length)}) LIMIT 1`).bind(ctx.society.id, ...part).first()) throw new HttpError(409, "Someone here has already been marked present at a meeting, so this cannot be undone. Nothing was changed.", "has_attendance");
+  }
   const db = ctx.env.DB; const stmts: D1Stmt[] = []; const batch = es.length > 1 ? uid("bat") : null;
   for (const e of es) {
     if (e.before_json === null) { // the action created the record (an import, a record added by a host): undoing it takes the record away again

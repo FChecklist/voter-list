@@ -4,11 +4,11 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 ## Version
 
-- Current version: **0.3.4** (not deployed yet; first release date to be set when it is deployed).
+- Current version: **0.3.5** (not deployed yet; first release date to be set when it is deployed).
 - `public/version.json` holds the version, release time, commit and a list of past changes. The site serves it at `/version.json` (the file is in `public/`, which is what `bun run build:pages` copies to `dist/`).
 - `package.json` carries the same version number. Keep the two equal.
 - `CHANGELOG.md` has the notes in plain words, newest first, dated in IST.
-- The `commit` field is the commit the release was built on. The release's own commit cannot name itself, so it points at the one just before (the parent of the commit that bumps the version). For 0.1.0 that is the public snapshot `1259492`; for 0.3.3 it is `2bd234f`; for 0.3.4 it is `c93930d`. Since 0.3.3 each entry of `changes` carries its own `commit`, and the top-level `commit` is the newest entry's. Two releases must never name the same commit.
+- The `commit` field is the commit the release was built on. The release's own commit cannot name itself, so it points at the one just before (the parent of the commit that bumps the version). For 0.1.0 that is the public snapshot `1259492`; for 0.3.3 it is `2bd234f`; for 0.3.4 it is `c93930d`; for 0.3.5 it is `7468a56` (the head the fix was made on). Since 0.3.3 each entry of `changes` carries its own `commit`, and the top-level `commit` is the newest entry's. Two releases must never name the same commit.
 
 ### How to bump (every deployed change)
 
@@ -23,6 +23,8 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 ## Accepted limits
 
+- Attendance and erasing: when a withdrawn voter is erased after 30 days, that person's attendance marks are deleted in the same batch (not made anonymous), so the session's present count drops by one for each. Migration 0013 lets the database delete a mark only when its list is erased or its person's record has status removed. Undoing an imported or host-added record that already has a mark is refused with 409 (`has_attendance`) and changes nothing.
+- Migrations: sibling pull requests #5, #6 and #7 each add a `0012_*.sql`; they are not renumbered here, and whoever merges them must renumber the later ones so every number is used once and in order (this branch also adds `0013_attendance_purge.sql`).
 - Attendance: if a person's right to attend changes at the same moment a mark is made, the mark can still be saved. Marks are append-only, and an Organizer can see this in the audit trail. This is accepted.
 
 - Attendance screens: the voter page lists the open sessions of the list from the public list. The public answer never holds a title or a place (for any kind of list) unless the voter signed in for that link and is on its list; a request that carries any cookie is answered `private, no-store`, and only a request with no cookie may be cached for 30 seconds. So a session closed a moment ago can still show a "Mark present" button; the server then answers that the session is closed and the page shows that answer. This is accepted.

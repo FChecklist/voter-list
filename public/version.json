@@ -1,10 +1,16 @@
 {
   "product": "voter-list",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "c93930d",
+  "commit": "7468a56",
   "changes": [
+    {
+      "version": "0.3.5",
+      "releasedAt": null,
+      "commit": "7468a56",
+      "notes": "Attendance fix after round 9: a voter who withdrew after being marked present can now be erased after 30 days (their attendance marks are deleted in the same step, so a session's present count drops by those marks; migration 0013 lets the database allow this for people no longer on the list only); a failing clean-up can no longer turn a sign-in into an error; taking back a record that already has an attendance mark is refused with a plain message and changes nothing; the version test now fails when a commit named in version.json does not exist. Not deployed yet."
+    },
     {
       "version": "0.3.4",
       "releasedAt": null,
