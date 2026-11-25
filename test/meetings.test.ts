@@ -442,8 +442,15 @@ describe("motions and results (CP-214 to CP-219, CP-235, CP-236)", () => {
   test("the result needs counts and a counter other than the chair; it is final; the quorum as it stood is kept with it", async () => {
     const w = await world(4); const m = await noticed(w); await opened(w, m); await present(w, m.aid!, "asha", "bharat", "chitra");
     const x = need(await motion(w, m.mid, m.items[1]!, { majority: "two_thirds" }), 201).motion;
-    for (const bad of [{ countedBy: [] }, { countedBy: undefined }, { countedBy: [{ name: "Mr Chair Person", email: "CHAIR@sample.example" }] }, { countedBy: [{ name: "No mail", email: "nope" }] }, { for: -1 }, { for: "3" }, { for: 1.5 }, { against: 2_000_000 }, { method: "shout" }, { for: undefined }])
-      expect((await result(w, m.mid, x.id, bad as any)).status, JSON.stringify(bad)).toBe(400);
+    // each refusal is checked by its own code, so one check cannot hide behind another (counts here fit the three people present, so only the counters are in question)
+    const fits = { for: 2, against: 1 };
+    for (const [bad, code] of [
+      [{ countedBy: [] }, "need_counter"], [{ countedBy: undefined }, "need_counter"], [{ countedBy: [{ name: "Mr Chair Person", email: "CHAIR@sample.example" }] }, "need_counter"], [{ countedBy: [{ name: "No mail", email: "nope" }] }, "bad_email"],
+      [{ for: -1 }, "bad_number"], [{ for: "3" }, "bad_number"], [{ for: 1.5 }, "bad_number"], [{ against: 2_000_000 }, "bad_number"], [{ for: undefined }, "bad_number"], [{ method: "shout" }, "bad_value"],
+    ] as const) {
+      const r = await result(w, m.mid, x.id, { ...fits, ...bad } as any);
+      expect(r.status, JSON.stringify(bad)).toBe(400); expect(r.json.code, JSON.stringify(bad)).toBe(code);
+    }
     expect((await result(w, m.mid, x.id, { for: 3, against: 1, abstain: 1 })).json.code).toBe("too_many_votes"); // 5 votes, 3 people present
     expect((await w.h.call("POST", `${w.base}/${m.mid}/motions/${x.id}/result`, { method: "show_of_hands", for: 2, against: 1, countedBy: COUNTER }, w.coJar)).status).toBe(201); // a co-organizer may record it
     const d = (await w.h.call("GET", `${w.base}/${m.mid}/decisions`, undefined, w.jar)).json.motions[0];
@@ -499,7 +506,13 @@ describe("minutes (CP-221 to CP-224)", () => {
   const BODY = "Minutes of the Annual General Meeting.\n\nPresent: 3 members. The budget was approved by 3 votes to 0.\n\n\n\nThe meeting closed.";
 
   test("minutes are drafts until a later meeting approves them; an AI draft must first be accepted by a person", async () => {
-    const w = await world(4); const { m1, m2 } = await twoMeetings(w);
+    const w = await world(4);
+    // a meeting that starts BEFORE the minuted one but is opened later: being open is not enough, it must also come after the minuted meeting
+    need(await rule(w, "emergency", 0, 0), 200);
+    const m0 = need(await meeting(w, { title: "Earlier emergency meeting", type: "emergency", startsAt: "2026-12-04T10:00" }), 201).meeting.id;
+    need(await item(w, m0, { title: "Urgent repair", kind: "information" }), 201);
+    need(await w.h.call("POST", `${w.base}/${m0}/notice`, {}, w.jar), 201);
+    const { m1, m2 } = await twoMeetings(w);
     expect((await w.h.call("POST", `${w.base}/${m2}/minutes`, { body: BODY, source: "human" }, w.jar)).json.code).toBe("not_closed"); // not closed yet
     for (const bad of [{ body: "short", source: "human" }, { body: BODY }, { body: BODY, source: "robot" }, { body: "Please phone 9876543210 for the draft minutes.", source: "human" }])
       expect((await w.h.call("POST", `${w.base}/${m1}/minutes`, bad, w.jar)).status, JSON.stringify(bad)).toBe(400);
@@ -519,6 +532,9 @@ describe("minutes (CP-221 to CP-224)", () => {
     await goTo(w, LATER);
     need(await w.h.call("PUT", `${w.base}/${m2}/roles`, { chair: CHAIR, secretary: SECRETARY }, w.jar), 200);
     need(await w.h.call("POST", `${w.base}/${m2}/open`, {}, w.jar), 200);
+    need(await w.h.call("PUT", `${w.base}/${m0}/roles`, { chair: CHAIR, secretary: SECRETARY }, w.jar), 200);
+    need(await w.h.call("POST", `${w.base}/${m0}/open`, {}, w.jar), 200); // open now, but it started before meeting one
+    expect((await approve(d.id, { approvedInMeetingId: m0 })).json.code).toBe("need_later");
     const ok = need(await approve(d.id, { approvedInMeetingId: m2 }), 200).minutes;
     expect(ok).toMatchObject({ status: "approved", statusText: "Approved", approvedInMeetingId: m2 });
     expect((await approve(d.id, { approvedInMeetingId: m2 })).json.code).toBe("done");
