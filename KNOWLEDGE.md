@@ -4,11 +4,11 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 
 ## Version
 
-- Current version: **0.3.6** (not deployed yet; first release date to be set when it is deployed).
+- Current version: **0.3.7** (not deployed yet; first release date to be set when it is deployed).
 - `public/version.json` holds the version, release time, commit and a list of past changes. The site serves it at `/version.json` (the file is in `public/`, which is what `bun run build:pages` copies to `dist/`).
 - `package.json` carries the same version number. Keep the two equal.
 - `CHANGELOG.md` has the notes in plain words, newest first, dated in IST.
-- The `commit` field is the commit the release was built on. The release's own commit cannot name itself, so it points at the one just before (the parent of the commit that bumps the version). For 0.1.0 that is the public snapshot `1259492`; for 0.3.3 it is `2bd234f`; for 0.3.4 it is `c93930d`; for 0.3.5 it is `7468a56`; for 0.3.6 it is `7d9abe3` (the head the fix was made on). Since 0.3.3 each entry of `changes` carries its own `commit`, and the top-level `commit` is the newest entry's. Two releases must never name the same commit.
+- The `commit` field is the commit the release was built on. The release's own commit cannot name itself, so it points at the one just before (the parent of the commit that bumps the version). For 0.1.0 that is the public snapshot `1259492`; for 0.3.3 it is `2bd234f`; for 0.3.4 it is `c93930d`; for 0.3.5 it is `7468a56`; for 0.3.6 it is `7d9abe3`; for 0.3.7 it is `1d80cf4` (the head the fix was made on). Since 0.3.3 each entry of `changes` carries its own `commit`, and the top-level `commit` is the newest entry's. Two releases must never name the same commit.
 
 ### How to bump (every deployed change)
 
@@ -36,3 +36,5 @@ Short notes for anyone working on this product. Design and defaults are in `READ
 ## Attendance roster time zone
 
 The time zone of a roster upload list is a fixed offset from UTC, with no daylight saving. The organizer picks a country whose offset they use (see `COUNTRY_TZ` in `src/error-messages.ts`). The `can_attend` column of a voter defaults to 1 (see `migrations/0002_lists.sql`), so a new voter is eligible unless staff change it.
+
+- 0.3.7: adding a person has no tick box and no consent flag. The server ignores an `agreed` field; the dialog shows a notice line with the Terms link. The audit-trail row `record.added` still records who added it. A scan test fails on `type: "checkbox"` beyond the listed functional ones, "tick the box" and "I agree" in sources. Other checkboxes remain (row select, list setting, close now, two freeze acknowledgements): the owner should decide on them.

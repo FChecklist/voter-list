@@ -61,17 +61,16 @@
         let input;
         if (f.type === "select") input = el("select", { id }, f.options.map((o) => el("option", { value: o.value ?? o, selected: (o.value ?? o) === f.value }, o.label ?? o)));
         else if (f.type === "textarea") input = el("textarea", { id, value: f.value || "" });
-        else if (f.type === "checkbox") input = el("input", { id, type: "checkbox", checked: !!f.value });
         else input = el("input", { id, type: f.type || "text", value: f.value || "", autocomplete: "off", maxlength: f.max });
         inputs[f.name] = input;
-        form.append(f.type === "checkbox" ? el("label", {}, input, " ", f.label) : [el("label", { for: id }, f.label), input], f.help ? el("p", { class: "tiny muted" }, f.help) : null);
+        form.append([el("label", { for: id }, f.label), input], f.help ? el("p", { class: "tiny muted" }, f.help) : null);
       }
       const ok = el("button", { class: "btn brass", type: "submit", value: "ok" }, okLabel || "OK");
       const no = el("button", { class: "btn ghost", type: "button", on: { click: () => d.close("cancel") } }, "Cancel");
       form.append(el("div", { class: "row end" }, no, ok));
       d.append(form); document.body.append(d);
       d.addEventListener("close", () => {
-        const out = d.returnValue === "ok" ? Object.fromEntries(Object.entries(inputs).map(([k, i]) => [k, i.type === "checkbox" ? i.checked : i.value])) : null;
+        const out = d.returnValue === "ok" ? Object.fromEntries(Object.entries(inputs).map(([k, i]) => [k, i.value])) : null;
         d.remove(); resolve(out);
       });
       d.showModal(); const first = Object.values(inputs)[0]; if (first) first.focus();

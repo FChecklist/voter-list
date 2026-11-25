@@ -195,9 +195,8 @@ export async function staffEdit(ctx: StaffCtx, id: string, input: StaffPatch, ra
   return { id, changed: fields };
 }
 
-export async function addRecord(ctx: StaffCtx, input: StaffPatch & { email?: string; agreed?: boolean }) {
+export async function addRecord(ctx: StaffCtx, input: StaffPatch & { email?: string }) {
   need(ctx, "editRecords"); frozenCheck(ctx); closedCheck(ctx);
-  if (input.agreed !== true) throw new HttpError(400, "Please tick the box to say this person has agreed to be on the voter list. They will also see their record when they sign in.", "need_agreed");
   if (String(input.email ?? "").trim().toLowerCase() === ctx.email) throw new HttpError(403, "A reviewer cannot add or approve their own record. Please ask another co-organizer or the Organizer.", "own_record");
   const em = cleanEmail(String(input.email ?? "")); if (!em.ok) throw new HttpError(400, "Please type the voter's e-mail ID. It is how they will see their record.");
   const { unit, unitKey: uk, owned } = checkOwned(ctx.society, input);
@@ -214,7 +213,7 @@ export async function addRecord(ctx: StaffCtx, input: StaffPatch & { email?: str
       ctx.env.DB.prepare("INSERT INTO voter_events (society_id, voter_id, ts, actor_email, actor_role, kind, to_status, after_json, after_rev) VALUES (?, ?, ?, ?, ?, 'added', 'approved', ?, 1)").bind(ctx.society.id, id, ctx.now, ctx.email, actorRole(ctx), snapshot(row)),
     ];
   }
-  try { await commit(ctx.env, ctx.society.id, stmts, "record.added", await staffActor(ctx.env, ctx.email, ctx.role), { unit: pubUnit(unit), capacity: owned.capacity ?? "", agreedByStaffWord: 1 }, ctx.now); }
+  try { await commit(ctx.env, ctx.society.id, stmts, "record.added", await staffActor(ctx.env, ctx.email, ctx.role), { unit: pubUnit(unit), capacity: owned.capacity ?? "" }, ctx.now); }
   catch (e) { if (/UNIQUE/i.test(String((e as Error)?.message))) throw new HttpError(409, "That voter already has a record for this home.", "exists"); throw e; }
   return { id };
 }

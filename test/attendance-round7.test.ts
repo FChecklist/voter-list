@@ -255,8 +255,17 @@ const CONSENT_ANY = new RegExp(/By pressing|\bTerms\b|\bI (agree|accept)\b|\bagr
 /** Every line (the English key, or a pattern) of a language file whose English or Hindi holds a consent word, apart from the `reviewed` ones. A pattern's Hindi is what its function writes. */
 const hindiConsentHits = (lang: { words: Record<string, string>; patterns: Array<[RegExp, (...a: any[]) => string]> }, reviewed: ReadonlySet<string> = new Set()): string[] => [
   ...Object.entries(lang.words).filter(([k, v]) => !reviewed.has(k) && (CONSENT_ANY.test(k) || CONSENT_ANY.test(v))).map(([k]) => k),
-  ...lang.patterns.filter(([re, fn]) => !reviewed.has(String(re)) && (CONSENT_ANY.test(re.source) || CONSENT_ANY.test(fn.toString()))).map(([re]) => String(re)),
+  ...lang.patterns.filter(([re, fn]) => !reviewed.has(String(re)) && (CONSENT_ANY.test(re.source) || patternOutputs(re, fn).some((t) => CONSENT_ANY.test(t)))).map(([re]) => String(re)),
 ];
+/** What a pattern function writes: it is EXECUTED on sample inputs (one per capture group, in several shapes), never read as source text, so a line built from a table or pieces cannot hide a word. */
+const patternOutputs = (re: RegExp, fn: (...a: any[]) => string): string[] => {
+  const groups = new RegExp(re.source + "|").exec("")!.length - 1;
+  const outs: string[] = [];
+  for (const sample of ["1", "Sample", "Sample One, Sample Two", "Tower 2", "India", "", "9"]) {
+    try { outs.push(String(fn(...Array.from({ length: groups }, () => sample)))); } catch { /* a sample this pattern cannot take */ }
+  }
+  return outs;
+};
 /** Lines of the Voter List that were in hi.js before Attendance and hold one of those Hindi words without being a consent line (each is about the right to vote, the bye-laws or a proxy's written authority). */
 const REVIEWED_NOT_CONSENT: ReadonlySet<string> = new Set([
   "Please choose what the bye-laws say. A registrar or a lawyer can confirm it.",
@@ -350,6 +359,13 @@ describe("4. Hindi for the texts the server builds", () => {
       const writes = new Function("x", `return "कुछ ${w} " + x;`) as (x: string) => string; // the word is in the function's own text, as in hi.js
       expect(hindiConsentHits({ words: {}, patterns: [[/^Some (.+)$/, writes]] }), w).toEqual(["/^Some (.+)$/"]); // in what a pattern writes
     }
+    // planted: a pattern whose source text holds no consent word but whose output does (built from pieces and a table); the old source-text scan misses it, the executing scan finds it
+    const table: Record<string, string> = { a: "सह" + "मति" };
+    const planted = (x: string) => ["यह", table.a, x].join(" ");
+    expect(CONSENT_ANY.test(planted.toString()), "source text alone shows nothing").toBe(false);
+    expect(hindiConsentHits({ words: {}, patterns: [[/^Planted (.+)$/, planted]] })).toEqual(["/^Planted (.+)$/"]);
+    expect(hindiConsentHits({ words: {}, patterns: [[/^Planted (.+)$/, (x: string) => "यह सीधी पंक्ति " + x]] })).toEqual([]); // a clean pattern passes
+    expect(hindiConsentHits({ words: {}, patterns: [[/^Two (.+) and (.+)$/, (a: string, b: string) => table.a + a + b]] })).toEqual(["/^Two (.+) and (.+)$/"]); // every group gets a sample
     expect(hindiConsentHits({ words: { "Terms and Conditions": "x" }, patterns: [] })).toEqual(["Terms and Conditions"]); // the English words still count
     expect(hindiConsentHits({ words: { "A plain English line": "यह एक सीधी पंक्ति है।" }, patterns: [] })).toEqual([]);
     expect(hindiConsentHits({ words: { "As the list stands now, you are not allowed to vote.": "आपको वोट देने की अनुमति नहीं है।" }, patterns: [] }, REVIEWED_NOT_CONSENT)).toEqual([]); // a reviewed line of the Voter List

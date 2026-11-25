@@ -2,6 +2,14 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.7 - not deployed yet (IST)
+
+Fix after round 12 of Attendance chunks 1-2 (two audits of 0.3.6 found two Medium defects and one Low).
+
+- Tick box removed: `addRecord` no longer asks for `agreed` (an old client that sends it is ignored); the error code `need_agreed` is gone (nothing else used it, and it had no message-table entry). The Add a person dialog has no checkbox; it shows the line "The person will see this record when they sign in with this e-mail ID, under the Terms and Conditions." with the Terms link. The generic checkbox field of the dialog helper was removed too. The `record.added` trail row still records who added it.
+- Tests: a scan of every `.js` and `.ts` source under `src` and `public/assets` fails on a consent tick box, "tick the box" or "I agree"; the Hindi consent test now runs each pattern function on sample inputs and scans the Hindi it writes, and a planted case proves it fails.
+- README: migration range corrected (0001 to 0014; sibling PRs add 0012 files that are renumbered at merge).
+
 ## 0.3.6 - not deployed yet (IST)
 
 Fix after round 11 of Attendance chunks 1-2 (two audits of 0.3.5 found two Medium defects).

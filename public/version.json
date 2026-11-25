@@ -1,10 +1,16 @@
 {
   "product": "voter-list",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "7d9abe3",
+  "commit": "1d80cf4",
   "changes": [
+    {
+      "version": "0.3.7",
+      "releasedAt": null,
+      "commit": "1d80cf4",
+      "notes": "Attendance fix after round 11: adding a person no longer needs a tick box. The server ignores the old agreed field (an old client that still sends it keeps working) and the Add a person dialog has no checkbox; it shows a plain line that the person will see the record when they sign in with this e-mail ID, under the Terms and Conditions, with the Terms link. The record.added trail row still names who added it. The Hindi consent test now runs each pattern on sample inputs and scans the Hindi it writes, and a planted consent word is caught; a scan of all sources fails on a tick box or the words tick the box or I agree; README migration range corrected to 0001 to 0014. Not deployed yet."
+    },
     {
       "version": "0.3.6",
       "releasedAt": null,
