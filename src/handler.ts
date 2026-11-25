@@ -116,6 +116,11 @@ route("GET", "/api/v/:slug/records/:rid/docs/:did", async (r) => { const d = awa
 // attendance: public counts (no personal data), and a voter who signed in marks themselves present in an online session
 route("GET", "/api/v/:slug/attendance", async (r) => json(await attendance.publicSessions(r.env, await liveSlug(r)), 200, PUBLIC_CACHE));
 route("GET", "/api/v/:slug/attendance/:aid", async (r) => json(await attendance.publicSession(r.env, await liveSlug(r), r.params.aid!), 200, PUBLIC_CACHE));
+route("GET", "/api/v/:slug/attend/me", async (r) => {
+  const society = await liveSlug(r); const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
+  if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");
+  return json(await attendance.myRows(r.env, society, s.email));
+});
 route("POST", "/api/v/:slug/attendance/:aid/here", async (r) => {
   const society = await liveSlug(r); const b = await r.body();
   const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
@@ -126,6 +131,7 @@ route("POST", "/api/v/:slug/attendance/:aid/here", async (r) => {
 // Attendance for an organizer with no Voter List: the Excel template and the upload that makes the list
 route("GET", "/api/attendance/template.xlsx", async () => file(buildTemplateXlsx({ rows: 300, title: "Attendance list template" }), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "attendance-list-template.xlsx"));
 route("GET", "/api/attendance/template.csv", async () => file(TEMPLATE_CSV, "text/csv; charset=utf-8", "attendance-list-template.csv"));
+route("GET", "/api/attendance/lists", async (r) => json(await attendance.myLists(r.env, (await staffSession(r)).email)));
 route("POST", "/api/attendance/rosters", async (r) => { const s = await staffSession(r); const x = await attendance.uploadRoster(r.env, r.now, s.email, (await r.body()) as attendance.RosterInput); return json(x, x.dryRun ? 200 : 201); });
 route("GET", "/api/attendance/rosters", async (r) => { const s = await staffSession(r); return json({ lists: (await r.env.DB.prepare("SELECT s.id, s.name, s.verify_slug FROM memberships m JOIN societies s ON s.id = m.society_id WHERE m.email = ? AND m.status = 'active' AND s.purpose = 'attendance_upload' ORDER BY s.created_at DESC LIMIT 200").bind(s.email).all<{ id: string; name: string; verify_slug: string }>()).results.map((x) => ({ id: x.id, name: x.name, link: `/v/${x.verify_slug}` })) }); });
 
@@ -171,6 +177,7 @@ route("DELETE", "/api/lists/:sid/team/:email", async (r) => json(await lists.rem
 route("POST", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.createSession(await staffAny(r), await r.body()), 201));
 route("GET", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.listSessions(await staffAny(r))));
 route("GET", "/api/lists/:sid/attendance/sessions/:aid", async (r) => json(await attendance.openSession(await staffAny(r), r.params.aid!, r.url.searchParams.get("find") ?? "")));
+route("GET", "/api/lists/:sid/attendance/sessions/:aid/sheet.csv", async (r) => { const x = await attendance.sheetCsv(await staffAny(r), r.params.aid!); return file(x.body, x.type, x.filename); });
 route("POST", "/api/lists/:sid/attendance/sessions/:aid/mark", async (r) => { const c = await staffAny(r); const b = await r.body(); return json(await attendance.markByTeam(c, r.params.aid!, b.voterId)); });
 route("POST", "/api/lists/:sid/attendance/sessions/:aid/close", async (r) => { const c = await staffAny(r); await r.body(); return json(await attendance.closeSession(c, r.params.aid!)); });
 

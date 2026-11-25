@@ -5,7 +5,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { routeTable } from "../src/handler";
 
 const read = (p: string) => readFileSync(p, "utf8");
-const pages = ["public/index.html", "public/v/index.html"];
+const pages = ["public/index.html", "public/v/index.html", "public/attendance/index.html", "public/attend/index.html"];
 const scripts = readdirSync("public/assets").filter((f) => f.endsWith(".js")).map((f) => "public/assets/" + f);
 
 describe("the pages", () => {

@@ -2,6 +2,17 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.0 - not deployed yet (IST)
+
+Attendance chunk 2: the screens.
+
+- New Organizer page at `/attendance/`: sign in, choose a list or upload a sheet, create a session, see who is marked, mark present (Organizer and co-organizer), close a session (Organizer), download the attendance sheet as CSV.
+- New voter page at `/attend/<link>`: sign in with the e-mail code, see open sessions, mark present in an online session. In-person and offline sessions say to ask the Organizer or a co-organizer.
+- The attendance sheet CSV lists everyone who may attend with Present Yes or No, how and when marked. A co-organizer gets masked names and e-mail IDs. Cells that start like a formula are defused. Each download is written to the signed log (counts only, no personal data).
+- New API: `GET /api/attendance/lists`, `GET /api/lists/:sid/attendance/sessions/:aid/sheet.csv`, `GET /api/v/:slug/attend/me`.
+- Hindi lines for every new plain sentence. The notice line with the Terms link has no Hindi line, by the owner's rule.
+- No tick boxes, no payment text, money flag still off.
+
 ## 0.2.4 - not deployed yet (IST)
 
 Fixes after the fourth audit of Attendance chunk 1.

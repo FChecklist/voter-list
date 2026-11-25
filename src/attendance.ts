@@ -6,6 +6,7 @@ import { commit, guardChanged, guardExists, looksPrivate, pseudonym, staffActor 
 import { uid, type D1Stmt, type Env } from "./db";
 import { localToMs, msToLocal, noContactDetails } from "./lists";
 import { parseUpload } from "./importer";
+import { toCsv } from "./csv";
 import { need, seesFull, buildRoll, type SocietyRow, type StaffCtx } from "./store";
 import { cleanEmail, squeeze } from "./text";
 import { fromB64url, randomHex } from "./vendor/crypto";
@@ -77,6 +78,35 @@ export async function openSession(ctx: StaffCtx, id: string, find = "") {
   const shown = lines.filter((l) => !q || l.row.unit.toLowerCase().includes(q) || l.row.name.toLowerCase().includes(q)).slice(0, 50)
     .map((l) => ({ voterId: l.voterId, unit: l.row.unit, name: full ? l.row.name : maskName(l.row.name), email: full ? l.row.email : maskEmail(l.row.email), present: marks.has(l.voterId), method: marks.get(l.voterId)?.method ?? null, markedAt: marks.get(l.voterId)?.marked_at ?? null }));
   return { session: viewSession(s, ctx.society.tz_offset_min, lines.length, marks.size), people: shown };
+}
+
+/** A simple attendance sheet for one session, as CSV: everyone who may attend, present or not. A co-organizer gets masked names and e-mail IDs. Every download leaves a row in the signed log. */
+export async function sheetCsv(ctx: StaffCtx, id: string) {
+  need(ctx, "view"); notErased(ctx.society);
+  const s = await sessionOf(ctx.env, ctx.society.id, id);
+  const full = seesFull(ctx);
+  const marks = new Map((await ctx.env.DB.prepare("SELECT voter_id, method, marked_at FROM att_marks WHERE session_id = ?").bind(id).all<{ voter_id: string; method: string; marked_at: number }>()).results.map((m) => [m.voter_id, m]));
+  const lines = await eligibleLines(ctx.env, ctx.society.id);
+  const rows: unknown[][] = [["Flat / House / Member ID", "Name", "E-mail ID", "Present", "Marked how", "Marked at"]];
+  for (const l of lines) {
+    const m = marks.get(l.voterId);
+    rows.push([l.row.unit, full ? l.row.name : maskName(l.row.name), full ? l.row.email : maskEmail(l.row.email), m ? "Yes" : "No", m ? (m.method === "email" ? "E-mail code" : "Organizer or co-organizer") : "", m ? msToLocal(m.marked_at, ctx.society.tz_offset_min) : ""]);
+  }
+  await commit(ctx.env, ctx.society.id, [], "attendance.sheet_exported", await staffActor(ctx.env, ctx.email, ctx.role), { session: s.id, lines: lines.length, full }, ctx.now);
+  return { body: toCsv(rows), type: "text/csv; charset=utf-8", filename: "attendance-sheet.csv" };
+}
+
+/** For a signed-in voter: where this e-mail ID is on the list (flat / member ID only), so the page can ask which one when there is more than one. */
+export async function myRows(env: Env, society: SocietyRow, email: string) {
+  notErased(society);
+  const mine = (await eligibleLines(env, society.id)).filter((l) => l.row.email.toLowerCase() === email.toLowerCase());
+  return { email, list: society.name, rows: mine.map((l) => ({ voterId: l.voterId, unit: l.row.unit })) };
+}
+
+/** The lists an Organizer or co-organizer can run attendance for: Voter Lists and lists made from an uploaded sheet. `link` is the voter page for attendance. */
+export async function myLists(env: Env, email: string) {
+  const rs = await env.DB.prepare("SELECT s.id, s.name, s.purpose, s.verify_slug, m.role FROM memberships m JOIN societies s ON s.id = m.society_id WHERE m.email = ? AND m.status = 'active' AND s.erased_at IS NULL ORDER BY s.created_at DESC LIMIT 200").bind(email).all<{ id: string; name: string; purpose: string; verify_slug: string; role: string }>();
+  return { email, countries: Object.keys(COUNTRY_TZ), lists: rs.results.map((x) => ({ id: x.id, name: x.name, kind: x.purpose === "attendance_upload" ? "sheet" : "voter_list", role: x.role === "organizer" ? "organizer" : "co-organizer", link: `/attend/${x.verify_slug}` })) };
 }
 
 async function mark(env: Env, society: SocietyRow, s: SessionRow, voterId: string, method: "email" | "organizer", actorEmail: string, actorRole: string, now: number) {

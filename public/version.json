@@ -1,10 +1,15 @@
 {
   "product": "voter-list",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
   "commit": "86394a1",
   "changes": [
+    {
+      "version": "0.3.0",
+      "releasedAt": null,
+      "notes": "Attendance screens (chunk 2): an Organizer page (/attendance/) to choose a list or upload a sheet, create a session, see who is marked, mark present, close a session and download a simple attendance sheet as CSV; and a voter page (/attend/<link>) to sign in with the e-mail code and mark present in an online session. Hindi lines for every new plain sentence (none for the notice line, by the owner's rule). New API: GET /api/attendance/lists, GET /api/lists/:sid/attendance/sessions/:aid/sheet.csv (each download is written to the signed log), GET /api/v/:slug/attend/me. Money flag stays off."
+    },
     {
       "version": "0.2.4",
       "releasedAt": null,
