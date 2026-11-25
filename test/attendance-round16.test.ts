@@ -125,7 +125,7 @@ describe("3. the version history", () => {
     expect(version.changes[0]!.version).toBe(version.version);
     expect(JSON.parse(read("package.json")).version).toBe(version.version);
     expect(read("KNOWLEDGE.md")).toContain("**" + version.version + "**");
-    expect(version.commit).toBe(version.changes[0]!.commit);
+    expect(version.commit).toBe(version.changes[0]!.commit as string);
     expect(read("CHANGELOG.md")).toContain("## 0.3.12");
     expect(version.changes.find((e) => e.version === "0.3.12")!.commit).toBe("2fd57cf1");
     expect(() => execFileSync("git", ["cat-file", "-e", "2fd57cf1^{commit}"], { stdio: "ignore" })).not.toThrow();
