@@ -1,10 +1,15 @@
 {
   "product": "voter-list",
-  "version": "0.1.0",
-  "releasedAt": "2026-11-17T12:15:01Z",
-  "releasedAtIST": "2026-11-17 17:45 IST",
-  "commit": "1259492",
+  "version": "0.1.1",
+  "releasedAt": "2026-11-25T00:00:00Z",
+  "releasedAtIST": "2026-11-25 05:30 IST",
+  "commit": "6c3fe7f",
   "changes": [
+    {
+      "version": "0.1.1",
+      "releasedAt": "2026-11-25T00:00:00Z",
+      "notes": "Small mark of the numerals 139 (Devanagari) at the very top centre of every page, as approved by the owner on 25 Nov 2026. It does not move content, take clicks or get read aloud. No other behaviour change."
+    },
     {
       "version": "0.1.0",
       "releasedAt": "2026-11-17T12:15:01Z",

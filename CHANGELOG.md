@@ -2,6 +2,14 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.1.1 - 25 Nov 2026 (IST)
+
+Owner-approved mark. Nothing else changed.
+
+- The small mark "१३९" (6px, bold, dark blue, with a thin dark red line under it) sits at the very top centre of every page: the Organizer page, the voter page and the Terms page. Its style is in `public/assets/app.css`.
+- It takes no space, ignores clicks and is hidden from screen readers and copy.
+- New guard test `test/mark139.test.ts`. The commit field in `version.json` points at `6c3fe7f`, the commit before this change.
+
 ## 0.1.0 - 17 Nov 2026 (IST)
 
 First versioned release. This describes the product as it already was; nothing in the behaviour changed.
