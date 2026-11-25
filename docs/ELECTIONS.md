@@ -1,6 +1,6 @@
 # Elections (Townhall Records), first chunks
 
-A society election, start to finish, on the frozen final voter list of a Voter List: nominations, a notice, a secret ballot (online, in person or both), the count, challenges, the declaration and one public report. It stands on its own, in the same way as Attendance: its own tables (`migrations/0012_elections.sql`), its own files (`src/elections*.ts`) and a connection to the rest only through the Voter List's public contract (the frozen publication and the signed trail) and a read-only look at Attendance.
+A society election, start to finish, on the frozen final voter list of a Voter List: nominations, a notice, a secret ballot (online, in person or both), the count, challenges, the declaration and one public report. It stands on its own, in the same way as Attendance: its own tables (`migrations/0018_elections.sql`), its own files (`src/elections*.ts`) and a connection to the rest only through the Voter List's public contract (the frozen publication and the signed trail) and a read-only look at Attendance.
 
 **It is dark.** Every address answers "not found" until the owner sets `ELECTIONS_ENABLED` to `1`. Nothing here takes payment.
 

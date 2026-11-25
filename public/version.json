@@ -1,21 +1,87 @@
 {
   "product": "voter-list",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "97310a9",
+  "commit": "1c9f10b0",
   "changes": [
     {
-      "version": "0.4.1",
+      "version": "0.5.0",
+      "commit": "1c9f10b0",
       "releasedAt": null,
-      "commit": "97310a9",
-      "notes": "Elections fixes after the audit of 0.4.0 (still dark and not deployed): no exact time of voting is kept next to a person any more. The register keeps only the day (in the society's time zone), a used ballot code and a used ticket are deleted at once, and the signed entry of a vote carries the date, not the time. The Organizer and every co-organizer cannot stand, checked when a nomination is sent and again when voting is opened; the returning officer cannot be the Organizer, cannot open the voting and cannot decide an appeal. The count's check of the signed trail now reads the entry's fields, not its spelling. New tests for each, a list of the database locks by name, and a check that the version files agree. Migration 0012 is changed (it was not released)."
+      "notes": "Townhall Meetings, first chunks (API only, no screens, dark until MEETINGS_ENABLED is 1): the rules for each kind of meeting (notice days, quorum percent, bye-law clauses, set by the Organizer, never defaulted); a meeting with its agenda; a notice that is refused when it is shorter than the rule and that carries a fingerprint anyone can recompute; the agenda and the date, place and kind fixed once the notice is out (database triggers); chair and secretary; quorum read from Attendance's public counts; motions with mover, seconder, amendments, declared interests and a stated majority; counted results that need a quorum and named counters and can never be changed; adjourn, resume, close and points of order; minutes drafted by a person or an AI helper, approved at a later meeting and then frozen, with corrections as new versions; follow-up actions; a public page that shows only what the Organizer chose and nothing personal; a calendar file; a JSON report with a fingerprint; erase support. New migration 0017_meetings.sql (its number may be changed at merge time). Not built: screens, e-mailing of notices, reminders, papers, speaker list, PDF report, price. Money flag untouched. Not deployed yet."
+    },
+    {
+      "version": "0.4.1",
+      "commit": "8494e37",
+      "releasedAt": null,
+      "notes": "Results fixes after two audits: a masked result (public page and co-organizer view) is built only from structured fields (ids, counts, fingerprints, kinds, codes and masked names) and carries no free text, so a name typed into a title, reference, motion, post name, correction reason, event or attendance title, rule words or check text can never show; the co-organizer sheet is built the same way, and only the Organizer sees the full text. The public check no longer returns internal audit sequence numbers, and public result pages drop them too. Every version note now names its own commit, and a test checks that the top-level commit is the newest note's commit. Tests added for a hidden and a masked result on one list, the erase refusals (a co-organizer, and an Organizer before the retention time) and the check-code scan of the guide. Not deployed yet."
     },
     {
       "version": "0.4.0",
+      "commit": "577eb16",
+      "releasedAt": null,
+      "notes": "Results, first chunk (API only, dark): a closed meeting or election is entered by the Organizer, the server makes a draft result from it (outcomes, rule in words, checks, fingerprint, challenge window), the Organizer types FINAL after the window if no check failed, and a mistake is put right by a correction that keeps the old result. Public pages show a result only when the Organizer chooses hidden, masked or full. Sheet download, a check anyone can run, signed audit lines with no personal data, erase with the list. New tables in migration 0012; every Results address answers not found unless RESULTS_ENABLED is 1. No screens, e-mails, PDF or Hindi lines yet. Not deployed yet."
+    },
+    {
+      "version": "0.3.12",
+      "releasedAt": null,
+      "commit": "2fd57cf1",
+      "notes": "Attendance fix after round 18: tests only. They now prove that a co-organizer is refused when moving a person who is decided, or who has an attendance mark, and that the check sits inside the save (a version with the check removed lets the move through). The commit field is the parent of the bump commit."
+    },
+    {
+      "version": "0.3.11",
+      "releasedAt": null,
+      "commit": "7bad80f9",
+      "notes": "Attendance fix after round 16: a co-organizer can no longer move a person to another flat once that person has an attendance mark, even when the Organizer has not yet decided whether they may vote; the Organizer still can. The check is made again inside the same save, so a mark that lands at the last moment still stops the move. The on/off buttons in the list settings are now switched off when the settings are read-only, like the other fields, and the shared button helper accepts a switched-off state. The Hindi checks now pin each reviewed pattern for four different samples and a planted pattern that differs for one sample is caught. A test now requires that the only entries without a commit are the old versions before 0.3.3. Tests: move by a co-organizer before and after a mark, the Organizer move, the read-only toggle. The commit field names 7bad80f9, the head this was built on. Not deployed yet."
+    },
+    {
+      "version": "0.3.10",
+      "releasedAt": null,
+      "commit": "9a8f91a8",
+      "notes": "Attendance fix after round 15: a person who moves to another flat no longer changes the flat shown for sessions already held. The flat is now kept on each attendance mark when it is made (migration 0015 adds it to the mark and fills it in for marks made before); the sheet, the downloaded file and the list of people show that flat for a person who was marked, and the current flat for a person not yet marked. Marks still cannot be changed. The documents-required button lost an unused id. Tests: a move after a mark leaves the closed session as it was and a new session shows the new flat; the migration fill-in; no update of a mark; removing and adding back a person who has marks keeps the marks and the flat on them and adds no second row; the version history must name a different commit for each release. The commit field names 9a8f91a8, the head this was built on. Not deployed yet."
+    },
+    {
+      "version": "0.3.9",
+      "releasedAt": null,
+      "commit": "b69ea3da",
+      "notes": "Attendance fix after round 14: no tick box is left anywhere. The three that remained (choosing records for a bulk action, Close enrolment now when freezing, and Ask every voter for one supporting document in the list settings) are now plain on/off buttons that say On and Off, or Select and Selected, with the same effect and the same saved value as before; one small shared helper builds all three; tests: a scan fails on any checkbox in every file under public and src with no exceptions, the helper is run against a minimal fake page to show it flips on a press, and the documents-required setting is saved on, read back, saved off and read back. The commit field names b69ea3da, the head this was built on. Not deployed yet."
+    },
+    {
+      "version": "0.3.8",
+      "releasedAt": null,
+      "commit": "1ec24618",
+      "notes": "Attendance fix after round 13: the two freeze tick boxes are now one plain button, Yes, freeze anyway, which sets the same confirmation the box did, so the server check is unchanged; the server messages no longer say to tick a box; when two marks by one e-mail ID meet at the same moment the answer is the plain one-person message, not an error; the README and assumptions now say that there is no tick box and the confirm button is the act; tests: the checkbox scan also fails on a box labelled agree, understand, looked at or accept, the Hindi consent exemptions are pinned to their exact Hindi, the English keys of the Hindi file are scanned for the possessive words, and the page route check resolves the attendance base address. The commit field names 1ec24618, the head this was built on. Not deployed yet."
+    },
+    {
+      "version": "0.3.7",
+      "releasedAt": null,
+      "commit": "1d80cf4",
+      "notes": "Attendance fix after round 11: adding a person no longer needs a tick box. The server ignores the old agreed field (an old client that still sends it keeps working) and the Add a person dialog has no checkbox; it shows a plain line that the person will see the record when they sign in with this e-mail ID, under the Terms and Conditions, with the Terms link. The record.added trail row still names who added it. The Hindi consent test now runs each pattern on sample inputs and scans the Hindi it writes, and a planted consent word is caught; a scan of all sources fails on a tick box or the words tick the box or I agree; README migration range corrected to 0001 to 0014. Not deployed yet."
+    },
+    {
+      "version": "0.3.6",
+      "releasedAt": null,
+      "commit": "7d9abe3",
+      "notes": "Attendance fix after round 10: an undo that would take off the list a person who has an attendance mark is now refused inside the same database step, so a mark that lands at the last moment gives the plain 409 message, not an error, and the list of actions no longer offers that undo; the database now lets a mark be deleted only through the 30-day clean-up of a withdrawn voter (migration 0014, a purge marker set and cleared in the same step), not for any removed person; tests force a real clean-up failure and check the version names the parent of the bump. Not deployed yet."
+    },
+    {
+      "version": "0.3.5",
+      "releasedAt": null,
+      "commit": "7468a56",
+      "notes": "Attendance fix after round 9: a voter who withdrew after being marked present can now be erased after 30 days (their attendance marks are deleted in the same step, so a session's present count drops by those marks; migration 0013 lets the database allow this for people no longer on the list only); a failing clean-up can no longer turn a sign-in into an error; taking back a record that already has an attendance mark is refused with a plain message and changes nothing; the version test now fails when a commit named in version.json does not exist. Not deployed yet."
+    },
+    {
+      "version": "0.3.4",
+      "releasedAt": null,
+      "commit": "c93930d",
+      "notes": "Attendance fixes after round 8: the public session list of every link, for a Voter List and for a list made from an uploaded sheet alike, no longer shows the title or the place (a voter who signed in for that link and is on its list still sees them, and the team pages show them as before); an e-mail ID is tidied the same way (spaces, capital letters, mailto:, angle brackets, a trailing dot or comma) wherever it is compared with the list or turned into a private code, so one e-mail ID marks one person in a session however it is typed (a +tag is part of the e-mail ID, so a@x and a+tag@x are two e-mail IDs); a request that carries any cookie gets a private answer that is never cached, and only a request with no cookie may be cached for 30 seconds; the commit field of 0.3.3 now names the commit it was built on (2bd234f) and each of the two newest entries carries its own; tests: the native Hindi review list must match the lines added exactly, the Hindi consent scan also catches the Hindi words for rule, accept and permission, and the wording scan also reads KNOWLEDGE.md and CHANGELOG.md. Not deployed yet."
+    },
+    {
+      "version": "0.3.3",
       "releasedAt": null,
       "commit": "2bd234f",
-      "notes": "Elections, first chunks (dark: every address answers not found until ELECTIONS_ENABLED is 1): a society election on the frozen final voter list with nominations, a notice that fixes the rules, scrutiny and appeals, a final candidate list, a secret ballot online or on paper, the count, recounts, a repeatable draw for a tie, challenges, the declaration by the returning officer and one public report. The register of who voted and the sealed ballots share no column; tests read the real database to prove it. New migration 0012_elections. Plain-English guide in docs/ELECTIONS.md."
+      "notes": "Attendance fixes after round 7: the public session list of a Voter List link no longer shows the title or the place (a voter who signed in for that link and is on its list still sees them); one e-mail ID marks one person in a session, even when it is on more than one flat, with a plain message and the same rule in the database (migration 0012); a co-organizer's page says Limited view (the Organizer's says Full view), the sheet says partly hidden in its column names and file name, and the find box takes a flat or member ID only; Hindi lines for texts the server builds that had none (sheet reader messages, code limits, same-moment messages, the failure message, country names, the count in the sessions table), all listed in lang/hi.js as needing a native Hindi reader, and none on a consent line; the wording scan now covers every source file, the dev scripts and the pages and checks the real answers, e-mails and sheets for possessive words; the upload form shows a plain message, not the engine's own words, when a sheet cannot be read; a first load that fails shows a plain message and a Try again button instead of a stuck Loading line; the voter page header shows the e-mail ID and a Sign out button. Not deployed yet."
     },
     {
       "version": "0.3.2",

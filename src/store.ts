@@ -19,7 +19,7 @@ export interface StaffCtx { env: Env; now: number; email: string; role: Role; pe
 /** What each role may do. The Organizer may do everything. A Host checks and corrects records on the Organizer's behalf; settings, publishing, the team and full exports stay with the Organizer. */
 export const CAN: Record<string, Role[]> = {
   view: ["organizer", "host"], review: ["organizer", "host"], import: ["organizer", "host"], editRecords: ["organizer", "host"], undo: ["organizer", "host"], weights: ["organizer", "host"], authorize: ["organizer"],
-  settings: ["organizer"], publishDraft: ["organizer"], freeze: ["organizer"], team: ["organizer"], fullExport: ["organizer"], orders: ["organizer"], reopen: ["organizer"], shareLink: ["organizer"], attendSetup: ["organizer"], attendMark: ["organizer", "host"],
+  settings: ["organizer"], publishDraft: ["organizer"], freeze: ["organizer"], team: ["organizer"], fullExport: ["organizer"], orders: ["organizer"], reopen: ["organizer"], shareLink: ["organizer"], attendSetup: ["organizer"], attendMark: ["organizer", "host"], results: ["organizer"],
   elections: ["organizer"], electView: ["organizer", "host"],
 };
 export function need(ctx: Pick<StaffCtx, "role">, action: keyof typeof CAN): void {

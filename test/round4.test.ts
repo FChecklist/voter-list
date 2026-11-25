@@ -41,11 +41,11 @@ describe("H1: a withdrawn person leaves the public draft whatever way the flat w
 });
 
 describe("M2: staff add only with the person's agreement", () => {
-  test("adding without the tick is refused, with it works", async () => {
+  test("adding needs no tick: it works without the field and with an old client that still sends it", async () => {
     const h = await makeHarness(); const { jar, sid } = await newList(h);
     const body = { unit: "Z-1", name: "Zed Person", capacity: "Owner", mobile: "9000000401", email: "zed@sample.example" };
-    const no = await h.call("POST", `/api/lists/${sid}/records`, body, jar); expect(no.status).toBe(400); expect(no.json.code).toBe("need_agreed");
-    expect((await h.call("POST", `/api/lists/${sid}/records`, { ...body, agreed: true }, jar)).status).toBe(201);
+    const no = await h.call("POST", `/api/lists/${sid}/records`, body, jar); expect(no.status).toBe(201);
+    expect((await h.call("POST", `/api/lists/${sid}/records`, { ...body, email: "zed2@sample.example", unit: "Z-2", agreed: true }, jar)).status).toBe(201);
   });
 });
 

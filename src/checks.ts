@@ -1,4 +1,4 @@
-// The checks: the whole rule book in one pure function. Errors stop a publish; warnings do not (they need one tick).
+// The checks: the whole rule book in one pure function. Errors stop a publish; warnings do not (they need one plain confirm press).
 // Also computes who may vote, weights and shares, and the fingerprint of a list. No I/O here, so it is tested exhaustively.
 import { canonical } from "./vendor/canonical";
 import { sha256Hex } from "./vendor/crypto";

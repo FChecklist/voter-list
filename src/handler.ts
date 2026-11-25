@@ -7,13 +7,15 @@ import * as attendance from "./attendance";
 import { eraseList, eraseStatus } from "./erase";
 import { mountElections } from "./elections-routes";
 import * as lists from "./lists";
+import { mountMeetings } from "./meeting-routes";
 import * as orders from "./orders";
 import { RULES } from "./model";
 import { overview } from "./overview";
 import * as publish from "./publish";
 import * as records from "./records";
+import * as results from "./results";
 import * as review from "./review";
-import { societyBySlug, staffCtx, type StaffCtx } from "./store";
+import { societyBySlug, staffCtx, type SocietyRow, type StaffCtx } from "./store";
 import { buildTemplateXlsx, TEMPLATE_CSV } from "./xlsx";
 import { publicKeyFromPrivate } from "./vendor/crypto";
 
@@ -55,12 +57,18 @@ const staff = async (r: Req): Promise<StaffCtx> => { const c = await staffAny(r)
 const anySlug = async (r: Req) => { const s = await societyBySlug(r.env, r.params.slug!); if (!s) throw new HttpError(404, "This link is not valid.", "not_found"); return s; };
 const liveSlug = async (r: Req) => { const s = await anySlug(r); if (s.erased_at) throw new HttpError(410, "This list has been closed and its details erased.", "erased"); return s; }; // the same answer as /start
 const slugList = async (r: Req) => { const s = await anySlug(r); if (s.purpose !== "voter_list") throw new HttpError(404, "This link is not valid.", "not_found"); return s; };
+// Results stay dark: until RESULTS_ENABLED is "1" every Results address answers "not found" before anything else is looked at (not even a missing sign-in is shown)
+const resultsStaff = async (r: Req): Promise<StaffCtx> => { results.requireOn(r.env); return staff(r); };
+const resultsSlug = async (r: Req) => { results.requireOn(r.env); const s = await slugList(r); results.notErased(s); return s; };
+const NOINDEX = { "x-robots-tag": "noindex" };
 async function voter(r: Req): Promise<records.VoterCtx> {
   const society = await slugList(r);
   const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
   if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");
   return { env: r.env, now: r.now, email: s.email, society };
 }
+// The e-mail ID of a voter signed in (with the e-mailed code) for this list's link, or null. It says only who signed in; the list itself decides whether they are on it.
+const memberEmail = async (r: Req, society: SocietyRow): Promise<string | null> => { const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now); return s && s.kind === "member" && s.societyId === society.id ? s.email : null; };
 const str = (v: unknown, max = 500): string => (typeof v === "string" ? v.slice(0, max) : "");
 const bool = (v: unknown) => v === true;
 const intq = (v: string | null, d: number) => { if (v === null || v.trim() === "") return d; const n = Number(v); return Number.isFinite(n) ? n : d; };
@@ -115,8 +123,13 @@ route("DELETE", "/api/v/:slug/records/:rid/docs/:did", async (r) => json(await r
 route("GET", "/api/v/:slug/records/:rid/docs/:did", async (r) => { const d = await records.getMyDoc(await voter(r), r.params.rid!, r.params.did!); return file(d.body, d.type, d.filename, true); });
 
 // attendance: public counts (no personal data), and a voter who signed in marks themselves present in an online session
-route("GET", "/api/v/:slug/attendance", async (r) => json(await attendance.publicSessions(r.env, await liveSlug(r)), 200, PUBLIC_CACHE));
-route("GET", "/api/v/:slug/attendance/:aid", async (r) => json(await attendance.publicSession(r.env, await liveSlug(r), r.params.aid!), 200, PUBLIC_CACHE));
+// The public answer is the same for everyone except that a voter on the list, signed in for this link, also gets the title and place (for every kind of list). So a cache must tell the askers apart (Vary),
+// an answer with that text is for that voter only and is never cached, and a request that carries any cookie is answered "private, no-store"; only a request with no cookie at all may be cached for 30 seconds.
+const BY_COOKIE = { vary: "Cookie" };
+const carriesCookie = (r: Req) => (r.req.headers.get("cookie") ?? "").trim() !== "";
+const attendanceCache = (r: Req, personal: boolean) => (personal || carriesCookie(r) ? { "cache-control": "private, no-store", ...BY_COOKIE } : { ...PUBLIC_CACHE, ...BY_COOKIE });
+route("GET", "/api/v/:slug/attendance", async (r) => { const soc = await liveSlug(r); const x = await attendance.publicSessions(r.env, soc, await memberEmail(r, soc)); return json(x.body, 200, attendanceCache(r, x.personal)); });
+route("GET", "/api/v/:slug/attendance/:aid", async (r) => { const soc = await liveSlug(r); const x = await attendance.publicSession(r.env, soc, r.params.aid!, await memberEmail(r, soc)); return json(x.body, 200, attendanceCache(r, x.personal)); });
 route("GET", "/api/v/:slug/attend/me", async (r) => {
   const society = await liveSlug(r); const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
   if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");
@@ -174,6 +187,9 @@ route("POST", "/api/lists/:sid/team", async (r) => json(await lists.inviteHost(a
 route("POST", "/api/lists/:sid/team/organizer", async (r) => { const b = await r.body(); return json(await lists.transferOrganizer(await staff(r), str(b.email, 200))); });
 route("DELETE", "/api/lists/:sid/team/:email", async (r) => json(await lists.removeHost(await staff(r), (() => { try { return decodeURIComponent(r.params.email!); } catch { throw new HttpError(400, "That e-mail ID could not be read.", "bad_email"); } })())));
 
+// meetings (dark unless MEETINGS_ENABLED is "1"): the addresses are in meeting-routes.ts
+mountMeetings({ route, json, file, staff, slug: slugList, publicCache: PUBLIC_CACHE });
+
 // attendance sessions (Voter List or uploaded list): create, list, open, mark present, close
 route("POST", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.createSession(await staffAny(r), await r.body()), 201));
 route("GET", "/api/lists/:sid/attendance/sessions", async (r) => json(await attendance.listSessions(await staffAny(r))));
@@ -184,6 +200,20 @@ route("POST", "/api/lists/:sid/attendance/sessions/:aid/close", async (r) => { c
 
 // elections (dark unless ELECTIONS_ENABLED is "1"): the addresses are in elections-routes.ts
 mountElections({ route, json, staff, voter, slug: slugList, publicCache: PUBLIC_CACHE });
+// results (dark until RESULTS_ENABLED is "1"): a closed meeting or election, the declared result made from it, and what the public may see of it
+route("POST", "/api/lists/:sid/results/closings", async (r) => json(await results.enterClosing(await resultsStaff(r), await r.body()), 201));
+route("GET", "/api/lists/:sid/results/closings", async (r) => json(await results.listClosings(await resultsStaff(r))));
+route("POST", "/api/lists/:sid/results", async (r) => { const c = await resultsStaff(r); return json(await results.makeResult(c, await r.body()), 201); });
+route("GET", "/api/lists/:sid/results", async (r) => json(await results.listResults(await resultsStaff(r))));
+route("GET", "/api/lists/:sid/results/:rid", async (r) => json(await results.openResult(await resultsStaff(r), r.params.rid!)));
+route("GET", "/api/lists/:sid/results/:rid/verify", async (r) => json(await results.verifyForTeam(await resultsStaff(r), r.params.rid!, r.url.searchParams.get("code") ?? undefined)));
+route("GET", "/api/lists/:sid/results/:rid/export.csv", async (r) => { const x = await results.exportCsv(await resultsStaff(r), r.params.rid!); return file(x.body, x.type, x.filename); });
+route("POST", "/api/lists/:sid/results/:rid/final", async (r) => { const c = await resultsStaff(r); return json(await results.finalize(c, r.params.rid!, await r.body())); });
+route("POST", "/api/lists/:sid/results/:rid/correct", async (r) => { const c = await resultsStaff(r); return json(await results.correct(c, r.params.rid!, await r.body()), 201); });
+route("POST", "/api/lists/:sid/results/:rid/visibility", async (r) => { const c = await resultsStaff(r); return json(await results.setVisibility(c, r.params.rid!, await r.body())); });
+route("GET", "/api/v/:slug/results", async (r) => json(await results.publicList(r.env, await resultsSlug(r), r.now), 200, NOINDEX));
+route("GET", "/api/v/:slug/results/:rid", async (r) => json(await results.publicResult(r.env, await resultsSlug(r), r.params.rid!, r.now), 200, NOINDEX));
+route("GET", "/api/v/:slug/results/:rid/verify", async (r) => json(await results.publicVerify(r.env, await resultsSlug(r), r.params.rid!, r.url.searchParams.get("code") ?? undefined), 200, NOINDEX));
 
 // retention
 route("GET", "/api/lists/:sid/erase", async (r) => json(await eraseStatus(await staff(r))));

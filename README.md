@@ -8,9 +8,9 @@ A single-page product for AOA, HOA and RWA societies to build, check, publish an
 
 ## What it does
 
-**One common link per voter list.** Voters open `/v/<link>`, sign in with their e-mail ID and a 6-digit code (no passwords), and move down one page: Sign in, Enrol (Owner / Co-owner / Tenant / Proxy, as the list allows), Check and send, Your information, Documents, Where things stand, The public list.
+**One common link per voter list.** Voters open `/v/<link>`, sign in with their e-mail ID and a 6-digit code (no passwords), and move down one page: Sign in, Enrol (Owner / Co-owner / Tenant / Proxy, as the list allows), Check and send, Voter information, Documents, Where things stand, The public list.
 
-**The Organizer and Hosts** use `/`: Set up, Share the link, Your team, Check the records, Final checks, Publish the draft list, Publish the final list. Each record is Approved, or Not approved (sent back to the voter with a reason); the voter fixes it and sends it again, and it comes back for a fresh check. Bulk actions and Undo are there.
+**The Organizer and co-organizers** use `/`: Set up, Share the link, The team, Check the records, Final checks, Publish the draft list, Publish the final list. Each record is Approved, or Not approved (sent back to the voter with a reason); the voter fixes it and sends it again, and it comes back for a fresh check. Bulk actions and Undo are there.
 
 **Publishing.** A **draft** list is public at once, masked and marked provisional, and can be replaced. A **final** list is frozen at a date-and-time cut-off: immutable (the database refuses changes), fingerprinted and signed, with a proof page anyone can check. The public page shows the flat number, a masked name, the role, may-vote, the mobile's last 4 digits and the e-mail ID's last 4 characters, and nothing else.
 
@@ -67,7 +67,7 @@ bun test --isolate && bun run typecheck && bun run build:pages
 wrangler login
 wrangler d1 create voter-list           # copy the printed id into wrangler.toml, database_id
 wrangler d1 create voter-list-preview   # copy the id into wrangler.toml, [env.preview], database_id
-wrangler d1 migrations apply voter-list-preview --remote --env preview    # applies migrations 0001 to 0008 to the PREVIEW database only
+wrangler d1 migrations apply voter-list-preview --remote --env preview    # applies migrations 0001 to 0018 to the PREVIEW database only
 ```
 
 **Step 3. Create secrets outside the repo.** Production secrets must be new, not the dev ones; keep the signing key backed up offline, because it signs the audit trail and the final lists.
@@ -112,25 +112,29 @@ Do not put the address on the marketing site until row 22 passes.
 
 Before running any command below, check the flags with `wrangler pages secret --help` and `wrangler d1 migrations apply --help` (the tool changes often); the commands are the plan, not a tested script.
 
-Environment: `SIGNING_KEY`, `PEPPER` (required); `ORGANIZERS` (comma-separated e-mail IDs that may start lists; without it, nobody new can become an Organizer in production, by design) or `OPEN_SIGNUP=1` (anyone may; only after the Cloudflare Turnstile check is in place); `CF_EMAIL_TOKEN` with `CF_ACCOUNT_ID` (Cloudflare Email Service) or `RESEND_API_KEY` (older route), `MAIL_FROM`, `MAIL_DAILY_CAP`, `MAIL_STAFF_RESERVE`, `MAIL_LIST_CAP` (optional); `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` (optional, the free Cloudflare check on sign-in; it is on only when both are set); `PERMANENT_HOST_EMAIL` (default `host@townhall-records.com`), `RETENTION_DAYS` (unset = records are kept always; if set, minimum 30), `PRICE_INR` (optional, see ASSUMPTIONS.md). **Never set `TEST_MODE` in production.** Never commit `.dev.vars` or any key. Payments, if ever added, go only through IT SERVICES BY RAJAT AGARWAL via Razorpay; that is not wired here.
+Environment: `SIGNING_KEY`, `PEPPER` (required); `ORGANIZERS` (comma-separated e-mail IDs that may start lists; without it, nobody new can become an Organizer in production, by design) or `OPEN_SIGNUP=1` (anyone may; only after the Cloudflare Turnstile check is in place); `CF_EMAIL_TOKEN` with `CF_ACCOUNT_ID` (Cloudflare Email Service) or `RESEND_API_KEY` (older route), `MAIL_FROM`, `MAIL_DAILY_CAP`, `MAIL_STAFF_RESERVE`, `MAIL_LIST_CAP` (optional); `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` (optional, the free Cloudflare check on sign-in; it is on only when both are set); `PERMANENT_HOST_EMAIL` (default `host@townhall-records.com`), `RETENTION_DAYS` (unset = records are kept always; if set, minimum 30), `PRICE_INR` (optional, see ASSUMPTIONS.md), `RESULTS_ENABLED` (Results stays dark unless this is exactly `1`; it is left unset until the owner's go-ahead, see `docs/RESULTS.md`). **Never set `TEST_MODE` in production.** Never commit `.dev.vars` or any key. Payments, if ever added, go only through IT SERVICES BY RAJAT AGARWAL via Razorpay; that is not wired here.
 
 ## Data protection note for Organizers (DPDP Act 2023)
 
-The society (through its Organizer) decides why and how the voter list is used, so it is most likely the data fiduciary; Townhall Records processes the data for it. Voters give consent with a tick before a record is sent, and can withdraw it before the list is final. The notice says what is public (flat number, role, may-vote, a masked name, the mobile's last 4 digits and the e-mail ID's last 4 characters). The signed log records who opened which record. If something goes wrong with personal data, the Board must be told within 72 hours, and a person's request for correction or erasure should be answered within 90 days; the Organizer is the contact. **The owner decided that voter records are kept always** (no automatic erase); corrections are made by the Organizer and signed into the log. The one exception is a record that a voter withdraws by their own choice: it is cleared after 30 days, and the voter is told so. Permanent keeping sits uneasily with the Act's purpose-limitation and erase-on-request ideas, so a lawyer should review it before launch. This note is a plain reading, not legal advice: a lawyer should confirm it before launch.
+The society (through its Organizer) decides why and how the voter list is used, so it is most likely the data fiduciary; Townhall Records processes the data for it. There is no tick box: a voter presses the plain confirm button after reading the notice with its Terms link, and the time and the terms version are recorded. A voter can withdraw a record before the list is final. The notice says what is public (flat number, role, may-vote, a masked name, the mobile's last 4 digits and the e-mail ID's last 4 characters). The signed log records who opened which record. If something goes wrong with personal data, the Board must be told within 72 hours, and a person's request for correction or erasure should be answered within 90 days; the Organizer is the contact. **The owner decided that voter records are kept always** (no automatic erase); corrections are made by the Organizer and signed into the log. The one exception is a record that a voter withdraws by their own choice: it is cleared after 30 days, and the voter is told so. Permanent keeping sits uneasily with the Act's purpose-limitation and erase-on-request ideas, so a lawyer should review it before launch. This note is a plain reading, not legal advice: a lawyer should confirm it before launch.
 
 ## Layout
 
 ```
-migrations/   0001..0004 (core, lists, workflow, hardening; the old tables stay unused), 0005_enrolment (voters, documents, events, publications, roles), 0006_indexes (for the clean-up), ..., 0012_elections (Elections)
+migrations/   0001..0004 (core, lists, workflow, hardening; the old tables stay unused), 0005_enrolment (voters, documents, events, publications, roles), 0006_indexes (for the clean-up), then 0007 to 0015 (up to the flat kept on the attendance mark), then 0016_results, 0017_meetings and 0018_elections (the last three were each a 0012 file before they were merged with the attendance work and were renumbered)
 src/          handler.ts (router and API), lists / records / review / publish / overview / erase / orders (services), store.ts (access rules),
               auth.ts, audit.ts, checks.ts, importer.ts, csv.ts, xlsx.ts, text.ts, model.ts, vendor/,
-              elections*.ts and election-messages.ts (Elections)
+              results.ts and results-core.ts (Results: the service, and the counting and checks with no database),
+              meetings.ts and meeting-*.ts (Meetings), elections*.ts and election-messages.ts (Elections)
 functions/    the Pages Function that calls the handler
 public/       index.html (Organizer and Hosts), v/index.html (voters), assets/ (steps.js, voter.js, organizer*.js, ui.js, app.css)
 scripts/      gen-dev-vars, gen-prod-keys, migrate, seed, build-pages
 test/         the suites above
-docs/         AUDIT-ROUND-*.md, GAPS-AND-PLAN.md, RESEARCH-NOTES.md, PROGRESS.md, SMOKE-TEST.md
+docs/         AUDIT-ROUND-*.md, GAPS-AND-PLAN.md, RESEARCH-NOTES.md, PROGRESS.md, SMOKE-TEST.md, RESULTS.md
 ```
+
+### Results (API only, dark)
+A closed meeting or election becomes one declared result that anyone can check: the server makes it from the closing the Organizer entered, runs the checks, fingerprints it and opens a challenge window; the Organizer types FINAL after the window, and a mistake is put right by a correction that keeps the old result. Every Results address answers "not found" unless `RESULTS_ENABLED` is `1`. Plain-words guide, the steps for an AI helper and the honest list of what is not built: `docs/RESULTS.md`. Tables: `migrations/0016_results.sql`. Tests: `test/results-core.test.ts`, `test/results.test.ts` and `test/results-docs.test.ts`.
 
 ### Payments (price slot, off by default)
 Owner's rule for every site: payments go only through the central payment service of IT SERVICES BY RAJAT AGARWAL (Razorpay, one ledger), as the Games do. Voter List has no Razorpay key and never calls Razorpay. With `PRICE_INR`, `PAY_SERVICE_KEY` (secret, piped in, never in a command line) and `PAY_SITE` set, `POST /api/lists/:sid/orders` asks the central service to open the order and returns what the payment frame needs; `POST /api/lists/:sid/orders/:oid/verify` asks the central service to confirm the payment (paid, same amount, same currency, our order id as the reference) before the order counts. Not wired live: the site must first be registered in the central ledger and its address added to the payment frame's allow-list (both on the owner's side), and a pay screen is still to be built. Migration `0008_central_pay.sql` rebuilds the `orders` table (real orders, Razorpay order id).
