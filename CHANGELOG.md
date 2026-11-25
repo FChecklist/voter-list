@@ -15,7 +15,7 @@ Townhall Meetings, first chunks. API only, no screens, and dark: every Meetings 
 - A public page (API) that shows only what the Organizer chose and never a name or e-mail ID, a calendar file, and a JSON report with its own fingerprint.
 - Every step is in the signed log (ids, counts, fingerprints and private codes only). Erasing a list removes every meeting record.
 - New migration `0012_meetings.sql`; its tables, indexes and triggers start with `mtg_`. Results, Elections and Attendance round 7 also add a 0012 file, so whoever merges second renames it.
-- 45 new tests in `test/meetings.test.ts`.
+- 46 new tests in `test/meetings.test.ts`.
 - Not built: screens, e-mailing of notices and reminders, papers, speaker list, PDF report, price. The money flag is untouched.
 
 ## 0.3.2 - not deployed yet (IST)

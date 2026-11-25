@@ -337,6 +337,14 @@ describe("quorum (CP-212, CP-213, CP-248)", () => {
     expect(q).toMatchObject({ percent: 0, required: 0, met: true }); expect(q.words).toContain("need no quorum");
   });
 
+  test("a list that has lost everyone after the notice never has a quorum, even though a percent of nobody is nothing (at least one person is always needed)", async () => {
+    const w = await world(2); const m = await noticed(w, { pct: 50 });
+    w.h.raw.query("UPDATE voters SET status = 'removed' WHERE society_id = ?").run(w.sid); // everyone is taken off the list
+    const q =(await w.h.call("GET", `${w.base}/${m.mid}/quorum`, undefined, w.jar)).json.quorum;
+    expect(q).toMatchObject({ ruleSet: true, percent: 50, linked: true, eligible: 0, present: 0, required: 1, met: false });
+    expect(q.words).toContain("not met");
+  });
+
   test("no quorum, no decision: the result is refused with the way forward, and nothing is written (CP-248)", async () => {
     const w = await world(4); const m = await noticed(w, { pct: 50 }); await opened(w, m);
     await present(w, m.aid!, "asha"); // 1 of 4 is present, 2 are needed
