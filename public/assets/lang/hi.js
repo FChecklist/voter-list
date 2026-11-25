@@ -435,9 +435,95 @@
     "The Flat / House / Member ID looks wrong (for example a phone number or an e-mail ID).": "फ़्लैट / मकान / सदस्य आईडी गलत लगती है (जैसे फ़ोन नंबर या ई-मेल आईडी)।",
     "No name, or the name is too long.": "नाम नहीं है, या नाम बहुत लंबा है।",
     "The same ID and e-mail ID appear earlier.": "यही आईडी और ई-मेल आईडी पहले आ चुकी हैं।",
+
+    // ---- NEEDS NATIVE REVIEW (version 0.3.3) ----------------------------------------------------------------------------------------
+    // Every Hindi line added in version 0.3.3 was written without a native Hindi reader, and a native Hindi reader must read each one before release.
+    // This includes the patterns at the end of this file for the place, title and name messages, the country list message and "N of M". They are plain and
+    // polite like the rest of the file. None of them is a consent line: the owner allows no Hindi on a consent line. The English of each line is listed here
+    // ("3 of 10" stands for the pattern that turns "N of M" into "M में से N"):
+    //   1. "This e-mail ID has already marked one person present in this session. An e-mail ID counts as one person, even on more than one flat. To mark someone else, please ask the Organizer or a co-organizer."
+    //   2. "This session was closed at the same moment."
+    //   3. "This session is already closed."
+    //   4. "Several codes were sent to this e-mail ID already. Please check the inbox (and the spam folder), or try again in an hour."
+    //   5. "This e-mail ID has had all its codes for today. Please try again tomorrow."
+    //   6. "Someone else changed this at the same moment. Please look again and try once more."
+    //   7. "Something went wrong on our side. Nothing was lost; please try again."
+    //   8. "That record is fixed and cannot be changed."
+    //   9. "Please do not write phone numbers or e-mail IDs in the title."
+    //   10. "Please do not write phone numbers or e-mail IDs in the place."
+    //   11. "Please do not write phone numbers or e-mail IDs in the name."
+    //   12. "We could not find the heading row. The first column should be called 'Flat / House / Member ID' (or 'ID'). Please use the template."
+    //   13. "The Excel file is empty."
+    //   14. "There is nothing to read. Please choose a file or paste the list."
+    //   15. "The heading row was found but there are no people below it."
+    //   16. "More than 6000 rows. Please split the list."
+    //   17. "This does not look like an Excel (.xlsx) file."
+    //   18. "This Excel file has too many parts."
+    //   19. "The Excel file is damaged."
+    //   20. "This Excel file expands to an unreasonable size."
+    //   21. "This Excel file uses a compression this reader does not know."
+    //   22. "This Excel file is larger than 8 MB. Please split the list."
+    //   23. "The first sheet of the Excel file could not be found."
+    //   24. "This file is larger than 3 MB. Please split the list."
+    //   25. "A quotation mark was opened and never closed. Please check the file."
+    //   26. "India"
+    //   27. "Bangladesh"
+    //   28. "Bhutan"
+    //   29. "Nepal"
+    //   30. "Sri Lanka"
+    //   31. "Singapore"
+    //   32. "United Arab Emirates"
+    //   33. "United Kingdom"
+    //   34. "United States"
+    //   35. "3 of 10"
+    //   36. "Limited view: names and e-mail IDs are partly hidden, here and in the downloaded sheet. Only the Organizer sees them in full."
+    //   37. "Full view: names and e-mail IDs are shown in full, here and in the downloaded sheet."
+    //   38. "This e-mail ID is on more than one flat. It counts as one person, so it can mark one person present in each session. To mark someone else, please ask the Organizer or a co-organizer."
+    //   39. "This page could not be opened just now. Nothing was changed. Please try again."
+    //   40. "Try again"
+    // ---- END NEEDS NATIVE REVIEW ----------------------------------------------------------------------------------------------------
+    // Server messages built in the sign-in code, the signed log and the sheet reader (a native Hindi reader should check these too)
+    "This e-mail ID has already marked one person present in this session. An e-mail ID counts as one person, even on more than one flat. To mark someone else, please ask the Organizer or a co-organizer.": "इस ई-मेल आईडी से इस सत्र में एक व्यक्ति की उपस्थिति पहले ही दर्ज हो चुकी है। एक ई-मेल आईडी एक व्यक्ति गिनी जाती है, चाहे वह एक से ज़्यादा फ़्लैट में हो। किसी और की उपस्थिति दर्ज कराने के लिए कृपया आयोजक या सह-आयोजक से कहिए।",
+    "This session was closed at the same moment.": "यह सत्र ठीक उसी समय बंद कर दिया गया।",
+    "This session is already closed.": "यह सत्र पहले ही बंद हो चुका है।",
+    "Several codes were sent to this e-mail ID already. Please check the inbox (and the spam folder), or try again in an hour.": "इस ई-मेल आईडी पर कई कोड पहले ही भेजे जा चुके हैं। कृपया इनबॉक्स (और स्पैम फ़ोल्डर) देखिए, या एक घंटे बाद फिर कोशिश कीजिए।",
+    "This e-mail ID has had all its codes for today. Please try again tomorrow.": "इस ई-मेल आईडी के लिए आज के सभी कोड भेजे जा चुके हैं। कृपया कल फिर कोशिश कीजिए।",
+    "Someone else changed this at the same moment. Please look again and try once more.": "उसी समय किसी और ने इसे बदल दिया। कृपया फिर से देखिए और एक बार और कोशिश कीजिए।",
+    "Something went wrong on our side. Nothing was lost; please try again.": "हमारी तरफ़ से कुछ गड़बड़ हो गई। कुछ भी खोया नहीं है; कृपया फिर कोशिश कीजिए।",
+    "That record is fixed and cannot be changed.": "यह रिकॉर्ड पक्का हो चुका है और इसे बदला नहीं जा सकता।",
+    "We could not find the heading row. The first column should be called 'Flat / House / Member ID' (or 'ID'). Please use the template.": "हमें शीर्षक वाली पंक्ति नहीं मिली। पहले कॉलम का नाम 'Flat / House / Member ID' (या 'ID') होना चाहिए। कृपया टेम्पलेट इस्तेमाल कीजिए।",
+    "The Excel file is empty.": "Excel फ़ाइल खाली है।",
+    "There is nothing to read. Please choose a file or paste the list.": "पढ़ने के लिए कुछ नहीं है। कृपया फ़ाइल चुनिए या सूची चिपकाइए।",
+    "The heading row was found but there are no people below it.": "शीर्षक वाली पंक्ति मिली, पर उसके नीचे कोई व्यक्ति नहीं है।",
+    "More than 6000 rows. Please split the list.": "6000 से ज़्यादा पंक्तियाँ हैं। कृपया सूची को बाँट लीजिए।",
+    "This does not look like an Excel (.xlsx) file.": "यह Excel (.xlsx) फ़ाइल नहीं लगती।",
+    "This Excel file has too many parts.": "इस Excel फ़ाइल में बहुत ज़्यादा हिस्से हैं।",
+    "The Excel file is damaged.": "Excel फ़ाइल ख़राब है।",
+    "This Excel file expands to an unreasonable size.": "यह Excel फ़ाइल खुलने पर बहुत ज़्यादा बड़ी हो जाती है।",
+    "This Excel file uses a compression this reader does not know.": "यह Excel फ़ाइल ऐसे ढंग से सिकोड़ी गई है जिसे यह प्रोग्राम पढ़ नहीं सकता।",
+    "This Excel file is larger than 8 MB. Please split the list.": "यह Excel फ़ाइल 8 MB से बड़ी है। कृपया सूची को बाँट लीजिए।",
+    "The first sheet of the Excel file could not be found.": "Excel फ़ाइल की पहली शीट नहीं मिली।",
+    "This file is larger than 3 MB. Please split the list.": "यह फ़ाइल 3 MB से बड़ी है। कृपया सूची को बाँट लीजिए।",
+    "A quotation mark was opened and never closed. Please check the file.": "एक उद्धरण-चिह्न खोला गया पर बंद नहीं हुआ। कृपया फ़ाइल जाँच लीजिए।",
+    // Country names (the list a sheet may name; the page sends the English name to the server)
+    "India": "भारत",
+    "Bangladesh": "बांग्लादेश",
+    "Bhutan": "भूटान",
+    "Nepal": "नेपाल",
+    "Sri Lanka": "श्रीलंका",
+    "Singapore": "सिंगापुर",
+    "United Arab Emirates": "संयुक्त अरब अमीरात",
+    "United Kingdom": "यूनाइटेड किंगडम",
+    "United States": "संयुक्त राज्य अमेरिका",
+    // Attendance pages: the view of a co-organizer and of the Organizer, the one-person rule, and the kind error with a retry
+    "Limited view: names and e-mail IDs are partly hidden, here and in the downloaded sheet. Only the Organizer sees them in full.": "सीमित दृश्य: यहाँ और डाउनलोड की गई शीट में नाम और ई-मेल आईडी आंशिक रूप से ढके हैं। उन्हें पूरा केवल आयोजक देखता है।",
+    "Full view: names and e-mail IDs are shown in full, here and in the downloaded sheet.": "पूरा दृश्य: यहाँ और डाउनलोड की गई शीट में नाम और ई-मेल आईडी पूरे दिखते हैं।",
+    "This e-mail ID is on more than one flat. It counts as one person, so it can mark one person present in each session. To mark someone else, please ask the Organizer or a co-organizer.": "यह ई-मेल आईडी एक से ज़्यादा फ़्लैट में है। यह एक व्यक्ति गिनी जाती है, इसलिए हर सत्र में एक व्यक्ति की उपस्थिति दर्ज कर सकती है। किसी और की उपस्थिति दर्ज कराने के लिए कृपया आयोजक या सह-आयोजक से कहिए।",
+    "This page could not be opened just now. Nothing was changed. Please try again.": "यह पन्ना अभी खुल नहीं सका। कुछ भी नहीं बदला है। कृपया फिर कोशिश कीजिए।",
+    "Try again": "फिर कोशिश कीजिए",
   },
   patterns: [
-    [/^Please choose a country from the list: (.+)\.$/, (c) => "कृपया सूची में से देश चुनिए: " + c + "।"],
+    [/^Please choose a country from the list: (.+)\.$/, (c) => "कृपया सूची में से देश चुनिए: " + c.split(", ").map((x) => window.VL.tr(x)).join(", ") + "।"],
     [/^Mark present: ?(.*)$/, (u) => "उपस्थित दर्ज करें: " + u],
     [/^Test mode: the code is (.+)$/, (c) => "टेस्ट मोड: कोड है " + c],
     [/^(.+) becomes the Organizer, and you become a Co-organizer\. Only the Organizer can publish\.$/, (e) => e + " आयोजक बनेंगे, और आप सह-आयोजक बनेंगे। केवल आयोजक प्रकाशित कर सकता है।"],
@@ -468,5 +554,8 @@
     [/^(\d+) sessions?$/, (n) => n + " सत्र"],
     [/^(\d+) (?:person|people)$/, (n) => n + " व्यक्ति"],
     [/^(\d+) rows?$/, (n) => n + " पंक्तियाँ"],
+    // Added in version 0.3.3 (needs a native Hindi reader, see the list above): the sessions table count, and the place, title and name messages
+    [/^(\d+) of (\d+)$/, (a, b) => b + " में से " + a],
+    [/^Please do not write phone numbers or e-mail IDs in the (title|place|name)\.$/, (w) => "कृपया " + ({ title: "शीर्षक", place: "स्थान", name: "नाम" })[w] + " में फ़ोन नंबर या ई-मेल आईडी न लिखिए।"],
   ],
 };

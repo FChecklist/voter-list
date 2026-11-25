@@ -1,10 +1,22 @@
 {
   "product": "voter-list",
-  "version": "0.3.2",
+  "version": "0.3.4",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "86394a1",
+  "commit": "c93930d",
   "changes": [
+    {
+      "version": "0.3.4",
+      "releasedAt": null,
+      "commit": "c93930d",
+      "notes": "Attendance fixes after round 8: the public session list of every link, for a Voter List and for a list made from an uploaded sheet alike, no longer shows the title or the place (a voter who signed in for that link and is on its list still sees them, and the team pages show them as before); an e-mail ID is tidied the same way (spaces, capital letters, mailto:, angle brackets, a trailing dot or comma) wherever it is compared with the list or turned into a private code, so one e-mail ID marks one person in a session however it is typed (a +tag is part of the e-mail ID, so a@x and a+tag@x are two e-mail IDs); a request that carries any cookie gets a private answer that is never cached, and only a request with no cookie may be cached for 30 seconds; the commit field of 0.3.3 now names the commit it was built on (2bd234f) and each of the two newest entries carries its own; tests: the native Hindi review list must match the lines added exactly, the Hindi consent scan also catches the Hindi words for rule, accept and permission, and the wording scan also reads KNOWLEDGE.md and CHANGELOG.md. Not deployed yet."
+    },
+    {
+      "version": "0.3.3",
+      "releasedAt": null,
+      "commit": "2bd234f",
+      "notes": "Attendance fixes after round 7: the public session list of a Voter List link no longer shows the title or the place (a voter who signed in for that link and is on its list still sees them); one e-mail ID marks one person in a session, even when it is on more than one flat, with a plain message and the same rule in the database (migration 0012); a co-organizer's page says Limited view (the Organizer's says Full view), the sheet says partly hidden in its column names and file name, and the find box takes a flat or member ID only; Hindi lines for texts the server builds that had none (sheet reader messages, code limits, same-moment messages, the failure message, country names, the count in the sessions table), all listed in lang/hi.js as needing a native Hindi reader, and none on a consent line; the wording scan now covers every source file, the dev scripts and the pages and checks the real answers, e-mails and sheets for possessive words; the upload form shows a plain message, not the engine's own words, when a sheet cannot be read; a first load that fails shows a plain message and a Try again button instead of a stuck Loading line; the voter page header shows the e-mail ID and a Sign out button. Not deployed yet."
+    },
     {
       "version": "0.3.2",
       "releasedAt": null,
