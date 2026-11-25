@@ -69,13 +69,7 @@ describe("1. the public session list of a Voter List link", () => {
     expect(r.status).toBe(200); expect(r.text).not.toContain("Annual meeting");
   });
 
-  test("a list made from an uploaded sheet keeps its titles in the public list (unchanged; the owner is asked whether it should follow)", async () => {
-    const h = await makeHarness(); const jar = await h.staff("solo@sample.example");
-    const up = await h.call("POST", "/api/attendance/rosters", { title: "Spring list", format: "paste", text: "Flat / House / Member ID,Name,E-mail ID\nA-1,Asha Sample,asha@sample.example\n" }, jar);
-    const slug = (up.json.list.link as string).split("/").pop()!;
-    await h.call("POST", `/api/lists/${up.json.list.id}/attendance/sessions`, { title: "Spring meeting", startsAt: "2026-12-05T18:00", place: "Hall", mode: "offline" }, jar);
-    const r = await h.call("GET", `/api/v/${slug}/attendance`); expect(r.json.sessions[0]).toMatchObject({ title: "Spring meeting", place: "Hall" });
-  });
+  // (a list made from an uploaded sheet showed its titles here until round 8; it now follows the Voter List: see test/attendance-round8.test.ts, block 1)
 
   test("the staff pages still see every title and place", async () => {
     const s = await society(); await mk(s, "in_person");
@@ -254,6 +248,31 @@ const hasHindi = (s: string) => Object.prototype.hasOwnProperty.call(hi.words, s
 const hindiOf = (s: string): string => { const t = s.trim(); if (Object.prototype.hasOwnProperty.call(hi.words, t)) return hi.words[t]; for (const [re, fn] of hi.patterns as [RegExp, (...a: string[]) => string][]) { const m = re.exec(t); if (m) return fn(...m.slice(1)); } return ""; };
 win.VL = { tr: (s: string) => hindiOf(s) || s }; // the country-list pattern turns each name into Hindi through the page's own helper
 
+/** The Hindi words of a consent line: consent, agree, conditions (also in "terms and conditions"), rule, accept, permission. */
+const HI_CONSENT = /सहमति|सहमत|शर्त|नियम|स्वीकार|अनुमति/;
+/** The English words and the Hindi words together. */
+const CONSENT_ANY = new RegExp(/By pressing|\bTerms\b|\bI (agree|accept)\b|\bagree to\b|\bconsent\b/i.source + "|" + HI_CONSENT.source, "i");
+/** Every line (the English key, or a pattern) of a language file whose English or Hindi holds a consent word, apart from the `reviewed` ones. A pattern's Hindi is what its function writes. */
+const hindiConsentHits = (lang: { words: Record<string, string>; patterns: Array<[RegExp, (...a: any[]) => string]> }, reviewed: ReadonlySet<string> = new Set()): string[] => [
+  ...Object.entries(lang.words).filter(([k, v]) => !reviewed.has(k) && (CONSENT_ANY.test(k) || CONSENT_ANY.test(v))).map(([k]) => k),
+  ...lang.patterns.filter(([re, fn]) => !reviewed.has(String(re)) && (CONSENT_ANY.test(re.source) || CONSENT_ANY.test(fn.toString()))).map(([re]) => String(re)),
+];
+/** Lines of the Voter List that were in hi.js before Attendance and hold one of those Hindi words without being a consent line (each is about the right to vote, the bye-laws or a proxy's written authority). */
+const REVIEWED_NOT_CONSENT: ReadonlySet<string> = new Set([
+  "Please choose what the bye-laws say. A registrar or a lawyer can confirm it.",
+  "You act for the owner, with their written authority",
+  "As the list stands now, you are not allowed to vote.",
+  "Dues unpaid - not allowed to vote",
+  "Tenant - not allowed to vote",
+  "Co-owner - not allowed to vote. Only the Owner / 1st name may vote",
+  "Not a member of the society - not allowed to vote",
+  "Proxy papers awaited - not allowed to vote for now",
+  "Not allowed to vote",
+  "Not allowed to vote (the reason has not been chosen yet)",
+  String(/^(.+) - not allowed to vote$/),
+  String(/^(.+) - not allowed to vote under this list's rule$/),
+]);
+
 /** The page texts this round adds (the pages are checked against these exact words in the tests above and below). */
 const LIMITED_LINE = "Limited view: names and e-mail IDs are partly hidden, here and in the downloaded sheet. Only the Organizer sees them in full.";
 const FULL_LINE = "Full view: names and e-mail IDs are shown in full, here and in the downloaded sheet.";
@@ -316,17 +335,33 @@ describe("4. Hindi for the texts the server builds", () => {
     for (const t of PAGE_TEXTS_ADDED) { expect(hasHindi(t), t).toBe(true); expect(hindiOf(t)).toMatch(/[ऀ-ॿ]/); }
   });
 
-  test("no Hindi on a consent line: none of the added lines is about the Terms, agreeing or consent, and the notice still has none", () => {
+  test("no Hindi on a consent line: none of the added lines is about the Terms, agreeing, accepting, rules or permission, and the notice still has none", () => {
     const added = [...PAGE_TEXTS_ADDED, ...(EM.SERVER_TEXTS as readonly string[])];
-    for (const t of added) { expect(/terms|agree|accept|consent|By pressing/i.test(t), t).toBe(false); expect(/सहमति|सहमत|शर्त|नियम और शर्तें/.test(hindiOf(t)), t).toBe(false); }
+    for (const t of added) { expect(/terms|agree|accept|consent|By pressing/i.test(t), t).toBe(false); expect(HI_CONSENT.test(hindiOf(t)), t).toBe(false); }
     for (const t of ["By pressing Mark present, the entry is recorded under the", "By pressing Mark present, this e-mail ID is recorded as present under the", "Terms and Conditions"]) expect(hasHindi(t), t).toBe(false);
   });
 
-  test("no Hindi key or value anywhere in hi.js is about the Terms, agreeing or consent, so a Hindi consent line for any page cannot slip in", () => {
-    const consent = /By pressing|\bTerms\b|\bI (agree|accept)\b|\bagree to\b|\bconsent\b|सहमति|सहमत|शर्तें/i;
-    for (const sample of ["By pressing Mark present, this e-mail ID is recorded", "Terms and Conditions", "I agree to the Terms", "You agree to this", "Your consent", "सहमति दें", "शर्तें"]) expect(consent.test(sample), sample).toBe(true);
-    const hits = [...Object.entries(hi.words as Record<string, string>).filter(([k, v]) => consent.test(k) || consent.test(v)).map(([k]) => k), ...(hi.patterns as [RegExp][]).filter(([re]) => consent.test(re.source)).map(([re]) => String(re))];
-    expect(hits).toEqual([]);
+  test("the Hindi consent scan catches each of its words: a Hindi line with any one of them fails the scan", () => {
+    const words = ["सहमति", "सहमत", "शर्तें", "नियम", "स्वीकार", "अनुमति"]; // consent, agree, conditions, rule, accept, permission
+    for (const w of words) {
+      expect(HI_CONSENT.test(w), w).toBe(true);
+      expect(hindiConsentHits({ words: { "A plain English line": `यह एक सीधी पंक्ति है, इसमें ${w} है।` }, patterns: [] }), w).toEqual(["A plain English line"]); // in a value
+      expect(hindiConsentHits({ words: { [`Hindi key ${w}`]: "A plain value" }, patterns: [] }), w).toEqual([`Hindi key ${w}`]); // in a key
+      const writes = new Function("x", `return "कुछ ${w} " + x;`) as (x: string) => string; // the word is in the function's own text, as in hi.js
+      expect(hindiConsentHits({ words: {}, patterns: [[/^Some (.+)$/, writes]] }), w).toEqual(["/^Some (.+)$/"]); // in what a pattern writes
+    }
+    expect(hindiConsentHits({ words: { "Terms and Conditions": "x" }, patterns: [] })).toEqual(["Terms and Conditions"]); // the English words still count
+    expect(hindiConsentHits({ words: { "A plain English line": "यह एक सीधी पंक्ति है।" }, patterns: [] })).toEqual([]);
+    expect(hindiConsentHits({ words: { "As the list stands now, you are not allowed to vote.": "आपको वोट देने की अनुमति नहीं है।" }, patterns: [] }, REVIEWED_NOT_CONSENT)).toEqual([]); // a reviewed line of the Voter List
+    expect(hindiConsentHits({ words: { "As the list stands now, you are not allowed to vote. And agree.": "आपको वोट देने की अनुमति नहीं है। सहमत हैं।" }, patterns: [] }, REVIEWED_NOT_CONSENT)).toHaveLength(1); // a new line is not let through by the reviewed ones
+  });
+
+  test("no Hindi key or value anywhere in hi.js is about the Terms, agreeing, accepting, rules or permission, so a Hindi consent line for any page cannot slip in", () => {
+    for (const sample of ["By pressing Mark present, this e-mail ID is recorded", "Terms and Conditions", "I agree to the Terms", "You agree to this", "Your consent", "सहमति दें", "शर्तें", "नियम पढ़ें", "स्वीकार करें", "अनुमति दें"]) expect(CONSENT_ANY.test(sample), sample).toBe(true);
+    expect(hindiConsentHits(hi, REVIEWED_NOT_CONSENT)).toEqual([]);
+    // the reviewed lines are lines of the Voter List about the right to vote, the bye-laws and a proxy's written authority; each one is still in hi.js (a stale entry would hide a gap)
+    const all = new Set([...Object.keys(hi.words), ...(hi.patterns as [RegExp][]).map(([re]) => String(re))]);
+    for (const k of REVIEWED_NOT_CONSENT) expect(all.has(k), k).toBe(true);
   });
 
   test("a fault inside the sheet reader or the decoder shows That file could not be read, never its own words; the reader's own messages still show, each with Hindi", async () => {
@@ -342,15 +377,22 @@ describe("4. Hindi for the texts the server builds", () => {
     expect(hasHindi(EM.ERR.badFile)).toBe(true);
   });
 
-  test("every Hindi line added this round is in the list of lines that need a native Hindi reader", () => {
+  test("the list of lines for a native Hindi reader is exactly the lines added, in number and in words, so dropping one fails", () => {
     const src = read("public/assets/lang/hi.js");
     const block = /NEEDS NATIVE REVIEW[^\n]*\n([\s\S]*?)END NEEDS NATIVE REVIEW/.exec(src)?.[1] ?? "";
-    const listed = [...block.matchAll(/^\s*\/\/\s+\d+\.\s+(".*")\s*$/gm)].map((m) => JSON.parse(m[1]!) as string);
-    expect(listed.length).toBeGreaterThan(38);
-    for (const t of listed) expect(hasHindi(t), "listed but no Hindi: " + t).toBe(true);
+    const rows = [...block.matchAll(/^\s*\/\/\s+(\d+)\.\s+(".*")\s*$/gm)].map((m) => ({ n: Number(m[1]), text: JSON.parse(m[2]!) as string }));
+    const listed = rows.map((r) => r.text);
     const added = [...PAGE_TEXTS_ADDED, EM.ERR.onePerEmail, EM.ERR.closedMeanwhile, EM.ERR.alreadyClosed, CODE_LIMIT_HOUR, CODE_LIMIT_DAY, CONFLICT, SOMETHING_WRONG, RECORD_FIXED, ...EM.UPLOAD_ERRORS, ...EM.NO_CONTACT, ...Object.keys(EM.COUNTRY_TZ), "3 of 10"];
-    expect(added.filter((t) => !listed.includes(t))).toEqual([]);
+    const expected = [...new Set(added)];
+    expect(expected.length).toBe(added.length); // no line is counted twice
+    expect(expected.length).toBe(40); // 5 page texts, 8 messages built in the server and the log, 3 for a phone number or e-mail ID, 14 from the sheet reader, 9 countries, "3 of 10"
+    expect(listed).toHaveLength(expected.length);
+    expect(rows.map((r) => r.n)).toEqual(expected.map((_, i) => i + 1)); // numbered 1, 2, 3 ... with no gap
+    expect(new Set(listed).size).toBe(listed.length);
+    expect([...listed].sort()).toEqual([...expected].sort()); // the same words: a line dropped, added or changed fails here
+    for (const t of listed) expect(hasHindi(t), "listed but no Hindi: " + t).toBe(true);
     expect(/native/i.test(block)).toBe(true);
+    expect(src).toContain("NEEDS NATIVE REVIEW (version 0.3.3)"); // the lines were added in 0.3.3; a later version that adds Hindi lines opens its own block
   });
 
   test("the pages use exactly the added page texts, and every one of them is in the page script", () => {
@@ -382,6 +424,10 @@ describe("5. my / mine / your / yours in text the server builds", () => {
     for (const f of filesUnder("public", /\.json$/)) for (const t of strings(JSON.parse(read(f)))) if (possessivesIn(t).length) found.push(f + ": " + t.slice(0, 80));
     expect(filesUnder("public", /\.json$/)).toContain("public/version.json");
     expect(found).toEqual([]);
+  });
+
+  test("the notes the team reads have none: KNOWLEDGE.md and CHANGELOG.md (docs/ holds working papers, not screen text, and is left out)", () => {
+    for (const f of ["KNOWLEDGE.md", "CHANGELOG.md"]) expect(read(f).split("\n").filter((line) => possessivesIn(line).length), f).toEqual([]);
   });
 
   test("the live texts have none: every message, the modes, the upload reasons, the countries, the CSV sheets, the e-mailed codes and what the API says", async () => {

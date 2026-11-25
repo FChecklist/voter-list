@@ -116,11 +116,13 @@ route("DELETE", "/api/v/:slug/records/:rid/docs/:did", async (r) => json(await r
 route("GET", "/api/v/:slug/records/:rid/docs/:did", async (r) => { const d = await records.getMyDoc(await voter(r), r.params.rid!, r.params.did!); return file(d.body, d.type, d.filename, true); });
 
 // attendance: public counts (no personal data), and a voter who signed in marks themselves present in an online session
-// The public answer is the same for everyone except that a voter on a Voter List link, signed in for it, also gets the title and place. So a cache must tell the askers apart (Vary),
-// and an answer with that text is for that voter only and is never cached.
+// The public answer is the same for everyone except that a voter on the list, signed in for this link, also gets the title and place (for every kind of list). So a cache must tell the askers apart (Vary),
+// an answer with that text is for that voter only and is never cached, and a request that carries any cookie is answered "private, no-store"; only a request with no cookie at all may be cached for 30 seconds.
 const BY_COOKIE = { vary: "Cookie" };
-route("GET", "/api/v/:slug/attendance", async (r) => { const soc = await liveSlug(r); const x = await attendance.publicSessions(r.env, soc, await memberEmail(r, soc)); return json(x.body, 200, x.personal ? BY_COOKIE : { ...PUBLIC_CACHE, ...BY_COOKIE }); });
-route("GET", "/api/v/:slug/attendance/:aid", async (r) => { const soc = await liveSlug(r); const x = await attendance.publicSession(r.env, soc, r.params.aid!, await memberEmail(r, soc)); return json(x.body, 200, x.personal ? BY_COOKIE : { ...PUBLIC_CACHE, ...BY_COOKIE }); });
+const carriesCookie = (r: Req) => (r.req.headers.get("cookie") ?? "").trim() !== "";
+const attendanceCache = (r: Req, personal: boolean) => (personal || carriesCookie(r) ? { "cache-control": "private, no-store", ...BY_COOKIE } : { ...PUBLIC_CACHE, ...BY_COOKIE });
+route("GET", "/api/v/:slug/attendance", async (r) => { const soc = await liveSlug(r); const x = await attendance.publicSessions(r.env, soc, await memberEmail(r, soc)); return json(x.body, 200, attendanceCache(r, x.personal)); });
+route("GET", "/api/v/:slug/attendance/:aid", async (r) => { const soc = await liveSlug(r); const x = await attendance.publicSession(r.env, soc, r.params.aid!, await memberEmail(r, soc)); return json(x.body, 200, attendanceCache(r, x.personal)); });
 route("GET", "/api/v/:slug/attend/me", async (r) => {
   const society = await liveSlug(r); const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
   if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");

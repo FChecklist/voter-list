@@ -2,6 +2,17 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.4 - not deployed yet (IST)
+
+Fixes after round 8 of Attendance chunks 1-2 (two independent audits of 0.3.3 failed it; this round closes the open Medium findings and the cheap Lows).
+
+- The public session list (`/api/v/<link>/attendance` and the one-session answer) no longer shows the title or the place for any kind of list. Until now a list made from an uploaded sheet still showed them to anyone who held its link. Now only a voter who signed in with the e-mail code for that link and is on its list sees them (for a Voter List and for an uploaded sheet alike); the Organizer and co-organizer pages show them as before. This is the owner's privacy-favouring default, and the owner can change it (see `ASSUMPTIONS.md`, round 8).
+- An e-mail ID is tidied the same way everywhere it is compared with the list or turned into a private code in Attendance (`myRows`, `markSelf`, `mark`, the one-mark rule and the public list): spaces, capital letters, `mailto:`, angle brackets and a trailing dot or comma, using the same `cleanEmail` the sign-in and the uploads use. One e-mail ID marks one person in a session however it is typed, and the same person is never counted twice. The enrol and upload paths (`importer.ts`, `review.ts`, `records.ts`, `attendance.ts`) already stored the tidied value; a test now says so. A `+tag` is kept as part of the e-mail ID (there is no rule that joins `a+tag@x` with `a@x` anywhere in the product), so those are two e-mail IDs.
+- Cache: a request to the public session list that carries any cookie gets `private, no-store`; only a request with no cookie at all may be cached for 30 seconds (`public, max-age=30`, `Vary: Cookie`).
+- `public/version.json`: the 0.3.3 entry named the same commit as 0.3.2 (`86394a1`). It now names `2bd234f`, the commit 0.3.3 was built on. Each of the two newest entries carries its own `commit`, and the top-level `commit` is the newest one's (`c93930d` for this version).
+- Tests: the list of Hindi lines for a native reader must match the lines added exactly, in count and in words (before, it only checked there were more than 38); the Hindi consent scan also catches the Hindi words for rule, accept and permission, and a test shows a line with any of them fails it; the wording scan for possessive words also reads `KNOWLEDGE.md` and `CHANGELOG.md`. The `docs/` folder is not scanned: its notes are working papers, not screen text, and several older ones use those words.
+- Open for the owner: the Hindi lines still need a native Hindi reader (unchanged); whether `a+tag@x` should be the same e-mail ID as `a@x`.
+
 ## 0.3.3 - not deployed yet (IST)
 
 Fixes after round 7 of Attendance chunks 1-2.

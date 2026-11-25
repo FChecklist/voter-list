@@ -68,6 +68,10 @@ export async function listSessions(ctx: StaffCtx) {
   return { sessions: out };
 }
 
+/** The one form of an e-mail ID that is compared and turned into a private code: the same tidy-up the sign-in and the uploads use (spaces, capitals, mailto:, < >, a trailing dot or comma), then small letters. */
+const idOf = (email: string) => cleanEmail(email).value.toLowerCase();
+const sameId = (a: string, b: string) => { const x = idOf(a); return x !== "" && x === idOf(b); };
+
 /** Which view a team member has: the Organizer sees names and e-mail IDs in full, a co-organizer sees them partly hidden (the rule of the Voter List, `seesFull`). The page and the sheet both follow it. */
 const viewOf = (ctx: Pick<StaffCtx, "role">): "full" | "limited" => (seesFull(ctx) ? "full" : "limited");
 
@@ -103,7 +107,7 @@ export async function sheetCsv(ctx: StaffCtx, id: string) {
 /** For a signed-in voter: where this e-mail ID is on the list (flat / member ID only), so the page can ask which one when there is more than one. */
 export async function myRows(env: Env, society: SocietyRow, email: string) {
   notErased(society);
-  const mine = (await eligibleLines(env, society.id)).filter((l) => l.row.email.toLowerCase() === email.toLowerCase());
+  const mine = (await eligibleLines(env, society.id)).filter((l) => sameId(l.row.email, email));
   return { email, list: society.name, rows: mine.map((l) => ({ voterId: l.voterId, unit: l.row.unit })) };
 }
 
@@ -119,7 +123,7 @@ async function mark(env: Env, society: SocietyRow, s: SessionRow, voterId: strin
   const line = (await eligibleLines(env, society.id)).find((l) => l.voterId === voterId);
   if (!line) throw new HttpError(404, ERR.personNotOnList, "not_on_list");
   if (await env.DB.prepare("SELECT 1 AS x FROM att_marks WHERE session_id = ? AND voter_id = ?").bind(s.id, voterId).first()) throw new HttpError(409, ERR.alreadyPresent, "already_present");
-  const pid = await pseudonym(env, actorEmail);
+  const pid = await pseudonym(env, idOf(actorEmail));
   // An e-mail ID counts as one person, even when it is on more than one flat: it can mark one person in a session. (The team marks by flat and is not held to this;
   // the database holds the same rule for every mark made by e-mail code, so two requests at the same moment still give one mark.)
   const byThisEmail = "SELECT 1 FROM att_marks WHERE session_id = ? AND method = 'email' AND marked_by = ? AND voter_id <> ?"; // another person: the same one twice is "already marked present"
@@ -131,7 +135,7 @@ async function mark(env: Env, society: SocietyRow, s: SessionRow, voterId: strin
     guardChanged(env, ERR.alreadyPresent),
   ];
   // the signed log names the voter and the marker only by private codes, and the flat only in a form that carries no phone number or e-mail ID
-  await commit(env, society.id, stmts, "attendance.marked", { pid, role: actorRole }, { session: s.id, voter: await pseudonym(env, line.row.email + "|" + voterId), unit: looksPrivate(line.row.unit) ? "#" : line.row.unit, method, mode: s.mode }, now);
+  await commit(env, society.id, stmts, "attendance.marked", { pid, role: actorRole }, { session: s.id, voter: await pseudonym(env, idOf(line.row.email) + "|" + voterId), unit: looksPrivate(line.row.unit) ? "#" : line.row.unit, method, mode: s.mode }, now);
   return { ok: true, present: true, unit: line.row.unit, method };
 }
 
@@ -149,7 +153,7 @@ export async function markSelf(env: Env, now: number, society: SocietyRow, email
   if (s.mode !== "online") throw new HttpError(403, ERR.notOnline, "not_online");
   if (now < s.starts_at - SELF_MARK_EARLY_MS) throw new HttpError(403, ERR.tooEarly, "too_early");
   if (now > s.starts_at + SELF_MARK_LATE_MS) throw new HttpError(403, ERR.tooLate, "too_late");
-  const mine = (await eligibleLines(env, society.id)).filter((l) => l.row.email.toLowerCase() === email.toLowerCase());
+  const mine = (await eligibleLines(env, society.id)).filter((l) => sameId(l.row.email, email));
   if (!mine.length) throw new HttpError(403, ERR.emailNotOnList, "not_on_list");
   const want = voterId === undefined ? "" : String(voterId).slice(0, 60);
   const line = want ? mine.find((l) => l.voterId === want) : mine.length === 1 ? mine[0] : undefined;
@@ -169,28 +173,27 @@ export async function closeSession(ctx: StaffCtx, sessionId: string) {
 }
 
 /** Is this e-mail ID one of the people on the list now (approved and allowed to attend)? */
-const onTheList = (lines: Array<{ row: { email: string } }>, email: string | null) => !!email && lines.some((l) => l.row.email.toLowerCase() === email.toLowerCase());
+const onTheList = (lines: Array<{ row: { email: string } }>, email: string | null) => !!email && lines.some((l) => sameId(l.row.email, email));
 
 /**
  * Public: times, how, state and counts. No names, no e-mail IDs, no flat numbers.
- * The title and the place are free text typed by the Organizer. For a Voter List link (a page that anyone can reach) they are shown only to a voter who signed in
- * with the e-mail code for this link and is on its list: `viewer` is that e-mail ID, or null. A list made from an uploaded sheet keeps showing them.
+ * The title and the place are free text typed by the Organizer. On a link that anyone can reach they are shown only to a voter who signed in with the e-mail code
+ * for this link and is on its list: `viewer` is that e-mail ID, or null. This holds for every kind of list, a Voter List and a list made from an uploaded sheet alike.
  * `personal` says the answer holds text for this voter only, so the caller must not let it be cached or shared.
  */
 export async function publicSessions(env: Env, society: SocietyRow, viewer: string | null = null) {
   const rs = await env.DB.prepare("SELECT * FROM att_sessions WHERE society_id = ? ORDER BY starts_at DESC, id LIMIT 100").bind(society.id).all<SessionRow>();
   const lines = society.erased_at ? [] : await eligibleLines(env, society.id);
-  const personal = society.purpose === "voter_list" && onTheList(lines, viewer);
-  const withText = society.purpose !== "voter_list" || personal;
-  const out = []; for (const s of rs.results) { const c = await counts(env, society, s.id, lines.length); out.push(viewSession(s, society.tz_offset_min, c.eligible, c.present, withText)); }
+  const personal = onTheList(lines, viewer);
+  const out = []; for (const s of rs.results) { const c = await counts(env, society, s.id, lines.length); out.push(viewSession(s, society.tz_offset_min, c.eligible, c.present, personal)); }
   return { body: { list: society.name, sessions: out }, personal };
 }
 export async function publicSession(env: Env, society: SocietyRow, id: string, viewer: string | null = null) {
   const s = await sessionOf(env, society.id, id);
   const lines = society.erased_at ? [] : await eligibleLines(env, society.id);
-  const personal = society.purpose === "voter_list" && onTheList(lines, viewer);
+  const personal = onTheList(lines, viewer);
   const c = await counts(env, society, id, lines.length);
-  return { body: { list: society.name, session: viewSession(s, society.tz_offset_min, c.eligible, c.present, society.purpose !== "voter_list" || personal) }, personal };
+  return { body: { list: society.name, session: viewSession(s, society.tz_offset_min, c.eligible, c.present, personal) }, personal };
 }
 
 // ------------------------------------------------------------------------------------------------------------------ Excel upload for an organizer with no Voter List
