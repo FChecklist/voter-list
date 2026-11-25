@@ -11,7 +11,7 @@ Elections, first chunks. Dark: every address answers "not found" until `ELECTION
 - Secret ballot: the register of who voted and the sealed ballots share no column; a ballot has a random id, a post, a weight and a sealed choice, with no voter, no time and no counter. A blank ballot is made for every contested post. Receipts are kept only as hashes. Nothing is added up before the close.
 - The count is checked against the register, the ballots, the receipts and the signed trail before it is stored and again before it is declared; a changed box stops the declaration. A tie is settled by a draw that anyone can repeat from public facts.
 - New migration `0012_elections.sql` (append-only register, ballots, receipts, counts and trail; rules frozen after the notice). Erasing a list removes every person's details and votes of its elections.
-- Plain-English guide: `docs/ELECTIONS.md`. Tests: `test/elections.test.ts`, `test/elections-vote.test.ts`, `test/elections-count.test.ts`, `test/elections-secrecy.test.ts` (shared set-up in `test/elections-world.ts`).
+- Plain-English guide: `docs/ELECTIONS.md`. Tests: `test/elections.test.ts`, `test/elections-vote.test.ts`, `test/elections-count.test.ts`, `test/elections-secrecy.test.ts`, `test/elections-oracle.test.ts` (random votes, counted by the product and by the test, then compared) and `test/elections-permissions.test.ts` (shared set-up in `test/elections-world.ts`).
 
 ## 0.3.2 - not deployed yet (IST)
 

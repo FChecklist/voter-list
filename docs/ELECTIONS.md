@@ -58,12 +58,13 @@ Staff addresses use the Organizer or co-organizer sign-in; the others use the co
 
 - `ELECTIONS_ENABLED` is `1` to switch the product on. Anything else keeps it dark.
 - A ballot code works for 10 minutes and once; a ticket for 15 minutes and once. A voter can ask for three codes an hour.
+- Each online vote can send two e-mails: the sign-in code (not needed when the voter signed in during the last 8 hours) and the ballot code. The daily limits `MAIL_DAILY_CAP` and `MAIL_LIST_CAP` (80 and 25 by default) decide how many people can vote online in a day, so the owner has to raise them for anything but a very small society.
 - Weighted votes need online voting and at least 5 voters in every weight group, because a weight shared by fewer people could point to one person.
 - Erasing a list (after the retention time, when the owner has set one) removes every person's details and every vote of its elections. The rules, the posts and the public trail stay; they hold no personal data.
 
 ## Tests
 
-`test/elections.test.ts` (set-up, notice, nominations, scrutiny, appeals, the final list), `test/elections-vote.test.ts` (voting time, one vote each, tickets and codes, checks on a ballot, paper ballots, the attendance link), `test/elections-count.test.ts` (who counts and when, tallies, recounts, the draw for a tie, paper numbers, challenges, the declaration, a changed box, erasure) and `test/elections-secrecy.test.ts` (the shape of the database, no join between voter and choice, the seal, no count before the close, the receipt, one step, two votes at once). The shared set-up is `test/elections-world.ts`.
+`test/elections.test.ts` (set-up, notice, nominations, scrutiny, appeals, the final list), `test/elections-vote.test.ts` (voting time, one vote each, tickets and codes, checks on a ballot, paper ballots, the attendance link), `test/elections-count.test.ts` (who counts and when, tallies, recounts, the draw for a tie, paper numbers, challenges, the declaration, a changed box, erasure) `test/elections-secrecy.test.ts` (the shape of the database, no join between voter and choice, the seal, no count before the close, the receipt, one step, two votes at once), `test/elections-oracle.test.ts` (random votes counted twice, once by the product and once by the test on its own, and compared) and `test/elections-permissions.test.ts` (every address tried by every kind of person). The shared set-up is `test/elections-world.ts`.
 
 ## Not in this chunk
 
