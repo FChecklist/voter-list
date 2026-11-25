@@ -75,7 +75,7 @@ const VOTER_KINDS = ["otp-member", "otp-member-new", "voter-note"];
 /** The Cloudflare Turnstile check (free). Not set up = no check. Set up = no code is sent, and nothing is counted, until it was passed. */
 export async function checkTurnstile(env: Env, token: string, ip: string): Promise<void> {
   if (!env.TURNSTILE_SECRET || !env.TURNSTILE_SITE_KEY) return; // on only when both are set (the page cannot show the box without the site key)
-  if (!token) throw new HttpError(400, "Please tick the small safety box first, then ask for your code.", "turnstile");
+  if (!token) throw new HttpError(400, "Please complete the small safety check first, then ask for the code.", "turnstile");
   let ok = false;
   try {
     const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token, remoteip: ip }) });
@@ -155,7 +155,7 @@ export async function startCode(env: Env, rawEmail: string, purpose: "staff" | "
   if (env.TEST_MODE !== "1" && !mailConfigured(env)) throw new HttpError(503, "E-mail is not set up on this server yet.", "mail_not_configured"); // the same for everyone, so it tells nothing
   if (randomInt(20) === 0) await purgeStale(env, now);
   await rateLimit(env, `otp-ip:${ip}`, 60, 3_600_000, now);
-  await rateLimit(env, `otp-email:${email}`, 4, 3_600_000, now, "Several codes were sent to this e-mail ID already. Please check your inbox (and the spam folder), or try again in an hour.");
+  await rateLimit(env, `otp-email:${email}`, 4, 3_600_000, now, "Several codes were sent to this e-mail ID already. Please check the inbox (and the spam folder), or try again in an hour.");
   await rateLimit(env, `otp-email-day:${email}`, 8, 86_400_000, now, "This e-mail ID has had all its codes for today. Please try again tomorrow.");
   let kind = "otp-" + purpose;
   const dummy = async () => { await codeHash(env, email, purpose, society?.id ?? null, "000000"); }; // the same small work whether or not a code is made, so the time tells nothing
@@ -178,8 +178,8 @@ export async function startCode(env: Env, rawEmail: string, purpose: "staff" | "
   // The mail goes out after the answer (when the host allows it), and a mail that cannot go is not reported: the answer is the same for everyone.
   const deliver = async () => {
     try {
-      await sendMail(env, email, `Your code for ${society ? society.name : "Townhall Records"}: ${code}`,
-        `Your six-digit code for ${where} is ${code}.\n\nIt works for 10 minutes. If you did not ask for it, you can ignore this message; nothing happens until the code is used.\n\nTownhall Records`, kind, now);
+      await sendMail(env, email, `Code for ${society ? society.name : "Townhall Records"}: ${code}`,
+        `The six-digit code for ${where} is ${code}.\n\nIt works for 10 minutes. If you did not ask for it, you can ignore this message; nothing happens until the code is used.\n\nTownhall Records`, kind, now);
     } catch { /* not delivered; the outbox row says why */ }
   };
   if (env.waitUntil) env.waitUntil(deliver()); else await deliver();

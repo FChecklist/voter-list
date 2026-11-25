@@ -89,8 +89,8 @@ describe("F10 and F12: nothing personal reaches the unerasable log or a mail", (
   });
   test("a society name with a web address or e-mail ID is refused, and the reopen reason is not written to the log", async () => {
     const h = await makeHarness(); const jar = await h.staff("organizer@sample.example");
-    expect((await h.call("POST", "/api/lists", { name: "URGENT: open evil.example/x now", kind: "RWA", country: "India", ruleCode: 2 }, jar)).status).toBe(400);
-    expect((await h.call("POST", "/api/lists", { name: "Sample Heights", kind: "RWA", country: "India", ruleCode: 2 }, jar)).status).toBe(201);
+    expect((await h.call("POST", "/api/lists", { name: "URGENT: open evil.example/x now", kind: "RWA", country: "India", regNo: "KA/RWA/2019/0001", ruleCode: 2 }, jar)).status).toBe(400);
+    expect((await h.call("POST", "/api/lists", { name: "Sample Heights", kind: "RWA", country: "India", regNo: "KA/RWA/2019/0001", ruleCode: 2 }, jar)).status).toBe(201);
   });
 });
 

@@ -44,7 +44,7 @@
       try {
         const x = await api("POST", `/api/lists/${S.sid}/records/decide`, { items, decision, reason: reason || "" }); R.sel.clear();
         const skip = x.skipped && (x.skipped.length !== undefined ? x.skipped.length : Object.values(x.skipped).reduce((a, b) => a + b, 0));
-        toast(`${x.applied} ${decision === "approve" ? "approved" : "sent back"}.` + (skip ? ` ${skip} skipped because they changed meanwhile or are your own.` : "")); await OR.reload("review");
+        toast(`${x.applied} ${decision === "approve" ? "approved" : "sent back"}.` + (skip ? ` ${skip} skipped because they changed meanwhile or are the reviewer's own.` : "")); await OR.reload("review");
       } catch (e) { if (e.code === "changed") { toast("A record changed while you were looking. Nothing was approved. Please look again.", true); R.sel.clear(); await OR.reload("review"); } else fail(e); }
     }
     load();
@@ -63,16 +63,16 @@
     const act = (decision) => async () => {
       let reason = "";
       if (decision === "send_back") { const a = await window.VL.ask("Not approved: tell the voter what to fix", "The voter sees this and can fix and send again. Please do not write phone numbers or e-mail IDs.", [{ name: "reason", type: "textarea", label: "What should the voter fix?", max: 400 }], "Send back"); if (!a) return; reason = a.reason; }
-      try { const y = await api("POST", `/api/lists/${S.sid}/records/decide`, { items: [{ id, rev: r.revision }], decision, reason }); d.close(); toast(y.applied ? (decision === "approve" ? "Approved." : "Sent back.") : "Nothing changed: you cannot decide your own record, or it changed meanwhile."); await OR.reload("review"); } catch (e) { if (e.code === "changed") { d.close(); toast("It changed while you were looking. Please open it again.", true); await OR.reload("review"); } else fail(e); }
+      try { const y = await api("POST", `/api/lists/${S.sid}/records/decide`, { items: [{ id, rev: r.revision }], decision, reason }); d.close(); toast(y.applied ? (decision === "approve" ? "Approved." : "Sent back.") : "Nothing changed: a reviewer cannot decide on their own record, or it changed meanwhile."); await OR.reload("review"); } catch (e) { if (e.code === "changed") { d.close(); toast("It changed while you were looking. Please open it again.", true); await OR.reload("review"); } else fail(e); }
     };
     const caps = S.ov.rules.find((q) => q.code === S.ov.list.ruleCode).capacities; const err = window.VL.err();
     const why = el("input", { type: "text", id: "e6", maxlength: "200", placeholder: "e.g. Name typed wrongly" });
     const ed = { unit: el("input", { type: "text", value: r.unit, id: "e1" }), name: el("input", { type: "text", value: r.name, id: "e2" }), mobile: el("input", { type: "text", value: r.mobile, id: "e3" }), capacity: el("select", { id: "e4" }, caps.map((c) => el("option", { value: c, selected: c === r.capacity }, window.VL.cap(c)))), proxyFor: el("input", { type: "text", value: r.proxyFor, id: "e5" }) };
     // may this person vote? "No" always needs a reason; a reason the Organizer gave can only be changed by the Organizer
     const locked = r.noVoteBy === "organizer" && S.ov.role !== "organizer" && (r.canVote === false || r.isVoter === false);
-    const vs = { can: el("select", { id: "e7", disabled: locked }, [["yes", "Yes"], ["no", "No"]].map(([v, t]) => el("option", { value: v, selected: (v === "yes") === !(r.canVote === false || r.isVoter === false) }, t))), why: el("select", { id: "e8", disabled: locked }, [["", "Choose a reason..."], ...window.VL.REASONS].map(([v, t]) => el("option", { value: v, selected: v === (r.noVoteReason || "") }, t))), note: el("input", { type: "text", id: "e9", "aria-label": "Your own words for the reason", maxlength: "120", value: r.noVoteNote || "", disabled: locked, placeholder: "Your own words (needed for 'Another reason')" }) };
+    const vs = { can: el("select", { id: "e7", disabled: locked }, [["yes", "Yes"], ["no", "No"]].map(([v, t]) => el("option", { value: v, selected: (v === "yes") === !(r.canVote === false || r.isVoter === false) }, t))), why: el("select", { id: "e8", disabled: locked }, [["", "Choose a reason..."], ...window.VL.REASONS].map(([v, t]) => el("option", { value: v, selected: v === (r.noVoteReason || "") }, t))), note: el("input", { type: "text", id: "e9", "aria-label": "A few words of explanation", maxlength: "120", value: r.noVoteNote || "", disabled: locked, placeholder: "A few words of explanation (needed for 'Another reason')" }) };
     const voteSync = () => { vs.why.parentElement.classList.toggle("hidden", vs.can.value === "yes"); }; vs.can.addEventListener("change", voteSync);
-    const voteNow = r.isVoter === false || r.canVote === false ? (r.noVoteText ? `${r.noVoteText} (set by ${r.noVoteBy === "organizer" ? "the Organizer" : r.noVoteBy === "host" ? "a Host" : "the list team"})` : "Not allowed to vote. No reason has been given yet: please choose one below.") : r.isVoter === true ? "Authorized to vote" : "Decided with the flat in Step 5";
+    const voteNow = r.isVoter === false || r.canVote === false ? (r.noVoteText ? `${r.noVoteText} (set by ${r.noVoteBy === "organizer" ? "the Organizer" : r.noVoteBy === "host" ? "a Co-organizer" : "the list team"})` : "Not allowed to vote. No reason has been given yet: please choose one below.") : r.isVoter === true ? "Authorized to vote" : "Decided with the flat in Step 5";
     const saveEdit = async () => { err.clear(); const body = {}; for (const k of Object.keys(ed)) if (ed[k].value !== (r[k] || "")) body[k] = ed[k].value;
       const wantCan = vs.can.value === "yes";
       const wasAllowed = !(r.canVote === false || r.isVoter === false);
@@ -98,7 +98,7 @@
   const personRow = (u, o, open, after) => {
     const org = S.ov.role === "organizer";
     const give = async (onlyReason) => { // onlyReason: the person stays as they are and only the reason is written (a person who may attend but not vote)
-      const a = await window.VL.askReason(`Why is ${o.name} not allowed to vote?`, "You, your Hosts and the person can read this reason. What the public list shows is your choice in Step 1.", { reason: o.reasonCode || undefined, note: o.reasonNote }, "Save the reason", async (a) => {
+      const a = await window.VL.askReason(`Why is ${o.name} not allowed to vote?`, "The Organizer, the Co-organizers and the person can read this reason. What the public list shows is chosen in Step 1.", { reason: o.reasonCode || undefined, note: o.reasonNote }, "Save the reason", async (a) => {
         if (onlyReason && o.authorized) await api("PATCH", `/api/lists/${S.sid}/records/${o.voterId}`, { canVote: false, notAllowedReason: a.reason, notAllowedNote: a.note, reason: "Reason for not voting added" });
         else await api("POST", `/api/lists/${S.sid}/units/choose`, { unit: u.unit, voterId: o.voterId, authorized: false, reason: a.reason, note: a.note });
       });
@@ -123,12 +123,12 @@
     api("GET", `/api/lists/${S.sid}/checks`).then((c) => {
       const s = c.summary;
       window.VL.fill(box, el("div", { class: "stat" }, [[c.onList, "people on the list"], [s.units, "flats"], [s.authorized, "people authorized to vote"], [s.canVote, "flats that may vote"], [c.notIncluded, "not on the list yet"]].map(([n, t]) => el("div", {}, el("b", {}, String(n)), el("span", {}, t)))),
-        c.flats.length ? el("div", {}, el("h3", {}, "Flats that need your choice"), el("p", { class: "muted small" }, S.ov.role === "organizer" ? "Flats with more than one person, and flats where nobody is authorized, are shown here with everyone registered for them. You decide who may vote: authorize as many people as you like for each flat, or none." : "Flats that need a choice are shown with everyone registered for them. The Organizer decides who may vote."), c.flatsMore ? el("p", { class: "note" }, `${c.flatsMore} more flats are not shown here. Authorize these first and the next ones appear.`) : null, c.flats.map((u) => flatCard(u, open, () => OR.reload("checks")))) : null,
+        c.flats.length ? el("div", {}, el("h3", {}, "Flats that need a choice"), el("p", { class: "muted small" }, S.ov.role === "organizer" ? "Flats with more than one person, and flats where nobody is authorized, are shown here with everyone registered for them. You decide who may vote: authorize as many people as you like for each flat, or none." : "Flats that need a choice are shown with everyone registered for them. The Organizer decides who may vote."), c.flatsMore ? el("p", { class: "note" }, `${c.flatsMore} more flats are not shown here. Authorize these first and the next ones appear.`) : null, c.flats.map((u) => flatCard(u, open, () => OR.reload("checks")))) : null,
         c.onList ? lookupBox(open) : null,
         c.issues.length ? el("div", {}, el("h3", {}, "Please look at these"), c.issues.map((i) => el("div", { class: "issue" }, el("span", { class: "badge " + (i.severity === "error" ? "bad" : "warn") }, i.severity === "error" ? "Fix" : "Check"), el("div", {}, el("div", {}, i.message), i.hint ? el("div", { class: "tiny muted" }, i.hint) : null)))) : el("p", { class: "note ok" }, c.onList ? "Everything looks right." : "No one is on the list yet. Approve records in Step 4."),
         c.weights.length ? weightsBox(c.weights, open) : null);
     }).catch(fail);
-    return [el("p", { class: "muted" }, "We look for problems in plain words, so the final list is right. Errors must be fixed. Warnings need your OK."), box, el("p", { class: "tiny muted" }, "What happens next: publish the draft so everyone can see it, then freeze it at the closing time.")];
+    return [el("p", { class: "muted" }, "We look for problems in plain words, so the final list is right. Errors must be fixed. Warnings need an OK."), box, el("p", { class: "tiny muted" }, "What happens next: publish the draft so everyone can see it, then freeze it at the closing time.")];
   };
   function weightsBox(ws, open) {
     const inputs = ws.map((w) => [w, el("input", { type: "text", inputmode: "decimal", value: String(w.weightMilli / 1000), "aria-label": "Weight of flat " + w.unit, style: "max-width:110px" })]);
@@ -190,7 +190,7 @@
     if (!S.ov) return [];
     const mk = (key, title, body) => el("details", { class: "card", open: X.open === key, on: { toggle: (e) => { if (e.target.open) { X.open = key; load(key); } } } }, el("summary", { style: "cursor:pointer;font-weight:600" }, title), el("div", { id: "x-" + key }, X.open === key ? body() : null));
     const load = async (k) => { const n = document.getElementById("x-" + k); if (!n || n.dataset.done) return; n.dataset.done = "1"; try { if (k === "audit") await paintAudit(n); else await paintErase(n); } catch (e) { fail(e); } };
-    return [el("h2", { style: "margin-top:24px" }, "More"), mk("audit", "The signed trail: who did what", () => null), mk("erase", "How your details are kept", () => null)];
+    return [el("h2", { style: "margin-top:24px" }, "More"), mk("audit", "The signed trail: who did what", () => null), mk("erase", "How the details are kept", () => null)];
   };
   async function paintAudit(n) {
     const a = await api("GET", `/api/lists/${S.sid}/audit`);
@@ -202,7 +202,7 @@
   async function paintErase(n) {
     const s = await api("GET", `/api/lists/${S.sid}/erase`); const org = OR.isOrg();
     const typed = el("input", { type: "text", placeholder: "ERASE", autocomplete: "off", id: "er" }), err = window.VL.err();
-    if (s.keptAlways) { window.VL.fill(n, el("p", { class: "small" }, "Voter details are kept safely with this list, for as long as your society keeps its voter records. If a voter asks for a change, open their record and correct it: every correction is written to the signed trail. The signed trail never shows a name, an e-mail ID or a number. A record that a voter withdraws by their own choice is cleared after 30 days.")); return; }
+    if (s.keptAlways) { window.VL.fill(n, el("p", { class: "small" }, "Voter details are kept safely with this list, for as long as the society keeps its voter records. If a voter asks for a change, open their record and correct it: every correction is written to the signed trail. The signed trail never shows a name, an e-mail ID or a number. A record that a voter withdraws by their own choice is cleared after 30 days.")); return; }
     window.VL.fill(n, el("p", { class: "small" }, `Personal details are kept for ${s.retentionDays} days after the final list is frozen, in case it is questioned. After that you can erase them: records, documents and personal details in the history. The signed trail and the list's fingerprint stay, so the meeting can still be proved without showing who was on the list.`),
       s.erased ? el("p", { class: "note ok" }, "The personal details of this list have been erased.") : s.allowedFrom && !s.allowedNow ? el("p", { class: "note" }, "Erasing becomes possible on " + window.VL.fmtDate(s.allowedFrom) + ".") : org ? [el("label", { for: "er" }, "Type ERASE to erase every voter's details from this list"), typed, err, el("div", { class: "row" }, el("button", { class: "btn danger", type: "button", on: { click: async () => { try { await api("POST", `/api/lists/${S.sid}/erase`, { confirm: typed.value }); toast("Erased."); await OR.reload(); } catch (e) { err.show(e.message); } } } }, "Erase now"))] : el("p", { class: "muted" }, "Only the Organizer can erase."));
   }

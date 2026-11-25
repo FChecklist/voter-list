@@ -65,7 +65,7 @@ describe("the team", () => {
     const kinds = (a.entries as any[]).map((e) => e.entry.type);
     expect(kinds).toContain("record.opened"); expect(kinds.some((k) => k.startsWith("record") && k !== "record.opened")).toBe(true);
     const opened = a.entries.find((e: any) => e.entry.type === "record.opened");
-    expect(a.people[opened.entry.actor.pid]).toEqual({ who: PERM, role: "standing host" });
+    expect(a.people[opened.entry.actor.pid]).toEqual({ who: PERM, role: "standing co-organizer" });
     // the signed trail is intact
     const v = (await h.call("GET", `/api/lists/${sid}/audit/verify`, undefined, jar)).json;
     expect(v.ok).toBe(true);

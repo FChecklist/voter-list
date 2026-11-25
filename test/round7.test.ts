@@ -63,7 +63,7 @@ describe("language switch: Hindi first, more languages are just more files", () 
   test("the Hindi file has words and patterns, and every step title of the voter page is translated", () => {
     const hi = load(); expect(hi.name).toBeTruthy();
     const voterJs = readFileSync("public/assets/voter.js", "utf8");
-    for (const title of ["Step 1. Sign in", "Step 2. Tell us who you are", "Step 3. Check and send", "Step 4. Your information", "Step 5. Documents", "Step 6. Where things stand", "Step 7. The public list", "Send me a code", "Your e-mail ID"]) {
+    for (const title of ["Step 1. Sign in", "Step 2. Tell us who you are", "Step 3. Check and send", "Step 4. Information", "Step 5. Documents", "Step 6. Where things stand", "Step 7. The public list", "Send me a code", "E-mail ID"]) {
       expect(voterJs).toContain(title); expect(hi.words[title]).toBeTruthy();
     }
     const p = hi.patterns.find(([re]: [RegExp]) => re.test("A-101, Tenant")); expect(p[1]("A-101", "Tenant")).toContain("किरायेदार");
@@ -120,7 +120,7 @@ describe("audit round 7 fixes", () => {
     const h = await makeHarness(); const { jar, sid } = await newList(h);
     expect((await h.call("POST", `/api/lists/${sid}/team/organizer`, { email: "newboss@sample.example" }, jar)).status).toBeLessThan(300);
     const nb = await h.staff("newboss@sample.example"); prod(h, { ORGANIZERS: "organizer@sample.example" });
-    const r = await h.call("POST", "/api/lists", { name: "Second", kind: "RWA", country: "India", state: "Karnataka", ruleCode: 1 }, nb); expect(r.status).toBe(403);
+    const r = await h.call("POST", "/api/lists", { name: "Second", kind: "RWA", country: "India", state: "Karnataka", regNo: "KA/RWA/2019/0002", ruleCode: 1 }, nb); expect(r.status).toBe(403);
   });
 
   test("M4: every message a voter can meet from the server has a Hindi line", () => {
@@ -152,10 +152,10 @@ describe("audit round 8 fixes", () => {
     const mk = (s: string, re: RegExp) => { const p = hi.patterns.find(([r]: [RegExp]) => r.test(s)); expect(p).toBeTruthy(); expect(s).toMatch(re); };
     for (const s of ["Final list for Annual General Meeting 2026, frozen at the cut-off of 12 Nov 2026, 10:00. It cannot change.", "16 people in 14 flats. Fingerprint", "1 person. Fingerprint", "Provisional list 2, published 12 Nov. It may still change.", "Final list 3 for AGM, frozen 12 Nov 2026"]) mk(s, /./);
     for (const s of ["No", "Yes", "Cancel", "Reason:", "What happens next.", ". Names, mobile numbers and e-mail IDs are masked.", "Mobile", "E-mail ID"]) expect(has(hi, s)).toBe(true);
-    const skip = new Set(["Test mode: your code is", "Ra**** Sh****", "Change:"]); // the last is a prefix of an aria-label, translated by a pattern
+    const skip = new Set(["Test mode: the code is", "Ra**** Sh****", "Change:"]); // the last is a prefix of an aria-label, translated by a pattern
     const miss: string[] = [];
     for (const f of ["voter.js", "ui.js", "steps.js"]) for (const m of readFileSync("public/assets/" + f, "utf8").matchAll(/"((?:[^"\\\n]|\\.)*)"/g)) {
-      const s = m[1]!; if (!/^[A-Z][a-z]+[^"]*[ ]/.test(s) || s.length < 8 || /[{}<>=;]/.test(s) || skip.has(s.trim())) continue;
+      const s = m[1]!; if (!/^[A-Z][a-z]+[^"]*[ ]/.test(s) || s.length < 8 || /[{}<>=;]/.test(s) || skip.has(s.trim()) || s.startsWith("By pressing the button below") || s === "Terms and Conditions") continue; // owner order 25 Nov 2026: no Hindi consent lines (the consent notice stays in English)
       if (!has(hi, s)) miss.push(f + ": " + s);
     }
     expect(miss).toEqual([]);

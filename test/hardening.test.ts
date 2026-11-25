@@ -58,7 +58,7 @@ describe("import: an uploaded list invites people; they confirm; the team checks
     const j = await h.member(slug, "bina@sample.example");
     const me = (await h.call("GET", `/api/v/${slug}/me`, undefined, j)).json.records;
     expect(me).toHaveLength(1); expect(me[0].status).toBe("invited"); expect(me[0].name).toBe("Bina Sample");
-    const c = await h.call("POST", `/api/v/${slug}/records/${me[0].id}/confirm`, { consent: true }, j);
+    const c = await h.call("POST", `/api/v/${slug}/records/${me[0].id}/confirm`, {}, j);
     expect(c.status).toBe(200); expect(c.json.status).toBe("submitted");
   });
 
@@ -88,7 +88,7 @@ describe("documents", () => {
     const other = await h.member(slug, "b@sample.example");
     expect((await h.call("GET", `${url}/${me.docs[0].id}`, undefined, other)).status).toBe(404);
     // a Host opening it is logged
-    await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/confirm`, { consent: true }, v.jar);
+    await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/confirm`, {}, v.jar);
     const host = await h.staff(PERM);
     expect((await h.call("GET", `/api/lists/${sid}/records/${v.rec.id}/docs/${me.docs[0].id}`, undefined, host)).status).toBe(200);
     const kinds = (await h.call("GET", `/api/lists/${sid}/audit`, undefined, jar)).json.entries.map((e: any) => e.entry.type);
@@ -98,10 +98,10 @@ describe("documents", () => {
   test("a list can require one supporting document before a record can be sent", async () => {
     const h = await makeHarness(); const { slug } = await newList(h, { extra: { docsRequired: true } });
     const v = await enrolVoter(h, slug, "a@sample.example", { confirm: false });
-    const no = await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/confirm`, { consent: true }, v.jar);
+    const no = await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/confirm`, {}, v.jar);
     expect(no.status).toBe(400); expect(no.json.code).toBe("need_doc");
     await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/docs`, doc(), v.jar);
-    expect((await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/confirm`, { consent: true }, v.jar)).status).toBe(200);
+    expect((await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/confirm`, {}, v.jar)).status).toBe(200);
   });
 });
 
@@ -115,7 +115,7 @@ describe("closing time and the doors", () => {
     const j = await h.member(slug, "late@sample.example");
     expect((await h.call("POST", `/api/v/${slug}/records`, { unit: "L-1", name: "Late Person", capacity: "Owner", mobile: "9000000400" }, j)).status).toBe(409);
     const again = await h.member(slug, "a@sample.example"); // the earlier sign-in has lapsed with the clock
-    expect((await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/confirm`, { consent: true }, again)).status).toBe(409);
+    expect((await h.call("POST", `/api/v/${slug}/records/${v.rec.id}/confirm`, {}, again)).status).toBe(409);
   });
 
   test("a past closing time is not accepted when it is typed in", async () => {
@@ -197,8 +197,8 @@ describe("retention and erasure (DPDP)", () => {
 describe("limits that protect the free plan", () => {
   test("one person can organise at most 10 lists", async () => {
     const h = await makeHarness(); const { jar } = await newList(h);
-    for (let i = 1; i < 10; i++) expect((await h.call("POST", "/api/lists", { name: `Sample Society Number ${i}`, kind: "RWA", country: "India", ruleCode: 4 }, jar)).status).toBe(201);
-    expect((await h.call("POST", "/api/lists", { name: "One Too Many Society", kind: "RWA", country: "India", ruleCode: 4 }, jar)).status).toBe(409);
+    for (let i = 1; i < 10; i++) expect((await h.call("POST", "/api/lists", { name: `Sample Society Number ${i}`, kind: "RWA", country: "India", regNo: "KA/RWA/2019/0001", ruleCode: 4 }, jar)).status).toBe(201);
+    expect((await h.call("POST", "/api/lists", { name: "One Too Many Society", kind: "RWA", country: "India", regNo: "KA/RWA/2019/0001", ruleCode: 4 }, jar)).status).toBe(409);
   });
 
   test("the routes the pages call all exist (contract)", async () => {

@@ -68,7 +68,7 @@ export async function openRecord(ctx: StaffCtx, id: string) {
     record: { ...viewVoter(v, false), proxyFor: v.proxy_for },
     onTheList: live ? { name: live.name, mobile: live.mobile, capacity: live.capacity, proxyFor: live.proxyFor } : null,
     docs,
-    history: events.map((e) => ({ at: e.ts, kind: e.kind, from: e.from_status, to: e.to_status, reason: e.reason, undone: e.undone_by !== null, by: e.actor_role === "voter" ? "Voter" : perm.has(e.actor_email.toLowerCase()) ? "Townhall Records Host" : e.actor_role === "organizer" ? "Organizer" : e.actor_role === "host" ? "Host" : "System", you: e.actor_email.toLowerCase() === ctx.email })),
+    history: events.map((e) => ({ at: e.ts, kind: e.kind, from: e.from_status, to: e.to_status, reason: e.reason, undone: e.undone_by !== null, by: e.actor_role === "voter" ? "Voter" : perm.has(e.actor_email.toLowerCase()) ? "Townhall Records Co-organizer" : e.actor_role === "organizer" ? "Organizer" : e.actor_role === "host" ? "Co-organizer" : "System", you: e.actor_email.toLowerCase() === ctx.email })),
   };
 }
 
@@ -117,13 +117,13 @@ export async function decide(ctx: StaffCtx, items: DecideItem[], decision: Decis
   }
   if (!done.length) {
     const first = skipped[0]!;
-    if (items.length === 1) throw new HttpError(first.why === "own_record" ? 403 : 409, first.why === "own_record" ? "Your own record needs another person's check." : first.why === "changed" ? "The voter changed this record a moment ago. Please open it again and check the new details." : "This record is not waiting for a check any more.", first.why);
+    if (items.length === 1) throw new HttpError(first.why === "own_record" ? 403 : 409, first.why === "own_record" ? "A record about the reviewer needs another person's check." : first.why === "changed" ? "The voter changed this record a moment ago. Please open it again and check the new details." : "This record is not waiting for a check any more.", first.why);
     return { applied: 0, skipped, batch: null };
   }
   const actor = await staffActor(ctx.env, ctx.email, ctx.role);
   if (done.length === 1) await commit(ctx.env, ctx.society.id, stmts, decision === "approve" ? "record.approved" : "record.sent_back", actor, { unit: pubUnit(done[0]!.unit), rev: done[0]!.revision }, ctx.now);
   else await commit(ctx.env, ctx.society.id, stmts, decision === "approve" ? "records.approved" : "records.sent_back", actor, { count: done.length, batch: batch! }, ctx.now);
-  if (decision === "send_back") for (const v of done.slice(0, 10)) await mailNote(ctx.env, v.email, `A small fix is needed in your voter record (${ctx.society.name})`, `The list team of ${ctx.society.name} has a note for you:\n\n"${reason}"\n\nPlease open the voter list link, fix it and press Confirm and send. Your earlier details stay safe until then.\n\nTownhall Records`, ctx.now);
+  if (decision === "send_back") for (const v of done.slice(0, 10)) await mailNote(ctx.env, v.email, `A small fix is needed in the voter record (${ctx.society.name})`, `The list team of ${ctx.society.name} has a note for you:\n\n"${reason}"\n\nPlease open the voter list link, fix it and press Confirm and send. The earlier details stay safe until then.\n\nTownhall Records`, ctx.now);
   return { applied: done.length, skipped, batch };
 }
 
@@ -138,7 +138,7 @@ export async function staffEdit(ctx: StaffCtx, id: string, input: StaffPatch, ra
   const reason = squeeze(rawReason); if (reason.length < 3) throw new HttpError(400, "Please write why the correction is made, in a few words.", "reason");
   noContactDetails(reason, "the reason");
   const v = await staffVoter(ctx, id); if (v.status === "removed") throw new HttpError(404, "Not found.", "not_found");
-  if (v.email === ctx.email) throw new HttpError(403, "You cannot change your own record. Please ask another host or the Organizer.", "own_record");
+  if (v.email === ctx.email) throw new HttpError(403, "A reviewer cannot change their own record. Please ask another co-organizer or the Organizer.", "own_record");
   const patch: Patch = {}; const fields: string[] = [];
   const ownedTouched = ["unit", "name", "capacity", "mobile", "proxyFor"].some((k) => (input as Record<string, unknown>)[k] !== undefined);
   if (ownedTouched) {
@@ -198,7 +198,7 @@ export async function staffEdit(ctx: StaffCtx, id: string, input: StaffPatch, ra
 export async function addRecord(ctx: StaffCtx, input: StaffPatch & { email?: string; agreed?: boolean }) {
   need(ctx, "editRecords"); frozenCheck(ctx); closedCheck(ctx);
   if (input.agreed !== true) throw new HttpError(400, "Please tick the box to say this person has agreed to be on the voter list. They will also see their record when they sign in.", "need_agreed");
-  if (String(input.email ?? "").trim().toLowerCase() === ctx.email) throw new HttpError(403, "You cannot add or approve your own record. Please ask another host or the Organizer.", "own_record");
+  if (String(input.email ?? "").trim().toLowerCase() === ctx.email) throw new HttpError(403, "A reviewer cannot add or approve their own record. Please ask another co-organizer or the Organizer.", "own_record");
   const em = cleanEmail(String(input.email ?? "")); if (!em.ok) throw new HttpError(400, "Please type the voter's e-mail ID. It is how they will see their record.");
   const { unit, unitKey: uk, owned } = checkOwned(ctx.society, input);
   const ex = await ctx.env.DB.prepare("SELECT * FROM voters WHERE society_id = ? AND unit_key = ? AND email = ?").bind(ctx.society.id, uk, em.value).first<VoterRow>();
@@ -377,7 +377,7 @@ export async function recentActions(ctx: StaffCtx) {
   const marked = await markedNow(ctx, rs);
   const out = [];
   for (const [key, es] of groups) {
-    out.push({ key, kind: es[0]!.kind, count: es.length, at: es[0]!.ts, by: es[0]!.actor_role === "organizer" ? "Organizer" : "Host", undoable: es.every((e) => e.cur_rev === e.after_rev) && (ctx.role === "organizer" || !es.some((e) => e.kind === "voter_chosen" || touchesMark(e) || (e.before_json === null && marked.has(e.voter_id)))) });
+    out.push({ key, kind: es[0]!.kind, count: es.length, at: es[0]!.ts, by: es[0]!.actor_role === "organizer" ? "Organizer" : "Co-organizer", undoable: es.every((e) => e.cur_rev === e.after_rev) && (ctx.role === "organizer" || !es.some((e) => e.kind === "voter_chosen" || touchesMark(e) || (e.before_json === null && marked.has(e.voter_id)))) });
     if (out.length >= 15) break;
   }
   return { actions: out };
@@ -390,7 +390,7 @@ export async function undo(ctx: StaffCtx, input: { key?: string }) {
   if (!es.length) throw new HttpError(404, "There is nothing left to undo there.", "not_found");
   const marked = await markedNow(ctx, es);
   if (ctx.role !== "organizer" && es.some((e) => e.kind === "voter_chosen" || touchesMark(e) || (e.before_json === null && marked.has(e.voter_id)))) throw new HttpError(403, "Who may vote is the Organizer's choice, so only the Organizer can take it back.", "forbidden");
-  if (es.some((e) => e.cur_rev !== e.after_rev)) throw new HttpError(409, "Something has changed since then (a voter or another host touched these records), so it cannot be undone safely. Nothing was changed.", "changed");
+  if (es.some((e) => e.cur_rev !== e.after_rev)) throw new HttpError(409, "Something has changed since then (a voter or another co-organizer touched these records), so it cannot be undone safely. Nothing was changed.", "changed");
   const db = ctx.env.DB; const stmts: D1Stmt[] = []; const batch = es.length > 1 ? uid("bat") : null;
   for (const e of es) {
     if (e.before_json === null) { // the action created the record (an import, a record added by a host): undoing it takes the record away again

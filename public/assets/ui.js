@@ -36,7 +36,7 @@
   const loadTurnstile = () => (tsP = tsP || new Promise((ok, no) => { if (window.turnstile) return ok(); const s = document.createElement("script"); s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"; s.async = true; s.onload = () => ok(); s.onerror = () => no(new Error("turnstile")); document.head.appendChild(s); }));
   VL.captcha = function captcha() {
     const node = el("div", { class: "captcha" }); let token = "", wid = null;
-    VL.config().then((c) => { if (!c.turnstileSiteKey) return; return loadTurnstile().then(() => { wid = window.turnstile.render(node, { sitekey: c.turnstileSiteKey, callback: (t) => { token = t; }, "expired-callback": () => { token = ""; }, "error-callback": () => { token = ""; } }); }); }).catch(() => { node.replaceChildren(el("p", { class: "tiny muted" }, "The safety box could not open. Please check your connection, or pause any content blocker for this page, then try again.")); });
+    VL.config().then((c) => { if (!c.turnstileSiteKey) return; return loadTurnstile().then(() => { wid = window.turnstile.render(node, { sitekey: c.turnstileSiteKey, callback: (t) => { token = t; }, "expired-callback": () => { token = ""; }, "error-callback": () => { token = ""; } }); }); }).catch(() => { node.replaceChildren(el("p", { class: "tiny muted" }, "The safety box could not open. Please check the connection, or pause any content blocker for this page, then try again.")); });
     return { node, token: () => token, reset: () => { token = ""; if (wid !== null && window.turnstile) try { window.turnstile.reset(wid); } catch { /* the box may be gone */ } } };
   };
   VL.fill = function fill(n, ...kids) { n.replaceChildren(...kids.flat(Infinity).filter((k) => k != null && k !== false).map((k) => (k instanceof Node ? k : document.createTextNode(String(k))))); return n; };
@@ -82,7 +82,7 @@
   // asks for the reason: resolves to {reason, note} or null; never lets "no reason" through
   VL.askReason = async function askReason(title, intro, cur, okLabel, save) {
     for (;;) {
-      const a = await VL.ask(title, intro, [{ name: "reason", type: "select", label: "Why is this person not allowed to vote?", options: [{ value: "", label: "Choose a reason..." }, ...VL.REASONS.map(([value, label]) => ({ value, label }))], value: (cur && cur.reason) || "" }, { name: "note", label: "Your own words (needed for 'Another reason', optional for the others)", max: 120, value: (cur && cur.note) || "", help: "Please do not write phone numbers or e-mail IDs." }], okLabel || "Save");
+      const a = await VL.ask(title, intro, [{ name: "reason", type: "select", label: "Why is this person not allowed to vote?", options: [{ value: "", label: "Choose a reason..." }, ...VL.REASONS.map(([value, label]) => ({ value, label }))], value: (cur && cur.reason) || "" }, { name: "note", label: "A few words of explanation (needed for 'Another reason', optional for the others)", max: 120, value: (cur && cur.note) || "", help: "Please do not write phone numbers or e-mail IDs." }], okLabel || "Save");
       if (!a) return null;
       if (!a.reason) { VL.toast("Please choose a reason from the list.", true); cur = a; continue; }
       if (a.reason === "other" && a.note.trim().length < 3) { VL.toast("Please write the reason in a few words.", true); cur = a; continue; }

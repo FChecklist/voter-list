@@ -22,7 +22,7 @@ export const CAN: Record<string, Role[]> = {
   settings: ["organizer"], publishDraft: ["organizer"], freeze: ["organizer"], team: ["organizer"], fullExport: ["organizer"], orders: ["organizer"], reopen: ["organizer"], shareLink: ["organizer"],
 };
 export function need(ctx: Pick<StaffCtx, "role">, action: keyof typeof CAN): void {
-  if (!CAN[action]!.includes(ctx.role)) throw new HttpError(403, "Your role cannot do this. Please ask the Organizer.", "forbidden");
+  if (!CAN[action]!.includes(ctx.role)) throw new HttpError(403, "This role cannot do this. Please ask the Organizer.", "forbidden");
 }
 /** Only the Organizer sees names, mobiles and e-mail IDs unmasked in lists. A Host sees them masked and opens one record at a time (each opening is written to the signed log). */
 export const seesFull = (ctx: Pick<StaffCtx, "role">): boolean => CAN.fullExport!.includes(ctx.role);

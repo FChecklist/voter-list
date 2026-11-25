@@ -51,7 +51,7 @@ const slugList = async (r: Req) => { const s = await societyBySlug(r.env, r.para
 async function voter(r: Req): Promise<records.VoterCtx> {
   const society = await slugList(r);
   const s = await sessionFrom(r.env, cookies(r.req).vlm ?? null, r.now);
-  if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to your e-mail ID.", "signed_out");
+  if (!s || s.kind !== "member" || s.societyId !== society.id) throw new HttpError(401, "Please sign in with the code sent to the e-mail ID.", "signed_out");
   return { env: r.env, now: r.now, email: s.email, society };
 }
 const str = (v: unknown, max = 500): string => (typeof v === "string" ? v.slice(0, max) : "");
@@ -101,7 +101,7 @@ route("POST", "/api/v/:slug/logout", async (r) => { await endSession(r.env, cook
 route("GET", "/api/v/:slug/me", async (r) => json(await records.myRecords(await voter(r))));
 route("POST", "/api/v/:slug/records", async (r) => json(await records.createRecord(await voter(r), (await r.body()) as records.RecordInput), 201));
 route("PATCH", "/api/v/:slug/records/:rid", async (r) => json(await records.editRecord(await voter(r), r.params.rid!, (await r.body()) as records.RecordInput)));
-route("POST", "/api/v/:slug/records/:rid/confirm", async (r) => { const b = await r.body(); return json(await records.confirmRecord(await voter(r), r.params.rid!, b.consent)); });
+route("POST", "/api/v/:slug/records/:rid/confirm", async (r) => { await r.body(); return json(await records.confirmRecord(await voter(r), r.params.rid!)); });
 route("POST", "/api/v/:slug/records/:rid/withdraw", async (r) => json(await records.withdrawRecord(await voter(r), r.params.rid!)));
 route("POST", "/api/v/:slug/records/:rid/docs", async (r) => { const b = await r.body(); return json(await records.addDoc(await voter(r), r.params.rid!, { docType: str(b.docType, 40), filename: str(b.filename, 120), mime: str(b.mime, 40), base64: typeof b.base64 === "string" ? b.base64 : "" }), 201); });
 route("DELETE", "/api/v/:slug/records/:rid/docs/:did", async (r) => json(await records.removeDoc(await voter(r), r.params.rid!, r.params.did!)));
@@ -161,7 +161,7 @@ route("GET", "/api/lists/:sid/audit", async (r) => {
   // The log names people by a private code; this table lets the Organizer read it in plain words (who is who, by role).
   const team = await r.env.DB.prepare("SELECT email, role, permanent FROM memberships WHERE society_id = ? AND status = 'active'").bind(c.society.id).all<{ email: string; role: string; permanent: number }>();
   const people: Record<string, { who: string; role: string }> = {};
-  for (const m of team.results) people[await pseudonym(r.env, m.email)] = { who: c.role === "organizer" || m.permanent ? m.email : m.email.replace(/^(.).*(@.*)$/, "$1****$2"), role: m.permanent ? "standing host" : m.role };
+  for (const m of team.results) people[await pseudonym(r.env, m.email)] = { who: c.role === "organizer" || m.permanent ? m.email : m.email.replace(/^(.).*(@.*)$/, "$1****$2"), role: m.permanent ? "standing co-organizer" : m.role };
   return json({ entries: await auditEntries(r.env, c.society.id, { from, limit: 100 }), head, people, publicKey: await publicKeyFromPrivate(r.env.SIGNING_KEY) });
 });
 route("GET", "/api/lists/:sid/audit/verify", async (r) => { const c = await staff(r); const sp = r.url.searchParams; return json(await verifySegment(r.env, c.society.id, intq(sp.get("from"), 1), intq(sp.get("limit"), 100))); });

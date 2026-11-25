@@ -63,7 +63,7 @@ export async function enrolVoter(h: Harness, slug: string, email: string, o: { u
   const r = await h.call("POST", `/api/v/${slug}/records`, { unit: o.unit ?? "A-101", name: o.name ?? "Asha Sample", capacity: o.capacity ?? "Owner", mobile: o.mobile ?? "9000000101", proxyFor: o.proxyFor }, jar);
   if (r.status !== 201) throw new Error("enrol failed " + r.text);
   let rec = r.json;
-  if (o.confirm !== false) { const c = await h.call("POST", `/api/v/${slug}/records/${rec.id}/confirm`, { consent: true }, jar); if (c.status !== 200) throw new Error("confirm failed " + c.text); rec = c.json; }
+  if (o.confirm !== false) { const c = await h.call("POST", `/api/v/${slug}/records/${rec.id}/confirm`, {}, jar); if (c.status !== 200) throw new Error("confirm failed " + c.text); rec = c.json; }
   return { jar, rec };
 }
 /** The waiting records as the team sees them, as decide() items. */
