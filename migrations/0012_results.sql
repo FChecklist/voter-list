@@ -49,8 +49,8 @@ CREATE TABLE res_results (
   UNIQUE (society_id, kind, ref, version),
   FOREIGN KEY (society_id, closing_id) REFERENCES res_closings(society_id, id),
   FOREIGN KEY (society_id, supersedes) REFERENCES res_results(society_id, id),
-  -- a result with a failed check can never be final, whatever the code does
-  CHECK ((status = 'draft' AND finalized_at IS NULL) OR (status = 'final' AND finalized_at IS NOT NULL AND failed_checks = 0) OR (status = 'superseded' AND superseded_at IS NOT NULL))
+  -- a result with a failed check can never be final, and only a replaced result carries a replaced time, whatever the code does
+  CHECK ((status = 'draft' AND finalized_at IS NULL AND superseded_at IS NULL) OR (status = 'final' AND finalized_at IS NOT NULL AND failed_checks = 0 AND superseded_at IS NULL) OR (status = 'superseded' AND superseded_at IS NOT NULL))
 );
 CREATE INDEX idx_res_results_society ON res_results(society_id, created_at);
 -- one live result for one process: a second one can only come as a correction, which supersedes the first in the same batch

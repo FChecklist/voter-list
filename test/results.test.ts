@@ -283,7 +283,12 @@ describe("a declared result is fixed in the database", () => {
     expect(q("UPDATE res_results SET status = 'draft', finalized_at = NULL WHERE id = ?", id)).toThrow(/immutable/);
     expect(q("UPDATE res_results SET finalized_by = 'x' WHERE id = ?", id)).toThrow(/immutable/);
     expect(q("UPDATE res_results SET final_audit_seq = 1 WHERE id = ?", id)).toThrow(/immutable/);
+    expect(q("UPDATE res_results SET superseded_at = 5 WHERE id = ?", id)).toThrow(/constraint/i); // not marked as replaced while it is still the live result
     expect(s.h.raw.query("SELECT status FROM res_results WHERE id = ?").get(id)).toEqual({ status: "final" });
+    // once a correction has replaced it, nothing about the old result can change any more, not even who may see it
+    must(await s.h.call("POST", url(s, id, "/correct"), { reason: "A count was copied wrongly", closing: meeting(s) }, s.jar), 201);
+    expect(s.h.raw.query("SELECT status FROM res_results WHERE id = ?").get(id)).toEqual({ status: "superseded" });
+    for (const sql of ["UPDATE res_results SET visibility = 'full' WHERE id = ?", "UPDATE res_results SET status = 'final' WHERE id = ?", "UPDATE res_results SET status = 'draft', finalized_at = NULL, superseded_at = NULL WHERE id = ?", "UPDATE res_results SET superseded_at = 1 WHERE id = ?"]) expect(q(sql, id)).toThrow(/immutable/);
   });
 });
 
