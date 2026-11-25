@@ -52,7 +52,7 @@ The steps below are what the helper follows. It signs in as the Organizer with t
 
 1. **Find out if Results is on.** `GET /api/lists/<sid>/results` answers 404 `not_found` while it is dark.
 2. **Make sure a final voter list is frozen.** Results reads it. Without one, step 4 answers 409 `no_final_list`. If the meeting or election had an Attendance session, close it first.
-3. **Enter the closing.** `POST /api/lists/<sid>/results/closings` answers 201 with `closing.id`. A meeting looks like this:
+3. **Enter the closing.** `POST /api/lists/<sid>/results/closings` answers 201 with `closing.id`. `GET /api/lists/<sid>/results/closings` lists the closings with the results made from each. A meeting looks like this:
    ```json
    { "kind": "meeting", "ref": "AGM-2026", "title": "Owners assembly", "closedAt": "2026-11-12T20:00", "mode": "in_person",
      "challengeHours": 48, "attendanceId": "<optional attendance session id>", "quorum": { "type": "count", "value": 3 },
@@ -94,5 +94,7 @@ Limits: 30 writes an hour for a list (closings, results and corrections together
 ## Tests
 
 `test/results-core.test.ts` (31 tests) covers the counting rules, the cleaning of a closing and the fingerprint with no database, and checks the counting on thousands of seeded random posts and on every pair of votes up to 60. `test/results.test.ts` (28 tests) goes through the real handler and the real migrations: dark by default, a full meeting, a failed check that blocks FINAL (also with a direct write to the database), an election with an open tie and its correction, the chain of corrections, the database guards, checking and tampering, what the public sees, permissions between lists, the sheet, the timeline, erase, a list made from an uploaded sheet (it has no Results), and two requests at the same moment (one wins, the other gets a plain 409).
+
+`test/results-docs.test.ts` (3 tests) keeps this guide in step with the code: every check that can fail or warn, and every Results address, must be named here, or the test fails.
 
 Each rule was also broken on purpose to prove its test fails: the challenge window, the hidden answer, the two-thirds line, the one live result, the plain 409 for a clash, and the guard on FINAL.

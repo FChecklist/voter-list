@@ -13,7 +13,7 @@ Results, first chunk (API only, dark). Full notes: `docs/RESULTS.md`.
 - The Organizer chooses who may see a result: hidden (the default), masked names or full names. Public pages ask search engines not to list them.
 - A sheet download, a check anyone can run, signed audit lines with ids, counts and the fingerprint only, and erase together with the list.
 - New tables and guards in migration `0012_results.sql`. Every Results address answers "not found" unless `RESULTS_ENABLED` is `1`; it stays unset until the owner's go-ahead.
-- 59 new tests (31 for the counting rules, including seeded random posts, and 28 through the real handler and migrations, including two requests at the same moment).
+- 62 new tests (31 for the counting rules, including seeded random posts; 28 through the real handler and migrations, including two requests at the same moment; 3 that keep `docs/RESULTS.md` in step with the code).
 - Not built yet: screens, e-mails, PDF with QR code, WhatsApp share, other languages, challenge forms, sign-off by e-mail, delivery from the Meetings and Elections products.
 
 ## 0.3.2 - not deployed yet (IST)
