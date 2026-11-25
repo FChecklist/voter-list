@@ -2,6 +2,15 @@
 
 Newest first. Dates are in IST. Every deployed change gets a new version here, in `public/version.json` and in `KNOWLEDGE.md` (see the Version section there).
 
+## 0.3.11 - not deployed yet (IST)
+
+Fix after round 16 of Attendance chunks 1-2. The commit field names `7bad80f9`, the head this was built on.
+
+- A co-organizer cannot move a person who has an attendance mark to another flat, even when the Organizer has not decided yet whether the person may vote ("Only the Organizer can move a person who has been marked present."). The mark check is repeated inside the same save. The Organizer can still move them.
+- The on/off buttons in the list settings are switched off when the settings are read-only; `VL.toggle` takes a switched-off state.
+- Hindi checks: each reviewed pattern is pinned for four samples; a planted pattern that differs for one sample is caught.
+- Tests: the entries of `version.json` without a commit are exactly the versions before 0.3.3.
+
 ## 0.3.10 - not deployed yet (IST)
 
 Fix after round 15 of Attendance chunks 1-2. The commit field names `9a8f91a8`, the head this was built on.

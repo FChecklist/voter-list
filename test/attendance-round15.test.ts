@@ -72,11 +72,10 @@ describe("2. removing and re-adding a person who has marks", () => {
 
 describe("3. the version", () => {
   const version = JSON.parse(read("public/version.json")) as { version: string; commit: string; changes: Array<{ version: string; commit?: string }> };
-  test("0.3.10 everywhere; the newest entry names 9a8f91a8; migration 0015 is recorded", () => {
-    expect(version.version).toBe("0.3.10"); expect(version.changes[0]!.version).toBe("0.3.10");
-    expect(JSON.parse(read("package.json")).version).toBe("0.3.10");
+  test("0.3.10 keeps its entry naming 9a8f91a8; migration 0015 is recorded", () => {
+    const e = version.changes.find((c) => c.version === "0.3.10")!;
     expect(read("CHANGELOG.md")).toContain("## 0.3.10"); expect(read("KNOWLEDGE.md")).toContain("0015");
-    expect(version.changes[0]!.commit).toBe("9a8f91a8"); expect(version.commit).toBe("9a8f91a8");
+    expect(e.commit).toBe("9a8f91a8");
     expect(() => execFileSync("git", ["cat-file", "-e", "9a8f91a8^{commit}"], { stdio: "ignore" })).not.toThrow();
   });
   test("the documents toggle has no unused id, and the migration number is used once", () => {

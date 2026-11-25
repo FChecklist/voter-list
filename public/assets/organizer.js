@@ -135,7 +135,7 @@
     el("div", { style: "display:flex;gap:10px;align-items:center;font-weight:400" }, f.docs, el("span", {}, "Ask every voter for one supporting document")),
     err, el("div", { class: "row" }, dis ? null : btn));
     kindSync();
-    if (dis) form.querySelectorAll("input,select").forEach((n) => { n.disabled = true; });
+    if (dis) form.querySelectorAll("input,select,button[role=\"switch\"]").forEach((n) => { n.disabled = true; });
     return [el("p", { class: "muted" }, creating ? "You will become the Organizer of this list. Townhall Records also keeps a standing co-organizer seat on every list to help check records." : frozen ? "The list is frozen, so settings are fixed." : !org ? "Only the Organizer can change these settings." : "What happens next: you get one link to share with every voter."), form];
   };
 

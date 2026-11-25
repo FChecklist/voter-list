@@ -1,7 +1,7 @@
 {
   "name": "voter-list",
   "private": true,
-  "version": "0.3.10",
+  "version": "0.3.11",
   "type": "module",
   "description": "Townhall Records Voter List: build, clean, review, publish and freeze a society's voter list, with a signed audit trail.",
   "scripts": {

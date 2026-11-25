@@ -133,16 +133,19 @@ export interface StaffPatch { unit?: string; name?: string; capacity?: string; m
 const blocked = (isVoter: number | null, canVote: number) => isVoter === 0 || canVote === 0;
 const NO_REASON = { no_vote_reason: null, no_vote_note: null, no_vote_by: null } as const;
 
+const MOVE_MARKED = "Only the Organizer can move a person who has been marked present.";
 export async function staffEdit(ctx: StaffCtx, id: string, input: StaffPatch, rawReason: string) {
   need(ctx, "editRecords"); frozenCheck(ctx);
   const reason = squeeze(rawReason); if (reason.length < 3) throw new HttpError(400, "Please write why the correction is made, in a few words.", "reason");
   noContactDetails(reason, "the reason");
   const v = await staffVoter(ctx, id); if (v.status === "removed") throw new HttpError(404, "Not found.", "not_found");
   if (v.email === ctx.email) throw new HttpError(403, "A reviewer cannot change their own record. Please ask another co-organizer or the Organizer.", "own_record");
-  const patch: Patch = {}; const fields: string[] = [];
+  const patch: Patch = {}; const fields: string[] = []; let moveGuard = false;
   const ownedTouched = ["unit", "name", "capacity", "mobile", "proxyFor"].some((k) => (input as Record<string, unknown>)[k] !== undefined);
   if (ownedTouched) {
     const { unit, unitKey: uk, owned } = checkOwned(ctx.society, input, v);
+    if (uk !== v.unit_key && ctx.role !== "organizer" && v.is_voter === null && await ctx.env.DB.prepare("SELECT 1 AS x FROM att_marks WHERE society_id = ? AND voter_id = ? LIMIT 1").bind(ctx.society.id, v.id).first()) throw new HttpError(403, MOVE_MARKED, "forbidden");
+    if (uk !== v.unit_key) moveGuard = ctx.role !== "organizer" && v.is_voter === null;
     if (uk !== v.unit_key && v.is_voter !== null && ctx.role !== "organizer") throw new HttpError(403, "The Organizer has chosen whether this person may vote in this flat, so only the Organizer can move them to another flat.", "forbidden");
     if (unit !== v.unit) { patch.unit = unit; patch.unit_key = uk; if (uk !== v.unit_key && v.is_voter !== null) { patch.is_voter = null; Object.assign(patch, v.can_vote !== 0 ? NO_REASON : {}); fields.push("authorization"); } fields.push("unit"); }
     if (owned.name !== v.name) { patch.name = owned.name; fields.push("name"); }
@@ -190,6 +193,7 @@ export async function staffEdit(ctx: StaffCtx, id: string, input: StaffPatch, ra
   if (input.duesPaidOn !== undefined) { const d = input.duesPaidOn ? parseDate(String(input.duesPaidOn)) : null; if (input.duesPaidOn && !d) throw new HttpError(400, "Please give the date as 15/11/2026."); if (d !== v.dues_paid_on) { patch.dues_paid_on = d; fields.push("dues"); } }
   if (!fields.length) return { id, changed: [] as string[] };
   const m = mutation(ctx.env, ctx.now, v, patch, { kind: "corrected", actorEmail: ctx.email, actorRole: actorRole(ctx), reason });
+  if (moveGuard && patch.unit_key !== undefined) m.stmts.unshift(guardMissing(ctx.env, MOVE_MARKED, "SELECT 1 FROM att_marks WHERE society_id = ? AND voter_id = ?", ctx.society.id, v.id)); // a mark that lands after the first read still stops the move
   try { await commit(ctx.env, ctx.society.id, m.stmts, "record.corrected", await staffActor(ctx.env, ctx.email, ctx.role), { unit: pubUnit(patch.unit ?? v.unit), fields, ...(noVoteAudit ? { notAllowed: noVoteAudit } : {}) }, ctx.now); }
   catch (e) { if (/UNIQUE/i.test(String((e as Error)?.message))) throw new HttpError(409, "That voter already has a record for that home.", "exists"); throw e; }
   return { id, changed: fields };

@@ -1,10 +1,16 @@
 {
   "product": "voter-list",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "releasedAt": null,
   "releasedAtIST": "not deployed yet",
-  "commit": "9a8f91a8",
+  "commit": "7bad80f9",
   "changes": [
+    {
+      "version": "0.3.11",
+      "releasedAt": null,
+      "commit": "7bad80f9",
+      "notes": "Attendance fix after round 16: a co-organizer can no longer move a person to another flat once that person has an attendance mark, even when the Organizer has not yet decided whether they may vote; the Organizer still can. The check is made again inside the same save, so a mark that lands at the last moment still stops the move. The on/off buttons in the list settings are now switched off when the settings are read-only, like the other fields, and the shared button helper accepts a switched-off state. The Hindi checks now pin each reviewed pattern for four different samples and a planted pattern that differs for one sample is caught. A test now requires that the only entries without a commit are the old versions before 0.3.3. Tests: move by a co-organizer before and after a mark, the Organizer move, the read-only toggle. The commit field names 7bad80f9, the head this was built on. Not deployed yet."
+    },
     {
       "version": "0.3.10",
       "releasedAt": null,

@@ -257,8 +257,11 @@ const hindiConsentHits = (lang: { words: Record<string, string>; patterns: Array
   ...Object.entries(lang.words).filter(([k, v]) => reviewed.get(k) !== v && (CONSENT_ANY.test(k) || CONSENT_ANY.test(v))).map(([k]) => k),
   ...lang.patterns.filter(([re, fn]) => reviewed.get(String(re)) !== pinOf(fn) && (CONSENT_ANY.test(re.source) || patternOutputs(re, fn).some((t) => CONSENT_ANY.test(t)))).map(([re]) => String(re)),
 ];
-/** What a reviewed pattern is pinned to: the Hindi its function writes for the sample "Sample" (a changed function is no longer exempt). */
-const pinOf = (fn: (...a: any[]) => string): string => { try { return String(fn("Sample")); } catch { return ""; } };
+/** The samples every exempt pattern is pinned for: short, long, with digits, and an e-mail-like text. */
+const PIN_SAMPLES = ["Sample", "Tower Two, Wing B, Ground Floor Residents of the Society", "Flat 204 B 12", "asha.s@sample.example"] as const;
+/** What a reviewed pattern is pinned to: the Hindi its function writes for each of the four samples, joined (a function that changes for any one sample is no longer exempt). */
+const pinOf = (fn: (...a: any[]) => string): string => PIN_SAMPLES.map((x) => { try { return String(fn(x)); } catch { return "<error>"; } }).join(" | ");
+const pinFor = (suffix: string): string => PIN_SAMPLES.map((x) => x + suffix).join(" | ");
 /** What a pattern function writes: it is EXECUTED on sample inputs (one per capture group, in several shapes), never read as source text, so a line built from a table or pieces cannot hide a word. */
 const patternOutputs = (re: RegExp, fn: (...a: any[]) => string): string[] => {
   const groups = new RegExp(re.source + "|").exec("")!.length - 1;
@@ -281,9 +284,9 @@ const REVIEWED_NOT_CONSENT: ReadonlyMap<string, string> = new Map([
   ["Proxy papers awaited - not allowed to vote for now", "प्रॉक्सी के कागज़ात की प्रतीक्षा - अभी वोट देने की अनुमति नहीं"],
   ["Not allowed to vote", "वोट देने की अनुमति नहीं"],
   ["Not allowed to vote (the reason has not been chosen yet)", "वोट देने की अनुमति नहीं (कारण अभी चुना नहीं गया)"],
-  // the two patterns are pinned to what their function writes for the sample "Sample"
-  [String(/^(.+) - not allowed to vote$/), "Sample - वोट देने की अनुमति नहीं"],
-  [String(/^(.+) - not allowed to vote under this list's rule$/), "Sample - इस सूची के नियम के अनुसार वोट देने की अनुमति नहीं"],
+  // the two patterns are pinned to what their function writes for four samples (short, long, with digits, e-mail-like)
+  [String(/^(.+) - not allowed to vote$/), pinFor(" - वोट देने की अनुमति नहीं")],
+  [String(/^(.+) - not allowed to vote under this list's rule$/), pinFor(" - इस सूची के नियम के अनुसार वोट देने की अनुमति नहीं")],
 ]);
 
 /** The page texts this round adds (the pages are checked against these exact words in the tests above and below). */
@@ -375,6 +378,11 @@ describe("4. Hindi for the texts the server builds", () => {
     expect(hindiConsentHits({ words: { "As the list stands now, you are not allowed to vote.": "सूची की मौजूदा स्थिति के अनुसार, आपको वोट देने की अनुमति नहीं है।" }, patterns: [] }, REVIEWED_NOT_CONSENT)).toEqual([]); // a reviewed line of the Voter List, with its pinned Hindi
     expect(hindiConsentHits({ words: { "As the list stands now, you are not allowed to vote.": "आपको वोट देने की अनुमति नहीं है।" }, patterns: [] }, REVIEWED_NOT_CONSENT)).toHaveLength(1); // the same English with other Hindi is not exempt
     expect(hindiConsentHits({ words: {}, patterns: [[/^(.+) - not allowed to vote$/, (n: string) => n + " - आप सहमत हैं"]] }, REVIEWED_NOT_CONSENT)).toHaveLength(1); // a changed pattern is not exempt either
+    // a planted fake that is right for "Sample" but differs for one other sample is caught (it was let through when only "Sample" was pinned)
+    const fake = (n: string) => (n.includes("@") ? n + " - वोट देने की अनुमति है" : n + " - वोट देने की अनुमति नहीं");
+    expect(pinOf(fake)).not.toBe(pinFor(" - वोट देने की अनुमति नहीं")); expect(fake("Sample")).toBe("Sample - वोट देने की अनुमति नहीं");
+    expect(hindiConsentHits({ words: {}, patterns: [[/^(.+) - not allowed to vote$/, fake]] }, REVIEWED_NOT_CONSENT)).toHaveLength(1);
+    expect(hindiConsentHits({ words: {}, patterns: [[/^(.+) - not allowed to vote$/, (n: string) => n + " - वोट देने की अनुमति नहीं"]] }, REVIEWED_NOT_CONSENT)).toEqual([]); // the real output is still exempt
     expect(hindiConsentHits({ words: { "As the list stands now, you are not allowed to vote. And agree.": "आपको वोट देने की अनुमति नहीं है। सहमत हैं।" }, patterns: [] }, REVIEWED_NOT_CONSENT)).toHaveLength(1); // a new line is not let through by the reviewed ones
   });
 
