@@ -44,7 +44,7 @@ export const ROSTER_WHY = {
 export const COUNTRY_TZ: Record<string, number> = { India: 330, Bangladesh: 360, Bhutan: 360, Nepal: 345, "Sri Lanka": 330, Singapore: 480, "United Arab Emirates": 240, "United Kingdom": 0, "United States": -300 };
 export const badCountry = (countries: string[]) => `Please choose a country from the list: ${countries.join(", ")}.`;
 
-/** The messages of the sheet reader (src/importer.ts, src/xlsx.ts, src/csv.ts) that reach the upload form. */
+/** The messages of the sheet reader (src/importer.ts, src/xlsx.ts, src/csv.ts) that reach the upload form. Any other fault while reading a sheet shows ERR.badFile instead. */
 export const UPLOAD_ERRORS: readonly string[] = [
   "We could not find the heading row. The first column should be called 'Flat / House / Member ID' (or 'ID'). Please use the template.",
   "The Excel file is empty.", "There is nothing to read. Please choose a file or paste the list.", "The heading row was found but there are no people below it.",

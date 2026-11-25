@@ -1,7 +1,7 @@
 // Attendance Management (first chunk): a session for a list, one mark per voter per session, and a public count with no personal data.
 // The list is either a Voter List, or a list made from an uploaded Excel sheet (purpose 'attendance_upload'). Both are `societies` rows with `voters`,
 // so masking, roles and the signed audit trail are exactly those of the Voter List.
-import { ERR, badCountry, COUNTRY_TZ, MODE_WORDS, ROSTER_WHY } from "./error-messages";
+import { ERR, badCountry, COUNTRY_TZ, MODE_WORDS, ROSTER_WHY, UPLOAD_ERRORS } from "./error-messages";
 import { HttpError, rateLimit, signupOpen, isListedOrganizer } from "./auth";
 import { commit, guardChanged, guardExists, guardMissing, looksPrivate, pseudonym, staffActor } from "./audit";
 import { uid, type D1Stmt, type Env } from "./db";
@@ -122,11 +122,11 @@ async function mark(env: Env, society: SocietyRow, s: SessionRow, voterId: strin
   const pid = await pseudonym(env, actorEmail);
   // An e-mail ID counts as one person, even when it is on more than one flat: it can mark one person in a session. (The team marks by flat and is not held to this;
   // the database holds the same rule for every mark made by e-mail code, so two requests at the same moment still give one mark.)
-  const byThisEmail = "SELECT 1 FROM att_marks WHERE session_id = ? AND method = 'email' AND marked_by = ?";
-  if (method === "email" && (await env.DB.prepare(byThisEmail).bind(s.id, pid).first())) throw new HttpError(409, ERR.onePerEmail, "one_per_email");
+  const byThisEmail = "SELECT 1 FROM att_marks WHERE session_id = ? AND method = 'email' AND marked_by = ? AND voter_id <> ?"; // another person: the same one twice is "already marked present"
+  if (method === "email" && (await env.DB.prepare(byThisEmail).bind(s.id, pid, voterId).first())) throw new HttpError(409, ERR.onePerEmail, "one_per_email");
   const stmts: D1Stmt[] = [
     guardExists(env, ERR.closedMeanwhile, "SELECT 1 FROM att_sessions WHERE id = ? AND status = 'open'", s.id),
-    ...(method === "email" ? [guardMissing(env, ERR.onePerEmail, byThisEmail, s.id, pid)] : []),
+    ...(method === "email" ? [guardMissing(env, ERR.onePerEmail, byThisEmail, s.id, pid, voterId)] : []),
     env.DB.prepare("INSERT OR IGNORE INTO att_marks (session_id, society_id, voter_id, method, marked_by, marked_at) VALUES (?, ?, ?, ?, ?, ?)").bind(s.id, society.id, voterId, method, pid, now),
     guardChanged(env, ERR.alreadyPresent),
   ];
@@ -210,7 +210,9 @@ export async function uploadRoster(env: Env, now: number, email: string, input: 
   try {
     const b64 = typeof input.base64 === "string" ? input.base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : "";
     parsed = await parseUpload({ format: format as "csv" | "xlsx" | "paste", text: typeof input.text === "string" ? input.text : undefined, bytes: b64 ? fromB64url(b64) : undefined }, { country, ruleCode: 1 });
-  } catch (e) { throw new HttpError(400, (e as Error).message || ERR.badFile, "bad_file"); }
+  } catch (e) { // only the sheet reader's own messages (they have Hindi lines) reach the person; a fault inside the reader or the decoder is "That file could not be read."
+    const m = String((e as Error)?.message ?? ""); throw new HttpError(400, UPLOAD_ERRORS.includes(m) ? m : ERR.badFile, "bad_file");
+  }
   const skipped = { noEmail: 0, noUnit: 0, badUnit: 0, noName: 0, duplicate: 0 }; const seen = new Set<string>();
   const add: Array<{ unit: string; unitKey: string; name: string; mobile: string; email: string }> = [];
   for (const r of parsed.rows) {

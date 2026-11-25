@@ -4,6 +4,7 @@
 //   3 the co-organizer's view (CSV, find box, page label)                        6 a failed first load shows a kind error with a retry
 import { describe, expect, test } from "bun:test";
 import * as EM from "../src/error-messages";
+import { zipStored } from "../src/vendor/zip";
 import { enrolVoter, makeHarness, newList, waiting } from "./harness";
 import { ALLOWED_SENTENCE, callLiterals, filesUnder, pageTexts, possessivesIn, read, sentences, stringLiterals } from "./scan";
 
@@ -129,6 +130,30 @@ describe("2. one e-mail ID marks one person in a session, even when it is on mor
     expect(marks(s)).toBe(1);
   });
 
+  test("two requests for the same flat at the same moment keep the old answer, already marked present, for an e-mail ID on one flat and for one on two flats", async () => {
+    const s = await society(); const one = (await mk(s, "online")).json.session.id, two = (await mk(s, "online", { title: "Second meeting" })).json.session.id;
+    s.h.clock.now = START - 10 * 60_000;
+    const a = await s.h.member(s.slug, "asha@sample.example"), f = await s.h.member(s.slug, "family@sample.example");
+    for (const both of [await Promise.all([here(s, one, a), here(s, one, a)]), await Promise.all([here(s, two, f, s.c3), here(s, two, f, s.c3)])]) {
+      expect(both.map((r) => r.status).sort()).toEqual([200, 409]);
+      expect(both.find((r) => r.status === 409)!.json.error).toBe(EM.ERR.alreadyPresent); // not the one-person message: it is the same person, pressed twice
+    }
+    expect(marks(s)).toBe(2);
+  });
+
+  test("the team is not held to the e-mail rule: an Organizer who is also on the list and marked themselves by e-mail code can still mark other people", async () => {
+    const s = await society(); const id = (await mk(s, "online")).json.session.id;
+    await enrolVoter(s.h, s.slug, "organizer@sample.example", { unit: "E-5", name: "Eshan Organizer", mobile: "9000000205" });
+    await s.h.call("POST", `/api/lists/${s.sid}/records/decide`, { items: await waiting(s.h, s.sid, s.coJar), decision: "approve" }, s.coJar); // a reviewer cannot approve their own record, so the co-organizer does
+    const e5 = (s.h.raw.query("SELECT id FROM voters WHERE unit = 'E-5'").get() as { id: string }).id;
+    s.h.clock.now = START - 10 * 60_000;
+    expect((await here(s, id, await s.h.member(s.slug, "organizer@sample.example"))).status).toBe(200); // by e-mail code
+    const org = await s.h.staff("organizer@sample.example"); const team = (voterId: string) => s.h.call("POST", `/api/lists/${s.sid}/attendance/sessions/${id}/mark`, { voterId }, org);
+    expect((await team(s.a1)).status).toBe(200); expect((await team(s.c3)).status).toBe(200); // as the Organizer, more than one
+    expect((await team(e5)).json.code).toBe("already_present");
+    expect(marks(s)).toBe(3);
+  });
+
   test("the team can still mark the other flat; another session allows one mark again; other e-mail IDs are not affected", async () => {
     const s = await society(); const one = (await mk(s, "online")).json.session.id, two = (await mk(s, "online", { title: "Second meeting" })).json.session.id;
     s.h.clock.now = START - 10 * 60_000;
@@ -212,6 +237,10 @@ describe("3. the co-organizer's view: CSV, find box and the page", () => {
     expect(pg.text()).toContain(FULL_LINE); expect(pg.text()).not.toContain(LIMITED_LINE);
     expect(pg.find((n) => n.tag === "input" && n.attrs.id === "fd")[0].attrs.placeholder).toBe("Flat / House / Member ID or Name");
   });
+  test("the page follows the view the server names, not the role: when they differ, the server's view is the one shown", async () => {
+    expect((await pageAt("organizer", "limited")).text()).toContain(LIMITED_LINE);
+    expect((await pageAt("co-organizer", "full")).text()).toContain(FULL_LINE);
+  });
   test("when the answer has no view, the page follows the role (a co-organizer is shown the limited view)", async () => {
     expect((await pageAt("co-organizer")).text()).toContain(LIMITED_LINE);
     expect((await pageAt("organizer")).text()).toContain(FULL_LINE);
@@ -293,6 +322,26 @@ describe("4. Hindi for the texts the server builds", () => {
     for (const t of ["By pressing Mark present, the entry is recorded under the", "By pressing Mark present, this e-mail ID is recorded as present under the", "Terms and Conditions"]) expect(hasHindi(t), t).toBe(false);
   });
 
+  test("no Hindi key or value anywhere in hi.js is about the Terms, agreeing or consent, so a Hindi consent line for any page cannot slip in", () => {
+    const consent = /By pressing|\bTerms\b|\bI (agree|accept)\b|\bagree to\b|\bconsent\b|सहमति|सहमत|शर्तें/i;
+    for (const sample of ["By pressing Mark present, this e-mail ID is recorded", "Terms and Conditions", "I agree to the Terms", "You agree to this", "Your consent", "सहमति दें", "शर्तें"]) expect(consent.test(sample), sample).toBe(true);
+    const hits = [...Object.entries(hi.words as Record<string, string>).filter(([k, v]) => consent.test(k) || consent.test(v)).map(([k]) => k), ...(hi.patterns as [RegExp][]).filter(([re]) => consent.test(re.source)).map(([re]) => String(re))];
+    expect(hits).toEqual([]);
+  });
+
+  test("a fault inside the sheet reader or the decoder shows That file could not be read, never its own words; the reader's own messages still show, each with Hindi", async () => {
+    const h = await makeHarness(); const jar = await h.staff("solo@sample.example");
+    const post = (b: object) => h.call("POST", "/api/attendance/rosters", { title: "List", format: "xlsx", dryRun: true, ...b }, jar);
+    const te = new TextEncoder();
+    const crafted = zipStored([ // a workbook whose sheet id is not a valid pattern: the reader used to answer with the engine's own English words
+      { name: "xl/workbook.xml", data: te.encode('<workbook><sheets><sheet name="S" r:id="(("/></sheets></workbook>') },
+      { name: "xl/_rels/workbook.xml.rels", data: te.encode('<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>') },
+    ]);
+    for (const base64 of ["@@@@", Buffer.from(crafted).toString("base64")]) { const r = await post({ base64 }); expect(r.status, base64.slice(0, 8)).toBe(400); expect(r.json.code).toBe("bad_file"); expect(r.json.error).toBe(EM.ERR.badFile); }
+    const own = await post({ base64: "AAAA" }); expect(own.json.error).toBe("This does not look like an Excel (.xlsx) file."); expect(hasHindi(own.json.error)).toBe(true);
+    expect(hasHindi(EM.ERR.badFile)).toBe(true);
+  });
+
   test("every Hindi line added this round is in the list of lines that need a native Hindi reader", () => {
     const src = read("public/assets/lang/hi.js");
     const block = /NEEDS NATIVE REVIEW[^\n]*\n([\s\S]*?)END NEEDS NATIVE REVIEW/.exec(src)?.[1] ?? "";
@@ -328,6 +377,10 @@ describe("5. my / mine / your / yours in text the server builds", () => {
     const found: string[] = [];
     for (const f of files) for (const lit of stringLiterals(read(f))) if (possessivesIn(lit).length) found.push(f + ": " + lit.slice(0, 80));
     for (const f of filesUnder("public", /\.html$/)) for (const t of pageTexts(read(f))) if (possessivesIn(t).length) found.push(f + ": " + t.replace(/\s+/g, " ").slice(0, 80));
+    // the release notes are served at /version.json, so every text in the JSON files of public/ is read too
+    const strings = (v: unknown): string[] => (typeof v === "string" ? [v] : Array.isArray(v) ? v.flatMap(strings) : v && typeof v === "object" ? Object.values(v).flatMap(strings) : []);
+    for (const f of filesUnder("public", /\.json$/)) for (const t of strings(JSON.parse(read(f)))) if (possessivesIn(t).length) found.push(f + ": " + t.slice(0, 80));
+    expect(filesUnder("public", /\.json$/)).toContain("public/version.json");
     expect(found).toEqual([]);
   });
 
