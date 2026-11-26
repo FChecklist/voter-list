@@ -125,4 +125,4 @@ Public, under `/api/v/:slug/meetings` (`GET` only, `noindex`): the list, `/:mid`
 - Audit entry types: `meeting.*`, `motion.*`, `minutes.*`, `action.*`. Payloads hold ids, counts, fingerprints and private codes only.
 - Notice fingerprint: SHA-256 of the canonical snapshot kept in the notice row, so anyone can recompute it.
 - Tests: `test/meetings.test.ts`. They run on the same migrations as production, so the triggers are real.
-- The migration is `migrations/0017_meetings.sql` (it was 0012 before the merge with Attendance and Results, which use 0012 to 0016). Elections still carries a 0012 file and is renamed to the next free number when it is merged. Nothing depends on the number.
+- The migration is `migrations/0017_meetings.sql` (it was 0012 before the merge with Attendance and Results, which use 0012 to 0016). Elections, merged after it, is `migrations/0018_elections.sql` (it was 0012 before its merge too). Nothing depends on the number.
